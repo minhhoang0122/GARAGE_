@@ -2,11 +2,8 @@
 FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
 WORKDIR /app
 
-# Copy pom.xml và tải các dependency trước (để tận dụng cache của Docker layer)
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
 # Copy toàn bộ source code và build
+COPY pom.xml .
 COPY src ./src
 RUN mvn clean package -DskipTests
 
