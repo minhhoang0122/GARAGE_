@@ -27,7 +27,7 @@ public class FinancialTransaction {
     @Column(name = "reference_code")
     private String referenceCode; // For bank transfer ID
 
-    @Column(columnDefinition = "NVARCHAR(MAX)")
+    @Column(columnDefinition = "TEXT")
     private String note;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -29,7 +29,7 @@ public class Reception {
     @Column(name = "YeuCauSoBo", length = 500)
     private String yeuCauSoBo;
 
-    @Column(name = "HinhAnh", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "HinhAnh", columnDefinition = "TEXT")
     private String hinhAnh;
 
     @Column(name = "XeBienSo", insertable = false, updatable = false)

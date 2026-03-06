@@ -18,11 +18,11 @@ public class Notification {
     private String role; // Role-based notification (e.g. THO, NHAN_VIEN_KHO)
 
     @org.hibernate.annotations.Nationalized
-    @Column(name = "TieuDe", columnDefinition = "NVARCHAR(255)")
+    @Column(name = "TieuDe", columnDefinition = "VARCHAR(255)")
     private String title;
 
     @org.hibernate.annotations.Nationalized
-    @Column(name = "NoiDung", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "NoiDung", columnDefinition = "TEXT")
     private String content;
 
     @Column(name = "Loai")

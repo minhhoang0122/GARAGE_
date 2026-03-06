@@ -22,10 +22,10 @@ public class AuditLog {
     @Column(name = "HanhDong", length = 20, nullable = false)
     private String hanhDong; // INSERT, UPDATE, DELETE
 
-    @Column(name = "DuLieuCu", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "DuLieuCu", columnDefinition = "TEXT")
     private String duLieuCu;
 
-    @Column(name = "DuLieuMoi", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "DuLieuMoi", columnDefinition = "TEXT")
     private String duLieuMoi;
 
     @Column(name = "LyDo", length = 500)
