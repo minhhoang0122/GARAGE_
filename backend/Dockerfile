@@ -1,5 +1,5 @@
-# Sử dụng image Maven có sẵn JDK 17 để build
-FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
+# Sử dụng image Maven có sẵn JDK 21 để build
+FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
 WORKDIR /app
 
 # Copy toàn bộ source code và build
@@ -7,8 +7,8 @@ COPY pom.xml .
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-# Sử dụng image JRE 17 nhẹ nhàng để chạy ứng dụng
-FROM eclipse-temurin:17-jre-alpine
+# Sử dụng image JRE 21 nhẹ nhàng để chạy ứng dụng
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Copy file jar đã build từ bước trước
