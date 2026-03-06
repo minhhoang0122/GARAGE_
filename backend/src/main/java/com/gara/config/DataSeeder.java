@@ -2,6 +2,7 @@ package com.gara.config;
 
 import com.gara.entity.Product;
 import com.gara.modules.inventory.repository.ProductRepository;
+import com.gara.modules.identity.service.AuthService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -16,14 +17,19 @@ public class DataSeeder implements CommandLineRunner {
         private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
 
         private final ProductRepository productRepository;
+        private final AuthService authService;
 
-        public DataSeeder(ProductRepository productRepository) {
+        public DataSeeder(ProductRepository productRepository, AuthService authService) {
                 this.productRepository = productRepository;
+                this.authService = authService;
         }
 
         @Override
         public void run(String... args) {
                 try {
+                        log.info("Seeding default users...");
+                        authService.seedDefaultUsers();
+
                         if (productRepository.count() > 0) {
                                 log.info("Products already exist, skipping seed.");
                                 return;
