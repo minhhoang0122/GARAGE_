@@ -1,0 +1,439 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Premium Industrial Palette */
+  --color-brand-primary: #0f172a;
+  /* Slate 900 */
+  --color-brand-secondary: #334155;
+  /* Slate 700 */
+
+  --shadow-premium: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+  --shadow-premium-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+}
+
+/* Explicitly support class-based dark mode in v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --grid-light: rgba(100, 116, 139, 0.12);
+  --grid-dark: rgba(255, 255, 255, 0.05);
+}
+
+/* Base styles */
+html {
+  font-size: 15px;
+  /* Slightly smaller base scaling */
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  @apply bg-stone-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+aside,
+main,
+header,
+.card,
+.bg-white,
+.dark .bg-slate-900,
+.dark .bg-slate-950,
+.border,
+.border-slate-200,
+.dark .border-slate-800 {
+  transition: background-color 0.5s ease-in-out, border-color 0.5s ease-in-out, color 0.5s ease-in-out, box-shadow 0.5s ease-in-out;
+}
+
+/* Grid layers for smooth opacity cross-fade */
+.grid-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease-in-out;
+}
+
+/* Unify transition for all interactive components */
+button,
+input,
+select,
+.card,
+.rounded-xl,
+.border {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card,
+.table-container {
+  box-shadow: var(--shadow-premium);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-premium-hover);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+/* Blob Animations for Login (Restored) */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Global Table Refinements */
+table {
+  @apply w-full border-separate border-spacing-0 mb-4;
+}
+
+thead {
+  @apply sticky top-0 z-10;
+}
+
+th {
+  @apply py-3.5 px-4 font-bold text-[11px] uppercase tracking-[0.1em] text-stone-600 dark:text-slate-400 bg-stone-100 dark:bg-slate-900/80 border-b border-stone-200 dark:border-slate-800 text-left align-middle tabular-nums;
+}
+
+td {
+  @apply py-3 px-4 border-b border-r border-stone-100 dark:border-slate-800 last:border-r-0 transition-colors align-middle text-sm text-stone-700 dark:text-slate-300 tabular-nums bg-stone-50/50 dark:bg-transparent;
+}
+
+tbody tr:nth-child(even) {
+  @apply bg-stone-100/50 dark:bg-slate-900/10;
+}
+
+tbody tr:nth-child(even) td {
+  @apply bg-stone-100/50 dark:bg-slate-800/30;
+}
+
+tbody tr:hover td {
+  @apply bg-amber-50/70 dark:bg-slate-800/40 text-stone-900 dark:text-white;
+}
+
+/* Ensure inputs inside tables have correct backgrounds */
+td input,
+td input[type="text"],
+td input[type="number"] {
+  @apply bg-white dark:bg-slate-800 border-stone-200 dark:border-slate-600;
+}
+
+/* Ensure table containers have consistent look */
+.table-container,
+[class*="overflow-x-auto"] {
+  @apply rounded-xl border border-stone-200/80 dark:border-slate-800/50 shadow-sm bg-stone-50 dark:bg-slate-900 overflow-hidden transition-all duration-300;
+}
+
+.dark .table-container,
+.dark [class*="overflow-x-auto"] {
+  @apply border-slate-800/50 bg-slate-900;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+}
+
+/* Optimization for long lists */
+.content-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 50px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Print styles - Professional Document Layout */
+@media print {
+  @page {
+    margin: 1.2cm;
+    size: A4;
+  }
+
+  /* Core Reset */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 10pt;
+    line-height: 1.4;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Visibility Control */
+  .no-print,
+  nav,
+  aside,
+  header:not(.print-header),
+  footer:not(.print-footer),
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Layout - Keep flex/grid working but simplify */
+  main {
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Don't destroy flex/grid globally - only reset specific problem areas */
+  .card,
+  .bg-white,
+  .dark .bg-slate-900 {
+    background: white !important;
+    box-shadow: none !important;
+    color: black !important;
+    break-inside: avoid;
+  }
+
+  /* Remove decorative effects */
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl,
+  .shadow-sm,
+  [class*="shadow-["] {
+    box-shadow: none !important;
+  }
+
+  /* Simplify borders */
+  .rounded-3xl,
+  .rounded-2xl,
+  .rounded-xl,
+  .rounded-lg {
+    border-radius: 4px !important;
+  }
+
+  /* License plate style for print - no heavy shadows */
+  .border-2.border-slate-900 {
+    border: 2px solid #1a202c !important;
+    box-shadow: none !important;
+    border-radius: 4px !important;
+  }
+
+  /* Dark backgrounds to simple borders in print */
+  .bg-slate-900,
+  .bg-slate-800,
+  .dark\:bg-slate-800 {
+    background: #f1f5f9 !important;
+    color: #1a202c !important;
+  }
+
+  .bg-slate-50,
+  .bg-slate-100,
+  .bg-stone-100 {
+    background: #f8fafc !important;
+  }
+
+  /* Text color overrides */
+  .text-white {
+    color: #1a202c !important;
+  }
+
+  .text-blue-700 {
+    color: #1d4ed8 !important;
+  }
+
+  .text-red-600,
+  .text-red-700,
+  .text-rose-600 {
+    color: #dc2626 !important;
+  }
+
+  .text-green-600 {
+    color: #16a34a !important;
+  }
+
+  .text-slate-400,
+  .text-slate-500 {
+    color: #64748b !important;
+  }
+
+  /* Typography */
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: #1a202c !important;
+    page-break-after: avoid;
+  }
+
+  /* Tables */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-bottom: 10px !important;
+  }
+
+  th,
+  td {
+    border: 1px solid #e2e8f0 !important;
+    padding: 6px 10px !important;
+    text-align: left !important;
+    font-size: 9pt !important;
+    background: white !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  thead th {
+    background: #f1f5f9 !important;
+    font-weight: bold !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+  }
+
+  /* Keep grid-cols-2 working for info sections */
+  .grid.grid-cols-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 16px !important;
+  }
+
+  .grid.grid-cols-1 {
+    display: block !important;
+  }
+
+  /* Keep flex for inline items */
+  .flex.justify-between {
+    display: flex !important;
+  }
+
+  .flex.items-center {
+    display: flex !important;
+  }
+
+  .flex.gap-2,
+  .flex.gap-3 {
+    display: flex !important;
+  }
+
+  /* Branding (Print Header) */
+  .print-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #1a202c;
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+  }
+
+  .company-name {
+    font-size: 16pt;
+    font-weight: 800;
+    color: #1e40af !important;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .company-info {
+    font-size: 8pt;
+    color: #4a5568 !important;
+    text-align: right;
+  }
+
+  /* Signatures */
+  .print-signatures {
+    display: flex !important;
+    justify-content: space-around;
+    margin-top: 30px;
+    text-align: center;
+  }
+
+  .signature-box {
+    width: 180px;
+  }
+
+  .signature-label {
+    font-weight: bold;
+    margin-bottom: 50px;
+  }
+
+  .signature-name {
+    font-style: italic;
+  }
+
+  /* Make sure print page fits on one page */
+  .print-content {
+    font-size: 9pt;
+  }
+
+  /* Hide gradient overlays */
+  [class*="bg-gradient"],
+  [class*="blur-"] {
+    display: none !important;
+  }
+}

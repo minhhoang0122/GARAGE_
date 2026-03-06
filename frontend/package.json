@@ -1,0 +1,53 @@
+{
+    "name": "gara-management",
+    "version": "1.0.0",
+    "description": "Hệ thống quản lý Gara ô tô",
+    "scripts": {
+        "dev": "npx kill-port 3000 && next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint",
+        "prisma:generate": "prisma generate",
+        "prisma:migrate": "prisma migrate dev",
+        "prisma:studio": "prisma studio",
+        "seed": "ts-node prisma/seed.ts"
+    },
+    "prisma": {
+        "seed": "ts-node prisma/seed.ts"
+    },
+    "keywords": [
+        "gara",
+        "garage",
+        "prisma",
+        "sqlserver",
+        "nextjs"
+    ],
+    "license": "ISC",
+    "devDependencies": {
+        "@tailwindcss/postcss": "^4.1.18",
+        "@types/bcryptjs": "^2.4.6",
+        "@types/node": "^20.10.0",
+        "@types/react": "^18.2.45",
+        "@types/react-dom": "^18.2.18",
+        "autoprefixer": "^10.4.19",
+        "kill-port": "^2.0.1",
+        "postcss": "^8.4.38",
+        "prisma": "^5.7.0",
+        "tailwindcss": "^4.0.0",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.3.0"
+    },
+    "dependencies": {
+        "@auth/prisma-adapter": "^2.7.4",
+        "@prisma/client": "^5.7.0",
+        "bcryptjs": "^2.4.3",
+        "clsx": "^2.1.1",
+        "date-fns": "^4.1.0",
+        "lucide-react": "^0.378.0",
+        "next": "^16.1.6",
+        "next-auth": "^5.0.0-beta.18",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "recharts": "^3.7.0"
+    }
+}
