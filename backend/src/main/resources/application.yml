@@ -8,10 +8,10 @@ server:
 
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:sqlserver://localhost:1433;databaseName=GaraManagement;encrypt=false;trustServerCertificate=true}
-    username: ${SPRING_DATASOURCE_USERNAME:sa}
-    password: ${SPRING_DATASOURCE_PASSWORD}
-    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/GaraManagement}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:talama123}
+    driver-class-name: org.postgresql.Driver
     # HikariCP Connection Pool Optimization
     hikari:
       minimum-idle: 5
@@ -35,7 +35,7 @@ spring:
   
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
       naming:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
     show-sql: false
@@ -43,7 +43,7 @@ spring:
     properties:
       hibernate:
         format_sql: false
-        dialect: org.hibernate.dialect.SQLServerDialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         # Batch optimization
         default_batch_fetch_size: 50
         jdbc:
