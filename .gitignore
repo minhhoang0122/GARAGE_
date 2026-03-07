@@ -45,3 +45,31 @@ reset_all_passwords.ps1
 .agent/
 .antigravityignore
 docs/
+
+# Scratch files at root
+/*.sql
+/*.js
+/*.log
+/*.txt
+/*.ps1
+
+# Backend scratch & logs
+backend/*.log
+backend/*.txt
+backend/debug_error.log
+backend/tmp_error_v5.txt
+backend/encoding_check.txt
+backend/repo_list.txt
+backend/ngay_tao_search_results.txt
+backend/tmp_v7.log
+backend/tmp_error_v5.log
+backend/backend_log*.txt
+
+# Keep explicitly allowed files
+!backend/pom.xml
+!backend/src/**
+!backend/scripts/**
+!frontend/src/**
+!frontend/package.json
+!frontend/next.config.js
+!frontend/tsconfig.json

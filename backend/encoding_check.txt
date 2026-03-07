@@ -1,5 +1,0 @@
-﻿[INFO] Scanning for projects...
-[INFO] 
-[INFO] ----------------------< com.gara:gara-management >----------------------
-[INFO] Building Gara Management System 1.0.0
-[INFO]   from pom.xml
