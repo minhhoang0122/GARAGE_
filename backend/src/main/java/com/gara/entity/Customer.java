@@ -31,12 +31,12 @@ public class Customer {
     @Column(name = "ngay_tao")
     private LocalDateTime ngayTao;
 
-    @Column(name = "UserID") // Link to system user for notifications
+    @Column(name = "user_id") // Link to system user for notifications
     private Integer userId;
 
     @com.fasterxml.jackson.annotation.JsonIgnore
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "UserID", insertable = false, updatable = false)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User systemUser;
 
     @com.fasterxml.jackson.annotation.JsonIgnore

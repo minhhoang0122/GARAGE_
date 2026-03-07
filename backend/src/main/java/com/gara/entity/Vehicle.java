@@ -11,7 +11,7 @@ public class Vehicle {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
     @Column(name = "bien_so", length = 20, unique = true, nullable = false)
@@ -26,13 +26,13 @@ public class Vehicle {
     @Column(name = "ten_xe", nullable = false, length = 100)
     private String nhanHieu;
 
-    @Column(name = "Model", length = 50)
+    @Column(name = "model", length = 50)
     private String model;
 
     @Column(name = "dong_xe", length = 50)
     private String loaiXe = "CAR"; // CAR, MOTO, TRUCK...
 
-    @Column(name = "ODO_HienTai")
+    @Column(name = "odo_hien_tai")
     private Integer odoHienTai = 0;
 
     @Column(name = "nam_san_xuat")
