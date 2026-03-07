@@ -81,6 +81,11 @@ public class WarehouseService {
      */
     @Transactional
     public Integer exportOrder(Integer orderId, Integer userId) {
+        User user = userRepository.findById(userId).orElseThrow();
+        if (!user.hasPermission("EXPORT_ORDER_WAREHOUSE") && !user.isAdmin()) {
+            throw new RuntimeException("Bạn không có quyền thực hiện xuất kho.");
+        }
+
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
@@ -117,8 +122,6 @@ public class WarehouseService {
             // export
             return null;
         }
-
-        User user = userRepository.findById(userId).orElseThrow();
 
         // 2. Convert Reservation
         boolean hasReservation = inventoryService.convertReservation(orderId);
@@ -214,6 +217,13 @@ public class WarehouseService {
      */
     @Transactional
     public void returnStock(Integer orderId, Integer productId, Integer quantity, String reason, Integer userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.hasPermission("MANAGE_INVENTORY") && !user.isAdmin()) {
+            throw new RuntimeException("Bạn không có quyền hoàn nhập kho.");
+        }
+
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
@@ -427,8 +437,8 @@ public class WarehouseService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Check User Role to determine Status
-        boolean isAuthorized = "ADMIN".equals(user.getVaiTro()) || "MANAGER".equals(user.getVaiTro());
+        // Check User Permission
+        boolean isAuthorized = user.hasPermission("MANAGE_INVENTORY") || user.isAdmin();
         String status = isAuthorized ? "COMPLETED" : "PENDING";
 
         ImportNote note = ImportNote.builder()
@@ -798,6 +808,13 @@ public class WarehouseService {
 
     @Transactional
     public void approveImport(Integer importId, Integer userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.hasPermission("MANAGE_INVENTORY") && !user.isAdmin()) {
+            throw new RuntimeException("Bạn không có quyền duyệt phiếu nhập kho.");
+        }
+
         ImportNote note = importNoteRepository.findByIdWithDetails(importId)
                 .orElseThrow(() -> new RuntimeException("Import Note not found"));
 
@@ -864,6 +881,13 @@ public class WarehouseService {
 
     @Transactional
     public void rejectImport(Integer importId, Integer userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.hasPermission("MANAGE_INVENTORY") && !user.isAdmin()) {
+            throw new RuntimeException("Bạn không có quyền từ chối phiếu nhập kho.");
+        }
+
         ImportNote note = importNoteRepository.findById(importId)
                 .orElseThrow(() -> new RuntimeException("Import Note not found"));
 
@@ -885,6 +909,13 @@ public class WarehouseService {
 
     @Transactional
     public void updateProductPrices(List<com.gara.dto.PriceUpdateDTO> updates, Integer userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.hasPermission("MANAGE_INVENTORY") && !user.isAdmin()) {
+            throw new RuntimeException("Bạn không có quyền cập nhật giá phụ tùng.");
+        }
+
         for (com.gara.dto.PriceUpdateDTO update : updates) {
             Product product = productRepository.findByIdWithLock(update.productId())
                     .orElseThrow(() -> new RuntimeException("Product not found: " + update.productId()));

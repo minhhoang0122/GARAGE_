@@ -55,9 +55,9 @@ public class MechanicService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Diagnostic Mechanic should NOT see repair jobs (they use /inspect)
-        // BUT they should see QC jobs (CHO_KCS)
-        if ("THO_CHAN_DOAN".equals(user.getVaiTro())) {
+        // Diagnostic Mechanic or anyone with CREATE_PROPOSAL permission should see QC
+        // jobs (CHO_KCS) if assigned
+        if (user.hasPermission("CREATE_PROPOSAL") || user.hasPermission("APPROVE_QC")) {
             // Fetch jobs waiting for QC assigned to this diagnostician
             return orderRepository.findByTrangThaiIn(List.of("CHO_KCS")).stream()
                     .filter(o -> o.getThoChanDoan() != null && o.getThoChanDoan().getId().equals(userId))
@@ -80,8 +80,8 @@ public class MechanicService {
         User mechanic = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!"THO_SUA_CHUA".equals(mechanic.getVaiTro()) && !"ADMIN".equals(mechanic.getVaiTro())) {
-            throw new RuntimeException("Chỉ Thợ sửa chữa mới có thể nhận việc.");
+        if (!mechanic.hasPermission("CLAIM_REPAIR_JOB") && !mechanic.isAdmin()) {
+            throw new RuntimeException("Bạn không có quyền nhận việc sửa chữa.");
         }
 
         // Fix: Prevent Job Stealing
@@ -183,8 +183,8 @@ public class MechanicService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!"THO_CHAN_DOAN".equals(user.getVaiTro()) && !"ADMIN".equals(user.getVaiTro())) {
-            throw new RuntimeException("Chỉ Thợ chẩn đoán mới có thể lập đề xuất ban đầu.");
+        if (!user.hasPermission("CREATE_PROPOSAL") && !user.isAdmin()) {
+            throw new RuntimeException("Bạn không có quyền lập đề xuất sửa chữa.");
         }
 
         RepairOrder order = orderRepository.findByPhieuTiepNhanId(receptionId)
@@ -242,12 +242,12 @@ public class MechanicService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!"THO_SUA_CHUA".equals(user.getVaiTro()) && !"ADMIN".equals(user.getVaiTro())) {
-            throw new RuntimeException("Chỉ Thợ sửa chữa đang thực hiện mới có thể báo phát sinh.");
+        if (!user.hasPermission("COMPLETE_REPAIR_JOB") && !user.isAdmin()) {
+            throw new RuntimeException("Bạn không có quyền báo phát sinh kỹ thuật.");
         }
 
         if (order.getThoPhanCong() != null && !order.getThoPhanCong().getId().equals(userId)
-                && !"ADMIN".equals(user.getVaiTro())) {
+                && !user.isAdmin()) {
             throw new RuntimeException("Bạn không được gán cho lệnh này.");
         }
 
@@ -329,12 +329,13 @@ public class MechanicService {
             throw new RuntimeException("Order is not waiting for QC.");
         }
 
-        // Permission: Diagnostician (Owner) or Admin
+        // Permission: User has APPROVE_QC and is assigned, or Admin
+        boolean hasPermission = user.hasPermission("APPROVE_QC");
         boolean isOwner = order.getThoChanDoan() != null && order.getThoChanDoan().getId().equals(userId);
-        boolean isAdmin = "ADMIN".equals(user.getVaiTro());
+        boolean isAdmin = user.isAdmin();
 
-        if (!isOwner && !isAdmin) {
-            throw new RuntimeException("Chỉ Thợ chẩn đoán phụ trách hoặc Admin mới được duyệt nghiệm thu.");
+        if ((!hasPermission || !isOwner) && !isAdmin) {
+            throw new RuntimeException("Chỉ kỹ thuật viên phụ trách nghiệm thu hoặc Admin mới được duyệt QC.");
         }
 
         order.setTrangThai("CHO_THANH_TOAN");
@@ -385,12 +386,13 @@ public class MechanicService {
             throw new RuntimeException("Order is not waiting for QC.");
         }
 
-        // Permission: Diagnostician (Owner) or Admin
+        // Permission: User has REJECT_QC and is assigned, or Admin
+        boolean hasPermission = user.hasPermission("REJECT_QC");
         boolean isOwner = order.getThoChanDoan() != null && order.getThoChanDoan().getId().equals(userId);
-        boolean isAdmin = "ADMIN".equals(user.getVaiTro());
+        boolean isAdmin = user.isAdmin();
 
-        if (!isOwner && !isAdmin) {
-            throw new RuntimeException("Chỉ Thợ chẩn đoán phụ trách hoặc Admin mới được từ chối nghiệm thu.");
+        if ((!hasPermission || !isOwner) && !isAdmin) {
+            throw new RuntimeException("Chỉ kỹ thuật viên phụ trách nghiệm thu hoặc Admin mới được từ chối QC.");
         }
 
         order.setTrangThai("DANG_SUA");
@@ -449,7 +451,7 @@ public class MechanicService {
         User lead = order.getThoPhanCong();
         if (lead == null || !lead.getId().equals(leadId)) {
             User user = userRepository.findById(leadId).orElseThrow();
-            if (!"ADMIN".equals(user.getVaiTro())) {
+            if (!user.isAdmin()) {
                 throw new RuntimeException("Only Order Lead or Admin can distribute tasks.");
             }
         }
@@ -491,7 +493,7 @@ public class MechanicService {
         RepairOrder order = item.getDonHangSuaChua();
         boolean isOrderLead = order.getThoPhanCong() != null && order.getThoPhanCong().getId().equals(userId);
         User user = userRepository.findById(userId).orElseThrow();
-        boolean isAdmin = "ADMIN".equals(user.getVaiTro());
+        boolean isAdmin = user.isAdmin();
 
         if (!isAssigned && !isOrderLead && !isAdmin) {
             throw new RuntimeException("You are not assigned to this task.");
@@ -548,7 +550,7 @@ public class MechanicService {
         // Auto-approve if Lead or Admin
         RepairOrder order = item.getDonHangSuaChua();
         boolean isLead = order.getThoPhanCong() != null && userId.equals(order.getThoPhanCong().getId());
-        boolean isAdmin = "ADMIN".equals(mechanic.getVaiTro());
+        boolean isAdmin = mechanic.isAdmin();
 
         String status = (isLead || isAdmin) ? "APPROVED" : "PENDING";
 
@@ -589,7 +591,7 @@ public class MechanicService {
 
         boolean isLead = lead != null && lead.getId().equals(userId);
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
-        boolean isAdmin = "ADMIN".equals(user.getVaiTro());
+        boolean isAdmin = user.isAdmin();
 
         if (!isLead && !isAdmin) {
             throw new RuntimeException("Only the Lead Mechanic or Admin can set the maximum number of mechanics.");
@@ -616,7 +618,7 @@ public class MechanicService {
         // Check permission: Approver must be Order Lead or Admin
         RepairOrder order = assignment.getChiTietDonHang().getDonHangSuaChua();
         boolean isLead = order.getThoPhanCong() != null && order.getThoPhanCong().getId().equals(approverId);
-        boolean isAdmin = "ADMIN".equals(approver.getVaiTro());
+        boolean isAdmin = approver.isAdmin();
 
         if (!isLead && !isAdmin) {
             throw new RuntimeException("Only Order Lead or Admin can approve requests.");

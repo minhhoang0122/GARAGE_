@@ -14,7 +14,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository,
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -28,8 +29,7 @@ public class UserService {
         if (userRepository.findByTenDangNhap(user.getTenDangNhap()).isPresent()) {
             throw new RuntimeException("Tên đăng nhập đã tồn tại");
         }
-        user.setMatKhauHash(passwordEncoder.encode(user.getMatKhauHash())); // Assume controller passes raw password
-                                                                            // here
+        user.setMatKhauHash(passwordEncoder.encode(user.getMatKhauHash()));
         user.setTrangThaiHoatDong(true);
         return userRepository.save(user);
     }
@@ -43,8 +43,11 @@ public class UserService {
             user.setHoTen(req.getHoTen());
         if (req.getSoDienThoai() != null)
             user.setSoDienThoai(req.getSoDienThoai());
-        if (req.getVaiTro() != null)
-            user.setVaiTro(req.getVaiTro());
+
+        // Cập nhật Roles nếu có
+        if (req.getRoles() != null && !req.getRoles().isEmpty()) {
+            user.setRoles(new java.util.HashSet<>(req.getRoles()));
+        }
 
         // Update password if provided
         if (req.getMatKhauHash() != null && !req.getMatKhauHash().isEmpty()) {
@@ -75,7 +78,15 @@ public class UserService {
             return null;
         }
 
-        String username = (String) authentication.getPrincipal(); // JwtAuthFilter sets principal as String username
-        return userRepository.findByTenDangNhap(username).orElse(null);
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof User) {
+            return (User) principal;
+        }
+
+        if (principal instanceof String) {
+            return userRepository.findByTenDangNhap((String) principal).orElse(null);
+        }
+
+        return null;
     }
 }

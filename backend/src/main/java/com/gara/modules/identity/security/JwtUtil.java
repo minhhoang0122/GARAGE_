@@ -22,11 +22,13 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(Integer userId, String username, String role) {
+    public String generateToken(Integer userId, String username, java.util.List<String> roles,
+            java.util.List<String> permissions) {
         return Jwts.builder()
                 .subject(username)
                 .claim("userId", userId)
-                .claim("role", role)
+                .claim("roles", roles)
+                .claim("permissions", permissions)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
                 .signWith(getSigningKey())
@@ -49,8 +51,14 @@ public class JwtUtil {
         return extractAllClaims(token).get("userId", Integer.class);
     }
 
-    public String extractRole(String token) {
-        return extractAllClaims(token).get("role", String.class);
+    @SuppressWarnings("unchecked")
+    public java.util.List<String> extractRoles(String token) {
+        return extractAllClaims(token).get("roles", java.util.List.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    public java.util.List<String> extractPermissions(String token) {
+        return extractAllClaims(token).get("permissions", java.util.List.class);
     }
 
     public boolean isTokenValid(String token) {

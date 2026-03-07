@@ -50,7 +50,14 @@ public class AuthController {
                 "id", user.getId(),
                 "username", user.getTenDangNhap(),
                 "fullName", user.getHoTen(),
-                "role", user.getVaiTro()));
+                "roles",
+                user.getRoles().stream().map(com.gara.entity.Role::getName)
+                        .collect(java.util.stream.Collectors.toList()),
+                "permissions", user.getRoles().stream()
+                        .flatMap(role -> role.getPermissions().stream())
+                        .map(com.gara.entity.Permission::getCode)
+                        .distinct()
+                        .collect(java.util.stream.Collectors.toList())));
     }
 
     @PostMapping("/logout")

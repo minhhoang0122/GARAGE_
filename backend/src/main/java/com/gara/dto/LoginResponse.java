@@ -1,11 +1,14 @@
 package com.gara.dto;
 
+import java.util.List;
+
 public record LoginResponse(
                 String token,
                 Integer userId,
                 String username,
                 String fullName,
-                String role) {
+                List<String> roles,
+                List<String> permissions) {
 
         public static LoginResponseBuilder builder() {
                 return new LoginResponseBuilder();
@@ -16,7 +19,8 @@ public record LoginResponse(
                 private Integer userId;
                 private String username;
                 private String fullName;
-                private String role;
+                private List<String> roles;
+                private List<String> permissions;
 
                 public LoginResponseBuilder token(String token) {
                         this.token = token;
@@ -38,13 +42,18 @@ public record LoginResponse(
                         return this;
                 }
 
-                public LoginResponseBuilder role(String role) {
-                        this.role = role;
+                public LoginResponseBuilder roles(List<String> roles) {
+                        this.roles = roles;
+                        return this;
+                }
+
+                public LoginResponseBuilder permissions(List<String> permissions) {
+                        this.permissions = permissions;
                         return this;
                 }
 
                 public LoginResponse build() {
-                        return new LoginResponse(token, userId, username, fullName, role);
+                        return new LoginResponse(token, userId, username, fullName, roles, permissions);
                 }
         }
 }

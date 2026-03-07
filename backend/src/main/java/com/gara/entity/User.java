@@ -1,8 +1,9 @@
 package com.gara.entity;
 
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "nguoidung")
@@ -25,8 +26,9 @@ public class User {
     @Column(name = "mat_khau_hash", nullable = false, length = 255)
     private String matKhauHash;
 
-    @Column(name = "vai_tro", nullable = false, length = 30)
-    private String vaiTro; // ADMIN, SALE, THO_CHAN_DOAN, THO_SUA_CHUA, KHO, KE_TOAN
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "nguoidung_vaitro", joinColumns = @JoinColumn(name = "nguoidung_id"), inverseJoinColumns = @JoinColumn(name = "vaitro_id"))
+    private Set<Role> roles = new HashSet<>();
 
     @Column(name = "trang_thai_hoat_dong")
     private Boolean trangThaiHoatDong = true;
@@ -46,14 +48,14 @@ public class User {
     public User() {
     }
 
-    public User(Integer id, String hoTen, String soDienThoai, String tenDangNhap, String matKhauHash, String vaiTro,
+    public User(Integer id, String hoTen, String soDienThoai, String tenDangNhap, String matKhauHash, Set<Role> roles,
             Boolean trangThaiHoatDong, LocalDateTime ngayTao) {
         this.id = id;
         this.hoTen = hoTen;
         this.soDienThoai = soDienThoai;
         this.tenDangNhap = tenDangNhap;
         this.matKhauHash = matKhauHash;
-        this.vaiTro = vaiTro;
+        this.roles = roles != null ? roles : new HashSet<>();
         this.trangThaiHoatDong = trangThaiHoatDong;
         this.ngayTao = ngayTao;
     }
@@ -82,6 +84,33 @@ public class User {
         this.soDienThoai = soDienThoai;
     }
 
+    @Deprecated
+    public String getVaiTro() {
+        // Fallback for current code using getVaiTro - return first role name or empty
+        if (roles == null || roles.isEmpty())
+            return "";
+        return roles.iterator().next().getName();
+    }
+
+    public boolean hasPermission(String permissionCode) {
+        if (roles == null)
+            return false;
+        return roles.stream()
+                .flatMap(role -> role.getPermissions().stream())
+                .anyMatch(p -> p.getCode().equals(permissionCode));
+    }
+
+    public boolean hasRole(String roleName) {
+        if (roles == null)
+            return false;
+        return roles.stream()
+                .anyMatch(r -> r.getName().equals(roleName));
+    }
+
+    public boolean isAdmin() {
+        return hasRole("ADMIN");
+    }
+
     public String getTenDangNhap() {
         return tenDangNhap;
     }
@@ -98,12 +127,12 @@ public class User {
         this.matKhauHash = matKhauHash;
     }
 
-    public String getVaiTro() {
-        return vaiTro;
+    public Set<Role> getRoles() {
+        return roles;
     }
 
-    public void setVaiTro(String vaiTro) {
-        this.vaiTro = vaiTro;
+    public void setRoles(Set<Role> roles) {
+        this.roles = roles;
     }
 
     public Boolean getTrangThaiHoatDong() {
@@ -144,7 +173,7 @@ public class User {
         private String soDienThoai;
         private String tenDangNhap;
         private String matKhauHash;
-        private String vaiTro;
+        private Set<Role> roles = new HashSet<>();
         private Boolean trangThaiHoatDong;
         private LocalDateTime ngayTao;
 
@@ -176,8 +205,15 @@ public class User {
             return this;
         }
 
-        public UserBuilder vaiTro(String vaiTro) {
-            this.vaiTro = vaiTro;
+        public UserBuilder roles(Set<Role> roles) {
+            this.roles = roles;
+            return this;
+        }
+
+        public UserBuilder role(Role role) {
+            if (this.roles == null)
+                this.roles = new HashSet<>();
+            this.roles.add(role);
             return this;
         }
 
@@ -192,7 +228,7 @@ public class User {
         }
 
         public User build() {
-            return new User(id, hoTen, soDienThoai, tenDangNhap, matKhauHash, vaiTro, trangThaiHoatDong, ngayTao);
+            return new User(id, hoTen, soDienThoai, tenDangNhap, matKhauHash, roles, trangThaiHoatDong, ngayTao);
         }
     }
     // --- Manual Implementation end ---

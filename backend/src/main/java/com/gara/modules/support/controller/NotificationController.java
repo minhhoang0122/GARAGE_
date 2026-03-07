@@ -21,16 +21,22 @@ public class NotificationController {
 
     @GetMapping
     public ResponseEntity<List<Notification>> getMyNotifications(@AuthenticationPrincipal User user) {
-        // Optimized: Fetch only unread notifications (max 50) to reduce bandwidth
-        return ResponseEntity.ok(notificationRepository.findUnreadByUserOrRole(
+        List<String> userRoles = user.getRoles().stream()
+                .map(com.gara.entity.Role::getName)
+                .toList();
+
+        return ResponseEntity.ok(notificationRepository.findUnreadByUserOrRoles(
                 user.getId(),
-                user.getVaiTro(),
+                userRoles,
                 org.springframework.data.domain.PageRequest.of(0, 50)));
     }
 
     @PutMapping("/read-all")
     public ResponseEntity<?> markAllAsRead(@AuthenticationPrincipal User user) {
-        notificationRepository.markAllAsRead(user.getId(), user.getVaiTro());
+        List<String> userRoles = user.getRoles().stream()
+                .map(com.gara.entity.Role::getName)
+                .toList();
+        notificationRepository.markAllAsRead(user.getId(), userRoles);
         return ResponseEntity.ok().build();
     }
 

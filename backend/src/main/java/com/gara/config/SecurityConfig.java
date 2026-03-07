@@ -45,43 +45,44 @@ public class SecurityConfig {
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 
                         // Admin only endpoints
-                        .requestMatchers("/api/users", "/api/users/**").hasRole("ADMIN")
-                        .requestMatchers("/api/reports", "/api/reports/**").hasRole("ADMIN")
-                        .requestMatchers("/api/config", "/api/config/**").hasRole("ADMIN")
+                        .requestMatchers("/api/users", "/api/users/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/reports", "/api/reports/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/config", "/api/config/**").hasAuthority("ADMIN")
 
                         // Warehouse (§5: Kho)
-                        .requestMatchers("/api/warehouse/**").hasAnyRole("ADMIN", "KHO")
+                        .requestMatchers("/api/warehouse/**")
+                        .hasAnyAuthority("MANAGE_INVENTORY", "EXPORT_ORDER_WAREHOUSE", "ADMIN")
 
                         // Inventory Check (§5.4: Kiểm soát lệch kho)
-                        .requestMatchers("/api/inventory-check/**").hasAnyRole("ADMIN", "KHO")
+                        .requestMatchers("/api/inventory-check/**").hasAnyAuthority("MANAGE_INVENTORY", "ADMIN")
 
                         // Sale (§3: Sale + liên quan)
                         .requestMatchers("/api/sale/**")
-                        .hasAnyRole("ADMIN", "SALE", "THO_CHAN_DOAN", "THO_SUA_CHUA", "KHO")
+                        .hasAnyAuthority("VIEW_ORDER_LIST", "CREATE_RECEPTION", "CREATE_PROPOSAL", "ADMIN")
 
                         // Reception (§2+§3: Tiếp nhận xe)
                         .requestMatchers("/api/reception/**")
-                        .hasAnyRole("ADMIN", "SALE", "THO_CHAN_DOAN")
+                        .hasAnyAuthority("CREATE_RECEPTION", "ADMIN")
 
                         // Mechanic (§4: Thợ chẩn đoán + Thợ sửa chữa)
                         .requestMatchers("/api/mechanic/**")
-                        .hasAnyRole("ADMIN", "THO_CHAN_DOAN", "THO_SUA_CHUA")
+                        .hasAnyAuthority("CLAIM_REPAIR_JOB", "CREATE_PROPOSAL", "APPROVE_QC", "ADMIN")
 
                         // Payment & Transactions (§6.1: Thanh toán)
                         .requestMatchers("/api/payment/**")
-                        .hasAnyRole("ADMIN", "SALE", "KE_TOAN")
+                        .hasAnyAuthority("ISSUE_INVOICE", "FINANCIAL_REPORT", "ADMIN")
                         .requestMatchers("/api/transactions/**")
-                        .hasAnyRole("ADMIN", "SALE", "KE_TOAN")
+                        .hasAnyAuthority("FINANCIAL_REPORT", "ADMIN")
 
                         // Debts (§6.2: Công nợ - Admin + Kế toán)
-                        .requestMatchers("/api/debts/**").hasAnyRole("ADMIN", "KE_TOAN")
+                        .requestMatchers("/api/debts/**").hasAnyAuthority("FINANCIAL_REPORT", "ADMIN")
 
                         // Customer portal
-                        .requestMatchers("/api/customer/**").hasAnyRole("ADMIN", "KHACH")
+                        .requestMatchers("/api/customer/**").hasAnyAuthority("ADMIN", "ROLE_KHACH")
 
                         // Product Management (Shared)
                         .requestMatchers("/api/products/**")
-                        .hasAnyRole("ADMIN", "SALE", "KHO", "THO_SUA_CHUA", "THO_CHAN_DOAN")
+                        .hasAnyAuthority("VIEW_ORDER_LIST", "MANAGE_INVENTORY", "CREATE_PROPOSAL", "ADMIN")
 
                         // Notifications (§9: Mọi role đều nhận thông báo)
                         .requestMatchers("/api/notifications/**").authenticated()

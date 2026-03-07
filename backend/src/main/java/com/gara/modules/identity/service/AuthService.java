@@ -3,20 +3,30 @@ package com.gara.modules.identity.service;
 import com.gara.dto.LoginRequest;
 import com.gara.dto.LoginResponse;
 import com.gara.entity.User;
+import com.gara.entity.Role;
+import com.gara.entity.Permission;
 import com.gara.modules.auth.repository.UserRepository;
+import com.gara.modules.auth.repository.RoleRepository;
 import com.gara.modules.identity.security.JwtUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.HashSet;
 
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+    public AuthService(UserRepository userRepository, RoleRepository roleRepository,
+            PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
     }
@@ -33,14 +43,25 @@ public class AuthService {
             throw new RuntimeException("Mật khẩu không đúng");
         }
 
-        String token = jwtUtil.generateToken(user.getId(), user.getTenDangNhap(), user.getVaiTro());
+        List<String> roles = user.getRoles().stream()
+                .map(Role::getName)
+                .collect(Collectors.toList());
+
+        List<String> permissions = user.getRoles().stream()
+                .flatMap(role -> role.getPermissions().stream())
+                .map(Permission::getCode)
+                .distinct()
+                .collect(Collectors.toList());
+
+        String token = jwtUtil.generateToken(user.getId(), user.getTenDangNhap(), roles, permissions);
 
         return LoginResponse.builder()
                 .token(token)
                 .userId(user.getId())
                 .username(user.getTenDangNhap())
                 .fullName(user.getHoTen())
-                .role(user.getVaiTro())
+                .roles(roles)
+                .permissions(permissions)
                 .build();
     }
 
@@ -59,14 +80,25 @@ public class AuthService {
         user.setMatKhauHash(passwordEncoder.encode("123456"));
         userRepository.save(user);
 
-        String token = jwtUtil.generateToken(user.getId(), user.getTenDangNhap(), user.getVaiTro());
+        List<String> roles = user.getRoles().stream()
+                .map(Role::getName)
+                .collect(Collectors.toList());
+
+        List<String> permissions = user.getRoles().stream()
+                .flatMap(role -> role.getPermissions().stream())
+                .map(Permission::getCode)
+                .distinct()
+                .collect(Collectors.toList());
+
+        String token = jwtUtil.generateToken(user.getId(), user.getTenDangNhap(), roles, permissions);
 
         return LoginResponse.builder()
                 .token(token)
                 .userId(user.getId())
                 .username(user.getTenDangNhap())
                 .fullName(user.getHoTen())
-                .role(user.getVaiTro())
+                .roles(roles)
+                .permissions(permissions)
                 .build();
     }
 
@@ -78,22 +110,28 @@ public class AuthService {
         seedUser("kho1", "Thủ Kho", "KHO");
     }
 
-    private void seedUser(String username, String fullName, String role) {
+    private void seedUser(String username, String fullName, String roleName) {
+        Role role = roleRepository.findByName(roleName)
+                .orElseGet(() -> {
+                    Role newRole = new Role();
+                    newRole.setName(roleName);
+                    return roleRepository.save(newRole);
+                });
+
         var userOptional = userRepository.findByTenDangNhap(username);
         if (userOptional.isEmpty()) {
             User user = new User();
             user.setTenDangNhap(username);
             user.setHoTen(fullName);
-            user.setVaiTro(role);
+            user.setRoles(new HashSet<>(Set.of(role)));
             user.setMatKhauHash(passwordEncoder.encode("123456"));
             user.setTrangThaiHoatDong(true);
             user.setSoDienThoai("0900000000");
             userRepository.save(user);
         } else {
-            // Update role if exists (fix for existing users with wrong role)
             User user = userOptional.get();
-            if (!user.getVaiTro().equals(role)) {
-                user.setVaiTro(role);
+            if (user.getRoles().stream().noneMatch(r -> r.getName().equals(roleName))) {
+                user.getRoles().add(role);
                 userRepository.save(user);
             }
         }

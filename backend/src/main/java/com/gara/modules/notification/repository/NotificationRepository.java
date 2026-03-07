@@ -11,19 +11,19 @@ import java.util.List;
 
 public interface NotificationRepository extends JpaRepository<Notification, Integer> {
 
-    @Query("SELECT n FROM Notification n WHERE n.userId = :userId OR n.role = :role ORDER BY n.createdAt DESC")
-    List<Notification> findByUserOrRole(@Param("userId") Integer userId, @Param("role") String role);
+        @Query("SELECT n FROM Notification n WHERE n.userId = :userId OR n.role IN :roles ORDER BY n.createdAt DESC")
+        List<Notification> findByUserOrRoles(@Param("userId") Integer userId, @Param("roles") List<String> roles);
 
-    @Query("SELECT n FROM Notification n WHERE n.userId = :userId OR n.role = :role ORDER BY n.createdAt DESC")
-    List<Notification> findRecentByUserOrRole(@Param("userId") Integer userId, @Param("role") String role,
-            org.springframework.data.domain.Pageable pageable);
+        @Query("SELECT n FROM Notification n WHERE n.userId = :userId OR n.role IN :roles ORDER BY n.createdAt DESC")
+        List<Notification> findRecentByUserOrRoles(@Param("userId") Integer userId, @Param("roles") List<String> roles,
+                        org.springframework.data.domain.Pageable pageable);
 
-    @Query("SELECT n FROM Notification n WHERE (n.userId = :userId OR n.role = :role) AND n.isRead = false ORDER BY n.createdAt DESC")
-    List<Notification> findUnreadByUserOrRole(@Param("userId") Integer userId, @Param("role") String role,
-            org.springframework.data.domain.Pageable pageable);
+        @Query("SELECT n FROM Notification n WHERE (n.userId = :userId OR n.role IN :roles) AND n.isRead = false ORDER BY n.createdAt DESC")
+        List<Notification> findUnreadByUserOrRoles(@Param("userId") Integer userId, @Param("roles") List<String> roles,
+                        org.springframework.data.domain.Pageable pageable);
 
-    @Modifying
-    @Transactional
-    @Query("UPDATE Notification n SET n.isRead = true WHERE (n.userId = :userId OR n.role = :role) AND n.isRead = false")
-    void markAllAsRead(@Param("userId") Integer userId, @Param("role") String role);
+        @Modifying
+        @Transactional
+        @Query("UPDATE Notification n SET n.isRead = true WHERE (n.userId = :userId OR n.role IN :roles) AND n.isRead = false")
+        void markAllAsRead(@Param("userId") Integer userId, @Param("roles") List<String> roles);
 }

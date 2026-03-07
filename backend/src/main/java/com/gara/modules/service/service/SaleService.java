@@ -243,6 +243,10 @@ public class SaleService {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
+        if (!user.hasPermission("CREATE_RECEPTION") && !user.hasPermission("CREATE_PROPOSAL") && !user.isAdmin()) {
+            throw new RuntimeException("Bạn không có quyền thêm hạng mục vào đơn hàng.");
+        }
+
         checkOwnership(order, user);
         validateOrderModifiable(order);
 
@@ -755,7 +759,7 @@ public class SaleService {
         BigDecimal debt = order.getTongCong().subtract(totalPaid);
 
         if (debt.compareTo(BigDecimal.ZERO) > 0) {
-            if (!"ADMIN".equals(user.getVaiTro())) {
+            if (!user.isAdmin()) {
                 throw new RuntimeException("Đơn hàng chưa thanh toán đủ (Còn nợ: " +
                         debt + " VNĐ). Vui lòng thanh toán hết hoặc nhờ Admin duyệt đóng nợ.");
             }
@@ -782,7 +786,7 @@ public class SaleService {
     // ... helpers ...
 
     private void checkOwnership(RepairOrder order, User user) {
-        if ("ADMIN".equals(user.getVaiTro()))
+        if (user.isAdmin())
             return;
 
         if (order.getNguoiPhuTrach() != null && !order.getNguoiPhuTrach().getId().equals(user.getId())) {

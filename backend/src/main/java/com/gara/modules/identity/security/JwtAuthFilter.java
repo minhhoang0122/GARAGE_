@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -41,15 +40,24 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (jwtUtil.isTokenValid(token) && !jwtUtil.isTokenExpired(token)) {
             Integer userId = jwtUtil.extractUserId(token);
-            String role = jwtUtil.extractRole(token);
+            java.util.List<String> roles = jwtUtil.extractRoles(token);
+            java.util.List<String> permissions = jwtUtil.extractPermissions(token);
 
             User user = userRepository.findById(userId).orElse(null);
 
             if (user != null && user.getTrangThaiHoatDong()) {
+                java.util.List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
+                if (roles != null) {
+                    roles.forEach(role -> authorities.add(new SimpleGrantedAuthority("ROLE_" + role)));
+                }
+                if (permissions != null) {
+                    permissions.forEach(permission -> authorities.add(new SimpleGrantedAuthority(permission)));
+                }
+
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         user,
                         null,
-                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role)));
+                        authorities);
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
