@@ -15,6 +15,7 @@ public record OrderItemDTO(
                 String itemStatus,
                 Integer proposedById,
                 String proposedByName,
+                String proposedByRole,
                 Boolean isWarranty) {
 
         public static OrderItemDTOBuilder builder() {
@@ -34,6 +35,7 @@ public record OrderItemDTO(
                 private String itemStatus;
                 private Integer proposedById;
                 private String proposedByName;
+                private String proposedByRole;
                 private Boolean isWarranty;
 
                 public OrderItemDTOBuilder id(Integer id) {
@@ -96,6 +98,11 @@ public record OrderItemDTO(
                         return this;
                 }
 
+                public OrderItemDTOBuilder proposedByRole(String proposedByRole) {
+                        this.proposedByRole = proposedByRole;
+                        return this;
+                }
+
                 public OrderItemDTOBuilder isWarranty(Boolean isWarranty) {
                         this.isWarranty = isWarranty;
                         return this;
@@ -104,7 +111,7 @@ public record OrderItemDTO(
                 public OrderItemDTO build() {
                         return new OrderItemDTO(id, productId, productCode, productName, quantity, unitPrice,
                                         totalPrice, discountPercent, type, itemStatus, proposedById, proposedByName,
-                                        isWarranty);
+                                        proposedByRole, isWarranty);
                 }
         }
 }

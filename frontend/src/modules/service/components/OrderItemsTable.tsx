@@ -148,10 +148,23 @@ function EditableRow({ item, readOnly }: { item: OrderDetailItem, readOnly: bool
                     {item.productName}
                 </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400">{item.productCode}</div>
-                <div className="flex gap-1 mt-1">
+                <div className="flex gap-1 mt-1 flex-wrap">
                     {item.isService && <span className="text-[10px] bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded">Dịch vụ</span>}
                     {isRejected && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Khách từ chối</span>}
                     {isProposed && <span className="text-[10px] bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 px-1.5 py-0.5 rounded">Phát sinh mới</span>}
+                    {item.proposedByName && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1 ${item.proposedByRole === 'THO_CHAN_DOAN' || item.proposedByRole === 'THO_SUA_CHUA'
+                                ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300'
+                                : item.proposedByRole === 'SALE'
+                                    ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
+                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                            }`}>
+                            {item.proposedByRole === 'THO_CHAN_DOAN' ? '🔧 Thợ khám' :
+                                item.proposedByRole === 'THO_SUA_CHUA' ? '🛠️ Thợ sửa' :
+                                    item.proposedByRole === 'SALE' ? '💼 Sale' :
+                                        item.proposedByRole === 'ADMIN' ? '⚙️ Admin' : '👤'}: {item.proposedByName}
+                        </span>
+                    )}
                 </div>
             </td>
 

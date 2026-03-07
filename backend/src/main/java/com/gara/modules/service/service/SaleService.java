@@ -160,6 +160,10 @@ public class SaleService {
                         .itemStatus(i.getTrangThai())
                         .proposedById(i.getNguoiDeXuatId())
                         .proposedByName(i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getHoTen() : null)
+                        .proposedByRole(i.getNguoiDeXuat() != null && i.getNguoiDeXuat().getRoles() != null
+                                ? i.getNguoiDeXuat().getRoles().stream()
+                                        .map(r -> r.getName()).findFirst().orElse(null)
+                                : null)
                         .isWarranty(i.getTrangThai() != null && i.getTrangThai().contains("WARRANTY"))
                         .build())
                 .toList();

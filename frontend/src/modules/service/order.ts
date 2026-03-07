@@ -19,6 +19,7 @@ export type OrderDetailItem = {
     itemStatus: string;
     proposedById: number | null;
     proposedByName: string | null;
+    proposedByRole: string | null;
     vatRate: number;
     floorPrice: number;
     warrantyMonths: number;
@@ -73,6 +74,7 @@ export async function getOrder(orderId: number) {
             itemStatus: item.itemStatus || 'KHACH_DONG_Y',
             proposedById: item.proposedById || null,
             proposedByName: item.proposedByName || null,
+            proposedByRole: item.proposedByRole || null,
             vatRate: item.vatRate || 10,
             floorPrice: 0,
             warrantyMonths: item.warrantyMonths || 0,
