@@ -38,11 +38,15 @@ interface ImportItem {
     updateGlobalPrice?: boolean;
 }
 
+import { usePermission } from '@/hooks/usePermission';
+
 export default function ImportStockPage() {
     const { data: session } = useSession();
-    // @ts-ignore
-    const role = session?.user?.role as string;
-    const isAdminOrSale = role === 'ADMIN' || role === 'SALE' || role === 'MANAGER';
+    const { hasPermission, isAdmin } = usePermission();
+
+    // In import page, ADMIN or those with MANAGE_INVENTORY can manage prices
+    const isAdminOrManager = isAdmin || hasPermission('MANAGE_INVENTORY');
+    const isAdminOrSale = isAdminOrManager; // Reusing for compatibility with existing logic
 
     const router = useRouter();
     const [supplierName, setSupplierName] = useState('');

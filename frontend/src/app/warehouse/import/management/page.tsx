@@ -33,11 +33,13 @@ interface ImportNote {
     chiTietNhap: any[];
 }
 
+import { usePermission } from '@/hooks/usePermission';
+
 export default function ImportManagementPage() {
     const { data: session } = useSession();
-    // @ts-ignore
-    const role = session?.user?.role as string;
-    const isAdminOrManager = role === 'ADMIN' || role === 'MANAGER';
+    const { hasPermission, isAdmin } = usePermission();
+
+    const isAdminOrManager = isAdmin || hasPermission('MANAGE_INVENTORY');
 
     const [imports, setImports] = useState<ImportNote[]>([]);
     const [isLoading, setIsLoading] = useState(true);

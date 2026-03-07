@@ -16,8 +16,9 @@ export default auth((req) => {
     if (publicRoutes.some((route) => pathname.startsWith(route))) {
         // Nếu đã đăng nhập mà truy cập /login, redirect về dashboard
         if (pathname === '/login' && session?.user) {
-            const role = session.user.role as VaiTroType;
-            const redirectUrl = ROLE_ROUTES[role] || '/';
+            const roles = (session.user as any).roles || [];
+            // Simple priority for login redirect
+            const redirectUrl = roles.includes('ADMIN') ? '/admin' : (ROLE_ROUTES[roles[0]] || '/');
             return NextResponse.redirect(new URL(redirectUrl, nextUrl));
         }
         return NextResponse.next();
@@ -30,14 +31,15 @@ export default auth((req) => {
         return NextResponse.redirect(loginUrl);
     }
 
-    const userRole = session.user.role as VaiTroType;
+    const userRoles = (session.user as any).roles || [];
 
     // Kiểm tra quyền truy cập cho từng route prefix
     for (const [routePrefix, allowedRoles] of Object.entries(ROUTE_PERMISSIONS)) {
         if (pathname.startsWith(routePrefix)) {
-            if (!allowedRoles.includes(userRole)) {
-                // Không có quyền -> redirect về dashboard của user
-                const redirectUrl = ROLE_ROUTES[userRole] || '/';
+            const hasAccess = allowedRoles.some(r => userRoles.includes(r));
+            if (!hasAccess) {
+                // Không có quyền -> redirect về dashboard mặc định của user
+                const redirectUrl = ROLE_ROUTES[userRoles[0]] || '/';
                 return NextResponse.redirect(new URL(redirectUrl, nextUrl));
             }
             break;

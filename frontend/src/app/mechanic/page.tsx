@@ -6,6 +6,7 @@ import { Wrench, Clock, CheckCircle, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
+import { usePermission } from '@/hooks/usePermission';
 
 type Job = {
     id: number;
@@ -25,16 +26,14 @@ type Stats = {
 
 export default function MechanicDashboard() {
     const { data: session } = useSession();
-    // @ts-ignore
-    const userRole = session?.user?.role;
+    const { hasPermission, isAdmin } = usePermission();
 
     const [repairJobs, setRepairJobs] = useState<Job[]>([]);
     const [inspectJobs, setInspectJobs] = useState<any[]>([]);
     const [stats, setStats] = useState<Stats>({ inProgressJobs: 0, completedToday: 0 });
 
-    const isDiagnose = userRole === 'THO_CHAN_DOAN';
-    const isRepair = userRole === 'THO_SUA_CHUA';
-    const isAdmin = userRole === 'ADMIN';
+    const isDiagnose = hasPermission('CREATE_PROPOSAL');
+    const isRepair = hasPermission('CLAIM_REPAIR_JOB');
 
     useEffect(() => {
         // @ts-ignore

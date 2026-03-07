@@ -49,17 +49,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 }
 
                 try {
-                    const user = await api.login(
+                    const data = await api.login(
                         credentials.username as string,
                         credentials.password as string
                     );
 
                     return {
-                        id: user.userId.toString(),
-                        name: user.fullName,
-                        role: user.role,
-                        accessToken: user.token
-                    };
+                        id: data.userId.toString(),
+                        name: data.fullName,
+                        roles: data.roles || [],
+                        permissions: data.permissions || [],
+                        accessToken: data.token
+                    } as any;
                 } catch (error) {
                     console.error('Login error:', error);
                     return null;
@@ -71,7 +72,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         async jwt({ token, user }) {
             if (user) {
                 token.id = user.id;
-                token.role = user.role;
+                token.roles = (user as any).roles;
+                token.permissions = (user as any).permissions;
                 token.accessToken = (user as any).accessToken;
             }
             return token;
@@ -79,7 +81,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         async session({ session, token }) {
             if (session.user) {
                 session.user.id = token.id as string;
-                session.user.role = token.role as VaiTroType;
+                (session.user as any).roles = token.roles;
+                (session.user as any).permissions = token.permissions;
                 (session.user as any).accessToken = token.accessToken;
             }
             return session;

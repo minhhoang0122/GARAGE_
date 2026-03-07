@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
-import { memo, useMemo } from 'react';
+import { ReactNode, memo, useState, useCallback, useEffect, useMemo } from 'react';
 import {
     Car, LayoutDashboard, Users, BarChart3, Settings, History,
     ShoppingCart, Package, FileText, CreditCard, PackagePlus,
@@ -113,17 +113,40 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
     const pathname = usePathname();
     const { data: session } = useSession();
 
-    const role = session?.user?.role as VaiTroType;
-    // @ts-ignore
-    const token = session?.user?.accessToken as string | undefined;
+    const roles = (session?.user as any)?.roles || [];
+    const [activeRole, setActiveRole] = useState<string | null>(null);
+
+    // Initialize active role
+    useEffect(() => {
+        if (roles.length > 0) {
+            const savedRole = localStorage.getItem('active_role');
+            if (savedRole && roles.includes(savedRole)) {
+                setActiveRole(savedRole);
+            } else {
+                // Default priority
+                const priority = ['ADMIN', 'SALE', 'KHO', 'THO_CHAN_DOAN', 'THO_SUA_CHUA'];
+                const bestRole = priority.find(r => roles.includes(r)) || roles[0];
+                setActiveRole(bestRole);
+            }
+        }
+    }, [roles]);
+
+    const handleRoleChange = (role: string) => {
+        setActiveRole(role);
+        localStorage.setItem('active_role', role);
+        // Optional: Redirect to module dashboard on switch
+        // if (ROLE_ROUTES[role]) window.location.href = ROLE_ROUTES[role];
+    };
+
+    const token = (session?.user as any)?.accessToken as string | undefined;
 
     const menuGroups: MenuGroup[] = useMemo(() => {
-        return role ? ROLE_MENUS[role] || [] : [];
-    }, [role]);
+        return activeRole ? ROLE_MENUS[activeRole] || [] : [];
+    }, [activeRole]);
 
-    const roleName = useMemo(() => {
-        return role ? ROLE_DISPLAY_NAMES[role] : '';
-    }, [role]);
+    const roleDisplayName = useMemo(() => {
+        return activeRole ? ROLE_DISPLAY_NAMES[activeRole] : '';
+    }, [activeRole]);
 
     const initials = useMemo(() => {
         return session?.user?.name
@@ -158,6 +181,29 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
                     </div>
                 </div>
             </div>
+
+            {/* Workspace Switcher - Only shows if user has multiple roles */}
+            {roles.length > 1 && (
+                <div className="px-1 shrink-0">
+                    <div className="relative group">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider ml-2 mb-1 block">Không gian làm việc</label>
+                        <select
+                            value={activeRole || ''}
+                            onChange={(e) => handleRoleChange(e.target.value)}
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-[13px] font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 appearance-none cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-700 transition-all"
+                        >
+                            {roles.map((r: string) => (
+                                <option key={r} value={r}>
+                                    {ROLE_DISPLAY_NAMES[r] || r}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="absolute right-3 bottom-2.5 pointer-events-none text-slate-400">
+                            <Component className="w-3.5 h-3.5" />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Menu - Flexible Area */}
             <nav className="relative z-10 flex-1 overflow-y-auto custom-scrollbar px-1">
@@ -198,7 +244,7 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
                             <p className="text-[13px] font-bold truncate text-slate-800 dark:text-slate-200" title={session?.user?.name || ''}>{session?.user?.name}</p>
                             <p className="text-[10px] text-slate-500 dark:text-slate-500 font-medium truncate flex items-center gap-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                {roleName}
+                                {roleDisplayName}
                             </p>
                         </div>
                     </div>

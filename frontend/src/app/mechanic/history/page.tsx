@@ -8,6 +8,7 @@ import { useSession } from 'next-auth/react';
 import { formatCurrency } from '@/lib/utils';
 import { History, Loader2, Car, Calendar, Wrench } from 'lucide-react';
 import Link from 'next/link';
+import { usePermission } from '@/hooks/usePermission';
 
 interface JobHistory {
     id: number;
@@ -23,18 +24,21 @@ interface JobHistory {
 
 export default function MechanicHistoryPage() {
     const { data: session } = useSession();
+    const { hasPermission } = usePermission();
+
     const [jobs, setJobs] = useState<JobHistory[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const isDiagnostic = hasPermission('CREATE_PROPOSAL');
 
     async function loadHistory() {
         setLoading(true);
         try {
             const user = session?.user as any;
-            const role = user?.role;
             const token = user?.accessToken;
             if (!token) return;
 
-            if (role === 'THO_CHAN_DOAN') {
+            if (isDiagnostic) {
                 // Get history of receptions inspected (even if not finished)
                 const res = await api.get('/mechanic/inspect/history', token);
                 setJobs(res || []);
@@ -54,9 +58,7 @@ export default function MechanicHistoryPage() {
         if (session) {
             loadHistory();
         }
-    }, [session]);
-
-    const isDiagnostic = (session?.user as any)?.role === 'THO_CHAN_DOAN';
+    }, [session, isDiagnostic]);
 
     return (
         <DashboardLayout
