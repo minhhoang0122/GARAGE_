@@ -99,13 +99,13 @@ export default function ReceptionListPage() {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase transition-colors">
-                                        <th className="px-3 py-2 text-center w-24">Ảnh</th>
-                                        <th className="px-3 py-2 text-center">Thời gian</th>
-                                        <th className="px-3 py-2 text-center">Biển số</th>
-                                        <th className="px-3 py-2 text-left">Khách hàng</th>
-                                        <th className="px-3 py-2 text-left">Xe</th>
-                                        <th className="px-3 py-2 text-center">Trạng thái</th>
-                                        <th className="px-3 py-2 text-center">Chi tiết</th>
+                                        <th className="px-2 py-3 text-center w-16">Ảnh</th>
+                                        <th className="px-3 py-3 text-center w-28">Thời gian</th>
+                                        <th className="px-3 py-3 text-center w-36">Biển số</th>
+                                        <th className="px-3 py-3 text-left min-w-[150px]">Khách hàng</th>
+                                        <th className="px-3 py-3 text-left w-40">Xe</th>
+                                        <th className="px-3 py-3 text-center w-36">Trạng thái</th>
+                                        <th className="px-3 py-3 text-center w-28">Chi tiết</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">

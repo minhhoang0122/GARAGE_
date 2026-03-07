@@ -193,6 +193,6 @@ public class ReceptionService {
 
     @Transactional(readOnly = true)
     public Optional<Reception> getReceptionById(Integer id) {
-        return receptionRepository.findById(id);
+        return receptionRepository.findByIdWithDetails(id);
     }
 }

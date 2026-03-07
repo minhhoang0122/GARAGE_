@@ -28,13 +28,13 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
                 <thead>
                     <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                         {!readOnly && <th className="px-4 py-4 w-12 text-center">Duyệt</th>}
-                        <th className="px-4 py-4">Mã / Tên hàng</th>
-                        <th className="px-4 py-4 text-center">SL</th>
-                        <th className="px-4 py-4 text-right">Đơn giá</th>
-                        <th className="px-4 py-4 text-center">Giảm (%)</th>
-                        <th className="px-4 py-4 text-center">VAT (%)</th>
-                        <th className="px-4 py-4 text-right">Thành tiền</th>
-                        {!readOnly && <th className="px-4 py-4 w-20"></th>}
+                        <th className="px-4 py-4 min-w-[200px]">Mã / Tên hàng</th>
+                        <th className="px-4 py-4 w-20 text-center">SL</th>
+                        <th className="px-4 py-4 w-32 text-right">Đơn giá</th>
+                        <th className="px-4 py-4 w-24 text-center">Giảm (%)</th>
+                        <th className="px-4 py-4 w-24 text-center">VAT (%)</th>
+                        <th className="px-4 py-4 w-36 text-right">Thành tiền</th>
+                        {!readOnly && <th className="px-4 py-4 w-24 text-right"></th>}
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -103,10 +103,18 @@ function EditableRow({ item, readOnly }: { item: OrderDetailItem, readOnly: bool
 
     const handleToggleApprove = async () => {
         setIsSaving(true);
+        const originalStatus = item.itemStatus;
+        const optimisticStatus = originalStatus === 'KHACH_DONG_Y' ? 'KHACH_TU_CHOI' : 'KHACH_DONG_Y';
+
+        // Optimistic UI update via router refresh or local state
+        item.itemStatus = optimisticStatus;
+
         try {
-            await toggleItemStatus(item.id, item.itemStatus);
+            await toggleItemStatus(item.id, originalStatus);
             router.refresh();
         } catch (error) {
+            // Revert on failure
+            item.itemStatus = originalStatus;
             alert('Lỗi cập nhật');
         } finally {
             setIsSaving(false);
