@@ -40,21 +40,24 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (jwtUtil.isTokenValid(token) && !jwtUtil.isTokenExpired(token)) {
             Integer userId = jwtUtil.extractUserId(token);
-            java.util.List<String> roles = jwtUtil.extractRoles(token);
-            java.util.List<String> permissions = jwtUtil.extractPermissions(token);
 
             User user = userRepository.findById(userId).orElse(null);
 
             if (user != null && user.getTrangThaiHoatDong()) {
                 java.util.List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
-                if (roles != null) {
-                    roles.forEach(role -> {
-                        authorities.add(new SimpleGrantedAuthority(role)); // for hasAuthority("ADMIN")
-                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role)); // for hasRole("ADMIN")
+
+                // Fetch fresh roles and permissions from DB instead of relying on token claims
+                if (user.getRoles() != null) {
+                    user.getRoles().forEach(role -> {
+                        authorities.add(new SimpleGrantedAuthority(role.getName())); // for hasAuthority
+                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getName())); // for hasRole
+
+                        if (role.getPermissions() != null) {
+                            role.getPermissions().forEach(permission -> {
+                                authorities.add(new SimpleGrantedAuthority(permission.getCode())); // for hasAuthority
+                            });
+                        }
                     });
-                }
-                if (permissions != null) {
-                    permissions.forEach(permission -> authorities.add(new SimpleGrantedAuthority(permission)));
                 }
 
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
