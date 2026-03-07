@@ -11,40 +11,40 @@ public class Reception {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "NgayGio")
+    @Column(name = "ngay_gio")
     private LocalDateTime ngayGio;
 
-    @Column(name = "TinhTrangVoXe", length = 500)
+    @Column(name = "tinh_trang_vo_xe", length = 500)
     private String tinhTrangVoXe;
 
-    @Column(name = "MucXang", precision = 3, scale = 2)
+    @Column(name = "muc_xang", precision = 3, scale = 2)
     private BigDecimal mucXang;
 
-    @Column(name = "ODO")
+    @Column(name = "odo")
     private Integer odo;
 
-    @Column(name = "YeuCauSoBo", length = 500)
+    @Column(name = "yeu_cau_so_bo", length = 500)
     private String yeuCauSoBo;
 
-    @Column(name = "HinhAnh", columnDefinition = "TEXT")
+    @Column(name = "hinh_anh", columnDefinition = "TEXT")
     private String hinhAnh;
 
-    @Column(name = "XeBienSo", insertable = false, updatable = false)
+    @Column(name = "xe_bien_so", insertable = false, updatable = false)
     private String xeBienSo;
 
-    @Column(name = "NguoiTiepNhanID", insertable = false, updatable = false)
+    @Column(name = "nguoi_tiep_nhan_id", insertable = false, updatable = false)
     private Integer nguoiTiepNhanId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "XeBienSo", referencedColumnName = "BienSo", nullable = false)
+    @JoinColumn(name = "xe_bien_so", referencedColumnName = "bien_so", nullable = false)
     private Vehicle xe;
 
     @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "NguoiTiepNhanID", nullable = false)
+    @JoinColumn(name = "nguoi_tiep_nhan_id", nullable = false)
     private User nguoiTiepNhan;
 
     @OneToOne(mappedBy = "phieuTiepNhan", cascade = CascadeType.ALL)

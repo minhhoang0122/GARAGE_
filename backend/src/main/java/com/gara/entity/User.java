@@ -10,28 +10,28 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "HoTen", nullable = false, length = 100)
+    @Column(name = "ho_ten", nullable = false, length = 100)
     private String hoTen;
 
-    @Column(name = "SoDienThoai", length = 20)
+    @Column(name = "so_dien_thoai", length = 20)
     private String soDienThoai;
 
-    @Column(name = "TenDangNhap", unique = true, nullable = false, length = 50)
+    @Column(name = "ten_dang_nhap", unique = true, nullable = false, length = 50)
     private String tenDangNhap;
 
-    @Column(name = "MatKhauHash", nullable = false, length = 255)
+    @Column(name = "mat_khau_hash", nullable = false, length = 255)
     private String matKhauHash;
 
-    @Column(name = "VaiTro", nullable = false, length = 30)
+    @Column(name = "vai_tro", nullable = false, length = 30)
     private String vaiTro; // ADMIN, SALE, THO_CHAN_DOAN, THO_SUA_CHUA, KHO, KE_TOAN
 
-    @Column(name = "TrangThaiHoatDong")
+    @Column(name = "trang_thai_hoat_dong")
     private Boolean trangThaiHoatDong = true;
 
-    @Column(name = "NgayTao")
+    @Column(name = "ngay_tao")
     private LocalDateTime ngayTao;
 
     @PrePersist

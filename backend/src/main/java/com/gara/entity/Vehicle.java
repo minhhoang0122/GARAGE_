@@ -14,35 +14,35 @@ public class Vehicle {
     @Column(name = "ID")
     private Integer id;
 
-    @Column(name = "BienSo", length = 20, unique = true, nullable = false)
+    @Column(name = "bien_so", length = 20, unique = true, nullable = false)
     private String bienSo;
 
-    @Column(name = "SoKhung", length = 50)
+    @Column(name = "ghi_chu", columnDefinition = "TEXT")
     private String soKhung;
 
-    @Column(name = "SoMay", length = 50)
+    @Column(name = "so_may", length = 50)
     private String soMay;
 
-    @Column(name = "NhanHieu", length = 50)
+    @Column(name = "ten_xe", nullable = false, length = 100)
     private String nhanHieu;
 
     @Column(name = "Model", length = 50)
     private String model;
 
-    @Column(name = "LoaiXe", length = 20)
+    @Column(name = "dong_xe", length = 50)
     private String loaiXe = "CAR"; // CAR, MOTO, TRUCK...
 
     @Column(name = "ODO_HienTai")
     private Integer odoHienTai = 0;
 
-    @Column(name = "NgayTao")
+    @Column(name = "nam_san_xuat")
     private LocalDateTime ngayTao;
 
-    @Column(name = "KhachHangID", insertable = false, updatable = false)
+    @Column(name = "khach_hang_id", insertable = false, updatable = false)
     private Integer khachHangId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "KhachHangID", nullable = false)
+    @JoinColumn(name = "khach_hang_id", nullable = false)
     private Customer khachHang;
 
     @PrePersist

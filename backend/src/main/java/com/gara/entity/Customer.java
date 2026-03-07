@@ -13,22 +13,22 @@ public class Customer {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "HoTen", nullable = false, length = 100)
+    @Column(name = "ho_ten", nullable = false, length = 100)
     private String hoTen;
 
-    @Column(name = "SoDienThoai", nullable = false, length = 20)
+    @Column(name = "so_dien_thoai", nullable = false, length = 20)
     private String soDienThoai;
 
-    @Column(name = "DiaChi", length = 255)
+    @Column(name = "loai_khach_hang", length = 50)
     private String diaChi;
 
-    @Column(name = "Email", length = 100)
+    @Column(name = "email", length = 100)
     private String email;
 
-    @Column(name = "NgayTao")
+    @Column(name = "ngay_tao")
     private LocalDateTime ngayTao;
 
     @Column(name = "UserID") // Link to system user for notifications
