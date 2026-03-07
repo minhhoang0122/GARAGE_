@@ -79,10 +79,10 @@ export default function AdminDashboard() {
                     <div className="p-6">
                         <table className="w-full">
                             <thead>
-                                <tr className="text-left text-sm text-slate-500 dark:text-slate-400">
-                                    <th className="pb-3 font-medium">Nhân viên</th>
-                                    <th className="pb-3 font-medium">Vai trò</th>
-                                    <th className="pb-3 font-medium">Trạng thái</th>
+                                <tr className="text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                    <th className="py-3">Nhân viên</th>
+                                    <th className="py-3">Vai trò</th>
+                                    <th className="py-3">Trạng thái</th>
                                 </tr>
                             </thead>
                             <tbody className="text-sm">

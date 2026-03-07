@@ -170,12 +170,12 @@ function InventoryCheckContent() {
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
                             <tr>
-                                <th className="px-6 py-4">Mã VT</th>
-                                <th className="px-6 py-4">Tên Phụ Tùng</th>
-                                <th className="px-6 py-4 text-center w-32">Tồn Hệ Thống</th>
-                                <th className="px-6 py-4 text-center w-32">Tồn Thực Tế</th>
-                                <th className="px-6 py-4 w-64">Lý Do Điều Chỉnh</th>
-                                <th className="px-6 py-4 text-right w-32">Thao Tác</th>
+                                <th className="px-6 py-3">Mã VT</th>
+                                <th className="px-6 py-3">Tên Phụ Tùng</th>
+                                <th className="px-6 py-3 text-center w-32">Tồn Hệ Thống</th>
+                                <th className="px-6 py-3 text-center w-32">Tồn Thực Tế</th>
+                                <th className="px-6 py-3 w-64">Lý Do Điều Chỉnh</th>
+                                <th className="px-6 py-3 text-right w-32">Thao Tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -193,10 +193,10 @@ function InventoryCheckContent() {
 
                                     return (
                                         <tr key={p.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${hasDiff ? 'bg-amber-50/50 dark:bg-amber-900/10' : ''}`}>
-                                            <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-300">{p.code}</td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{p.name}</td>
-                                            <td className="px-6 py-4 text-center font-bold text-slate-700 dark:text-slate-200">{p.stock}</td>
-                                            <td className="px-6 py-2">
+                                            <td className="px-6 py-3 font-medium text-slate-700 dark:text-slate-300">{p.code}</td>
+                                            <td className="px-6 py-3 text-slate-600 dark:text-slate-400">{p.name}</td>
+                                            <td className="px-6 py-3 text-center font-bold text-slate-700 dark:text-slate-200">{p.stock}</td>
+                                            <td className="px-6 py-3">
                                                 <input
                                                     type="number"
                                                     className={`w-full text-center px-2 py-1 border rounded-lg focus:ring-2 focus:outline-none dark:bg-slate-800 dark:text-white ${hasDiff ? 'border-amber-500 ring-amber-200 dark:border-amber-700' : 'border-slate-200 dark:border-slate-700 focus:ring-blue-500'}`}
@@ -210,7 +210,7 @@ function InventoryCheckContent() {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-2">
+                                            <td className="px-6 py-3">
                                                 <input
                                                     type="text"
                                                     className="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -220,7 +220,7 @@ function InventoryCheckContent() {
                                                     disabled={!hasDiff}
                                                 />
                                             </td>
-                                            <td className="px-6 py-4 text-right">
+                                            <td className="px-6 py-3 text-right">
                                                 <button
                                                     onClick={() => handleAdjust(p)}
                                                     disabled={!hasDiff || !reason || isProcessing}
