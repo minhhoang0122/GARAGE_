@@ -192,8 +192,8 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                         </div>
 
                         {/* Transaction History & Payment */}
-                        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
-                            <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800">Thanh toán</h3>
+                        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 dark:border-slate-800/50 transition-all">
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800 uppercase tracking-tight">Thanh toán</h3>
 
                             <div className="space-y-4 mb-6">
                                 <div className="flex justify-between items-center bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-800/50">

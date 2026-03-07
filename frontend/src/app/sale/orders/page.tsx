@@ -121,49 +121,49 @@ export default function OrderListPage() {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase transition-colors">
-                                        <th className="px-3 py-2">Mã đơn</th>
-                                        <th className="px-3 py-2">Thời gian</th>
-                                        <th className="px-3 py-2">Biển số</th>
-                                        <th className="px-3 py-2">Khách hàng</th>
-                                        <th className="px-3 py-2">Trạng thái</th>
-                                        <th className="px-3 py-2 text-right">Tổng tiền</th>
-                                        <th className="px-3 py-2 text-right">Còn nợ</th>
-                                        <th className="px-3 py-2 text-right">Chi tiết</th>
+                                        <th className="px-3 py-3 w-20">Mã đơn</th>
+                                        <th className="px-3 py-3 w-28">Thời gian</th>
+                                        <th className="px-3 py-3 w-36">Biển số</th>
+                                        <th className="px-3 py-3 min-w-[120px]">Khách hàng</th>
+                                        <th className="px-3 py-3 w-32">Trạng thái</th>
+                                        <th className="px-3 py-3 w-32 text-right">Tổng tiền</th>
+                                        <th className="px-3 py-3 w-32 text-right">Còn nợ</th>
+                                        <th className="px-3 py-3 w-24 text-right">Chi tiết</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                     {filteredOrders.map((order: any) => (
                                         <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="px-3 py-2 font-medium text-indigo-600 dark:text-indigo-400">
+                                            <td className="px-3 py-3 font-medium text-indigo-600 dark:text-indigo-400">
                                                 #{order.id}
                                             </td>
-                                            <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                                            <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
                                                 {new Date(order.createdAt).toLocaleDateString('vi-VN')}
                                                 <div className="text-[10px] text-slate-400">{new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
                                             </td>
-                                            <td className="px-3 py-2 font-semibold text-slate-800 dark:text-slate-100">
+                                            <td className="px-3 py-3 font-semibold text-slate-800 dark:text-slate-100">
                                                 {order.plate}
                                                 <div className="text-[10px] font-normal text-slate-500">{order.vehicleBrand} {order.vehicleModel}</div>
                                             </td>
-                                            <td className="px-3 py-2 text-slate-700 dark:text-slate-300">
+                                            <td className="px-3 py-3 text-slate-700 dark:text-slate-300">
                                                 {order.customerName}
                                             </td>
-                                            <td className="px-3 py-2">
+                                            <td className="px-3 py-3">
                                                 <div className="scale-90 origin-left">
                                                     {getStatusBadge(order.status)}
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-2 text-right font-medium text-slate-700 dark:text-slate-200">
+                                            <td className="px-3 py-3 text-right font-medium text-slate-700 dark:text-slate-200">
                                                 {formatCurrency(Number(order.grandTotal))}
                                             </td>
-                                            <td className="px-3 py-2 text-right">
+                                            <td className="px-3 py-3 text-right">
                                                 {Number(order.debt) > 0 ? (
                                                     <span className="text-red-500 font-medium">{formatCurrency(Number(order.debt))}</span>
                                                 ) : (
                                                     <span className="text-slate-400 text-[10px]">Đã thanh toán</span>
                                                 )}
                                             </td>
-                                            <td className="px-3 py-2 text-right">
+                                            <td className="px-3 py-3 text-right">
                                                 <Link
                                                     href={`/sale/orders/${order.id}?source=list`}
                                                     className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium text-sm transition-colors"

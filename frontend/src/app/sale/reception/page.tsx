@@ -111,42 +111,42 @@ export default function ReceptionListPage() {
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                     {filteredReceptions.map((r: any) => (
                                         <tr key={r.ID} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="px-3 py-2 text-center">
+                                            <td className="px-2 py-3 text-center">
                                                 {r.HinhAnh ? (
-                                                    <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 mx-auto">
+                                                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 mx-auto">
                                                         <img src={r.HinhAnh.split(',')[0]} alt="Xe" className="w-full h-full object-cover" />
                                                     </div>
                                                 ) : (
-                                                    <div className="w-12 h-12 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-400 mx-auto">
-                                                        <Car className="w-5 h-5 opacity-40" />
+                                                    <div className="w-10 h-10 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-400 mx-auto">
+                                                        <Car className="w-4 h-4 opacity-40" />
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-3 py-2 text-center">
+                                            <td className="px-3 py-3 text-center">
                                                 <div className="flex flex-col items-center">
-                                                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                                                    <span className="font-medium text-slate-900 dark:text-slate-100 text-sm">
                                                         {new Date(r.NgayGio).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
-                                                    <span className="text-xs text-slate-500">
+                                                    <span className="text-[11px] text-slate-400">
                                                         {new Date(r.NgayGio).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-2 text-center font-bold text-slate-800 dark:text-slate-200">
-                                                <Link href={`/sale/reception/${r.ID}`} className="hover:text-indigo-600 transition-colors">
+                                            <td className="px-3 py-3 text-center">
+                                                <Link href={`/sale/reception/${r.ID}`} className="font-bold text-sm text-slate-800 dark:text-slate-200 hover:text-indigo-600 transition-colors">
                                                     {r.XeBienSo}
                                                 </Link>
                                             </td>
-                                            <td className="px-3 py-2 text-left">
-                                                <div className="font-medium text-slate-800 dark:text-slate-200 w-max">{r.KhachHangName}</div>
-                                                <div className="text-xs text-slate-500 dark:text-slate-400">{r.KhachHangPhone}</div>
+                                            <td className="px-3 py-3 text-left">
+                                                <div className="font-medium text-sm text-slate-800 dark:text-slate-200">{r.KhachHangName}</div>
+                                                <div className="text-[11px] text-slate-400 dark:text-slate-500">{r.KhachHangPhone}</div>
                                             </td>
-                                            <td className="px-3 py-2 text-left">
-                                                <span className="text-slate-600 dark:text-slate-300">
+                                            <td className="px-3 py-3 text-left">
+                                                <span className="text-sm text-slate-600 dark:text-slate-300">
                                                     {r.XeNhanHieu} {r.XeModel}
                                                 </span>
                                             </td>
-                                            <td className="px-3 py-2 text-center">
+                                            <td className="px-3 py-3 text-center">
                                                 <div className="flex justify-center">
                                                     {r.DonHangSuaChua ? (
                                                         getStatusBadge(r.DonHangSuaChua.TrangThai)
@@ -157,8 +157,8 @@ export default function ReceptionListPage() {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-2">
-                                                <div className="flex items-center justify-center gap-3">
+                                            <td className="px-3 py-3 text-center">
+                                                <div className="flex items-center justify-center">
 
                                                     {r.DonHangSuaChua ? (
                                                         <Link
