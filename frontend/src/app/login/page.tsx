@@ -37,11 +37,13 @@ function LoginForm() {
         redirect: false,
       });
 
-      if (result?.error) {
-        setError('Tên đăng nhập hoặc mật khẩu không đúng');
-      } else {
-        router.push(callbackUrl);
+      // NextAuth v5 beta quirk: result.error can be "CredentialsSignin" 
+      // even on success. Use result.ok as the reliable indicator.
+      if (result?.ok) {
         router.refresh();
+        router.push(callbackUrl);
+      } else {
+        setError('Tên đăng nhập hoặc mật khẩu không đúng');
       }
     } catch {
       setError('Đã xảy ra lỗi. Vui lòng thử lại.');
