@@ -1,22 +1,30 @@
 package com.gara.modules.identity.service;
 
+import com.gara.dto.UserReqDTO;
+import com.gara.entity.Role;
 import com.gara.entity.User;
+import com.gara.modules.auth.repository.RoleRepository;
 import com.gara.modules.auth.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UserService(UserRepository userRepository,
+            RoleRepository roleRepository,
             PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -25,17 +33,31 @@ public class UserService {
     }
 
     @Transactional
-    public User createUser(User user) {
-        if (userRepository.findByTenDangNhap(user.getTenDangNhap()).isPresent()) {
+    public User createUser(UserReqDTO req) {
+        if (userRepository.findByTenDangNhap(req.getTenDangNhap()).isPresent()) {
             throw new RuntimeException("Tên đăng nhập đã tồn tại");
         }
-        user.setMatKhauHash(passwordEncoder.encode(user.getMatKhauHash()));
+
+        User user = new User();
+        user.setTenDangNhap(req.getTenDangNhap());
+        user.setHoTen(req.getHoTen());
+        user.setSoDienThoai(req.getSoDienThoai());
+        user.setMatKhauHash(passwordEncoder.encode(req.getMatKhauHash()));
         user.setTrangThaiHoatDong(true);
+
+        Set<Role> roles = new HashSet<>();
+        if (req.getRoleCodes() != null) {
+            for (String code : req.getRoleCodes()) {
+                roleRepository.findByName(code).ifPresent(roles::add);
+            }
+        }
+        user.setRoles(roles);
+
         return userRepository.save(user);
     }
 
     @Transactional
-    public User updateUser(Integer id, User req) {
+    public User updateUser(Integer id, UserReqDTO req) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -45,8 +67,12 @@ public class UserService {
             user.setSoDienThoai(req.getSoDienThoai());
 
         // Cập nhật Roles nếu có
-        if (req.getRoles() != null && !req.getRoles().isEmpty()) {
-            user.setRoles(new java.util.HashSet<>(req.getRoles()));
+        if (req.getRoleCodes() != null) {
+            Set<Role> roles = new HashSet<>();
+            for (String code : req.getRoleCodes()) {
+                roleRepository.findByName(code).ifPresent(roles::add);
+            }
+            user.setRoles(roles);
         }
 
         // Update password if provided

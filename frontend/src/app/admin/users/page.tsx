@@ -20,7 +20,7 @@ export default function UsersPage() {
         matKhauHash: '',
         hoTen: '',
         soDienThoai: '',
-        vaiTro: 'SALE' // Default
+        roleCodes: ['SALE'] as string[]
     });
     const confirm = useConfirm();
 
@@ -57,7 +57,7 @@ export default function UsersPage() {
             matKhauHash: '', // Keep empty
             hoTen: user.hoTen,
             soDienThoai: user.soDienThoai,
-            vaiTro: user.vaiTro
+            roleCodes: user.roles ? user.roles.map((r: any) => r.name) : []
         });
         setIsModalOpen(true);
     };
@@ -81,7 +81,7 @@ export default function UsersPage() {
             matKhauHash: '',
             hoTen: '',
             soDienThoai: '',
-            vaiTro: 'SALE'
+            roleCodes: ['SALE']
         });
     }
 
@@ -114,13 +114,21 @@ export default function UsersPage() {
                                     <TableCell className="font-semibold text-slate-700 dark:text-slate-300">{user.tenDangNhap}</TableCell>
                                     <TableCell>{user.hoTen}</TableCell>
                                     <TableCell>
-                                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-bold border ${user.vaiTro === 'ADMIN' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800' :
-                                            user.vaiTro === 'THO_SUA_CHUA' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800' :
-                                                user.vaiTro === 'KHO' ? 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700' :
-                                                    'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800'
-                                            }`}>
-                                            {user.vaiTro}
-                                        </span>
+                                        <div className="flex flex-wrap gap-1">
+                                            {user.roles && user.roles.length > 0 ? (
+                                                user.roles.map((role: any) => (
+                                                    <span key={role.name} className={`inline-flex px-2 py-0.5 rounded text-[11px] font-bold border ${role.name === 'ADMIN' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800' :
+                                                        role.name === 'THO_SUA_CHUA' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800' :
+                                                            role.name === 'KHO' ? 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700' :
+                                                                'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800'
+                                                        }`}>
+                                                        {role.name}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-slate-400 italic text-xs">Chưa có</span>
+                                            )}
+                                        </div>
                                     </TableCell>
                                     <TableCell>
                                         {getStatusBadge(user.trangThaiHoatDong ? 'ACTIVE' : 'INACTIVE')}
@@ -130,7 +138,7 @@ export default function UsersPage() {
                                             <Button size="icon" variant="ghost" onClick={() => handleEdit(user)} className="h-8 w-8 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
                                                 <Edit className="w-4 h-4" />
                                             </Button>
-                                            {user.vaiTro !== 'ADMIN' && (
+                                            {!(user.roles && user.roles.some((r: any) => r.name === 'ADMIN')) && (
                                                 <Button size="icon" variant="ghost" onClick={() => handleToggle(user.id)} className={`h-8 w-8 ${user.trangThaiHoatDong ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20' : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'}`}>
                                                     {user.trangThaiHoatDong ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                                                 </Button>
@@ -188,18 +196,34 @@ export default function UsersPage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">Vai trò</label>
-                                <select
-                                    className="w-full border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                    value={formData.vaiTro}
-                                    onChange={(e: any) => setFormData({ ...formData, vaiTro: e.target.value })}
-                                >
-                                    <option value="SALE">Sale (Cố vấn)</option>
-                                    <option value="THO_CHAN_DOAN">Thợ chẩn đoán</option>
-                                    <option value="THO_SUA_CHUA">Thợ sửa chữa</option>
-                                    <option value="KHO">Thủ kho</option>
-                                    <option value="ADMIN">Admin (Chủ gara)</option>
-                                </select>
+                                <label className="block text-sm font-medium mb-2 text-slate-700 dark:text-slate-300">Vai trò</label>
+                                <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-950 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
+                                    {[
+                                        { value: 'SALE', label: 'Sale (Cố vấn)' },
+                                        { value: 'THO_CHAN_DOAN', label: 'Thợ chẩn đoán' },
+                                        { value: 'THO_SUA_CHUA', label: 'Thợ sửa chữa' },
+                                        { value: 'KHO', label: 'Thủ kho' },
+                                        { value: 'ADMIN', label: 'Admin (Chủ gara)' }
+                                    ].map(role => (
+                                        <label key={role.value} className="flex items-center gap-2 cursor-pointer group">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                checked={formData.roleCodes.includes(role.value)}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        roleCodes: checked
+                                                            ? [...prev.roleCodes, role.value]
+                                                            : prev.roleCodes.filter(r => r !== role.value)
+                                                    }));
+                                                }}
+                                            />
+                                            <span className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 transition-colors">{role.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
                             </div>
                             <div className="flex justify-end gap-2 mt-6">
                                 <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Hủy</Button>

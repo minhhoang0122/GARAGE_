@@ -1,6 +1,6 @@
 package com.gara.modules.identity.controller;
 
-import com.gara.entity.User;
+import com.gara.dto.UserReqDTO;
 import com.gara.modules.identity.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,13 +30,13 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createUser(@RequestBody User user) {
-        return ResponseEntity.ok(userService.createUser(user));
+    public ResponseEntity<?> createUser(@RequestBody UserReqDTO req) {
+        return ResponseEntity.ok(userService.createUser(req));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateUser(@PathVariable Integer id, @RequestBody User user) {
-        return ResponseEntity.ok(userService.updateUser(id, user));
+    public ResponseEntity<?> updateUser(@PathVariable Integer id, @RequestBody UserReqDTO req) {
+        return ResponseEntity.ok(userService.updateUser(id, req));
     }
 
     @PostMapping("/{id}/toggle-active")
