@@ -48,7 +48,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (user != null && user.getTrangThaiHoatDong()) {
                 java.util.List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
                 if (roles != null) {
-                    roles.forEach(role -> authorities.add(new SimpleGrantedAuthority("ROLE_" + role)));
+                    roles.forEach(role -> {
+                        authorities.add(new SimpleGrantedAuthority(role)); // for hasAuthority("ADMIN")
+                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role)); // for hasRole("ADMIN")
+                    });
                 }
                 if (permissions != null) {
                     permissions.forEach(permission -> authorities.add(new SimpleGrantedAuthority(permission)));
