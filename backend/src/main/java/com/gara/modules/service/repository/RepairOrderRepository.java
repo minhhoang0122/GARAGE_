@@ -175,14 +175,14 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         "JOIN i.hangHoa h " +
                         "WHERE r.trangThai IN ('HOAN_THANH', 'DONG') " +
                         "AND h.baoHanhSoThang > 0 " +
-                        "AND FUNCTION('DATEADD', month, h.baoHanhSoThang, r.ngayTao) > CURRENT_TIMESTAMP")
+                        "AND r.ngayTao > CURRENT_TIMESTAMP")
         List<RepairOrder> findOrdersWithActiveWarranty();
 
         @Query(value = "SELECT COUNT(DISTINCT i.id) " +
-                        "FROM don_hang_sua_chua r " +
-                        "JOIN chi_tiet_don_hang i ON r.id = i.don_hang_sua_chua_id " +
-                        "JOIN hang_hoa h ON i.hang_hoa_id = h.id " +
-                        "JOIN phieu_tiep_nhan ptn ON r.phieu_tiep_nhan_id = ptn.id " +
+                        "FROM donhangsuachua r " +
+                        "JOIN chitietdonhang i ON r.id = i.don_hang_sua_chua_id " +
+                        "JOIN hanghoa h ON i.hang_hoa_id = h.id " +
+                        "JOIN phieutiepnhan ptn ON r.phieu_tiep_nhan_id = ptn.id " +
                         "JOIN xe x ON ptn.xe_bien_so = x.bien_so " +
                         "WHERE x.bien_so = :plate " +
                         "AND r.trang_thai IN ('HOAN_THANH', 'DONG') " +

@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "PhieuXuatKho")
+@Table(name = "exportnote")
 public class ExportNote {
 
     @Id

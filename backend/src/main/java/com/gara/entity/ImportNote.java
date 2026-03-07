@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "PhieuNhapKho")
+@Table(name = "importnote")
 public class ImportNote {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

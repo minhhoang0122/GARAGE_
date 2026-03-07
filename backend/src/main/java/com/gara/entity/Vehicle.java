@@ -4,8 +4,8 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "Xe", indexes = {
-        @Index(name = "idx_bien_so", columnList = "BienSo", unique = true)
+@Table(name = "xe", indexes = {
+        @Index(name = "idx_bien_so", columnList = "bien_so", unique = true)
 })
 public class Vehicle {
 
