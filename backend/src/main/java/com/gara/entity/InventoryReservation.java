@@ -10,42 +10,42 @@ public class InventoryReservation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "SoLuong", nullable = false)
+    @Column(name = "so_luong", nullable = false)
     private Integer soLuong;
 
-    @Column(name = "TrangThai", length = 20)
+    @Column(name = "trang_thai", length = 20)
     private String trangThai = "ACTIVE"; // ACTIVE, CONVERTED, RELEASED, EXPIRED
 
-    @Column(name = "NgayHetHan", nullable = false)
+    @Column(name = "ngay_het_han", nullable = false)
     private LocalDateTime ngayHetHan;
 
-    @Column(name = "NgayTao")
+    @Column(name = "ngay_tao")
     private LocalDateTime ngayTao;
 
     // Foreign Keys
-    @Column(name = "DonHangSuaChuaID", insertable = false, updatable = false)
+    @Column(name = "don_hang_sua_chua_id", insertable = false, updatable = false)
     private Integer donHangSuaChuaId;
 
-    @Column(name = "HangHoaID", insertable = false, updatable = false)
+    @Column(name = "hang_hoa_id", insertable = false, updatable = false)
     private Integer hangHoaId;
 
-    @Column(name = "NguoiTaoID", insertable = false, updatable = false)
+    @Column(name = "nguoi_tao_id", insertable = false, updatable = false)
     private Integer nguoiTaoId;
 
     // Relations
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "DonHangSuaChuaID")
+    @JoinColumn(name = "don_hang_sua_chua_id")
     private RepairOrder donHangSuaChua;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "HangHoaID")
+    @JoinColumn(name = "hang_hoa_id")
     private Product hangHoa;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "NguoiTaoID")
+    @JoinColumn(name = "nguoi_tao_id")
     private User nguoiTao;
 
     @PrePersist

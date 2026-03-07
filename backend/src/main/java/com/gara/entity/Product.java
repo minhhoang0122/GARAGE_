@@ -6,54 +6,54 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "HangHoa", indexes = {
-        @Index(name = "idx_ma_hang", columnList = "MaHang"),
-        @Index(name = "idx_ten_hang", columnList = "TenHang"),
-        @Index(name = "idx_la_dich_vu", columnList = "LaDichVu")
+        @Index(name = "idx_ma_hang", columnList = "ma_hang"),
+        @Index(name = "idx_ten_hang", columnList = "ten_hang"),
+        @Index(name = "idx_la_dich_vu", columnList = "la_dich_vu")
 })
 public class Product {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "MaHang", unique = true, nullable = false, length = 50)
+    @Column(name = "ma_hang", unique = true, nullable = false, length = 50)
     private String maHang;
 
-    @Column(name = "TenHang", nullable = false, length = 200)
+    @Column(name = "ten_hang", nullable = false, length = 200)
     private String tenHang;
 
-    @Column(name = "GiaBanNiemYet", precision = 18, scale = 2)
+    @Column(name = "gia_ban_niem_yet", precision = 18, scale = 2)
     private BigDecimal giaBanNiemYet;
 
-    @Column(name = "GiaVon", precision = 18, scale = 2)
+    @Column(name = "gia_von", precision = 18, scale = 2)
     private BigDecimal giaVon = BigDecimal.ZERO;
 
-    @Column(name = "GiaSan", precision = 18, scale = 2)
+    @Column(name = "gia_san", precision = 18, scale = 2)
     private BigDecimal giaSan = BigDecimal.ZERO;
 
-    @Column(name = "SoLuongTon")
+    @Column(name = "so_luong_ton")
     private Integer soLuongTon = 0;
 
-    @Column(name = "DinhMucTonToiThieu")
+    @Column(name = "dinh_muc_ton_toi_thieu")
     private Integer dinhMucTonToiThieu = 5;
 
-    @Column(name = "BaoHanh_SoThang")
+    @Column(name = "bao_hanh_so_thang")
     private Integer baoHanhSoThang = 0;
 
-    @Column(name = "BaoHanh_KM")
+    @Column(name = "bao_hanh_km")
     private Integer baoHanhKm = 0;
 
-    @Column(name = "LaDichVu")
+    @Column(name = "la_dich_vu")
     private Boolean laDichVu = false;
 
-    @Column(name = "ThueVAT", precision = 5, scale = 2)
+    @Column(name = "thue_vat", precision = 5, scale = 2)
     private BigDecimal thueVAT = new BigDecimal("10.00"); // Default 10%
 
-    @Column(name = "ChoPhepBaoHanh")
+    @Column(name = "cho_phep_bao_hanh")
     private Boolean choPhepBaoHanh = true;
 
-    @Column(name = "NgayTao")
+    @Column(name = "ngay_tao")
     private LocalDateTime ngayTao;
 
     @PrePersist

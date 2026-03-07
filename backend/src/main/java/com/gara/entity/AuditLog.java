@@ -10,37 +10,37 @@ public class AuditLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "Bang", length = 50, nullable = false)
+    @Column(name = "bang", length = 50, nullable = false)
     private String bang;
 
-    @Column(name = "BanGhiID", nullable = false)
+    @Column(name = "ban_ghi_id", nullable = false)
     private Integer banGhiId;
 
-    @Column(name = "HanhDong", length = 20, nullable = false)
+    @Column(name = "hanh_dong", length = 20, nullable = false)
     private String hanhDong; // INSERT, UPDATE, DELETE
 
-    @Column(name = "DuLieuCu", columnDefinition = "TEXT")
+    @Column(name = "du_lieu_cu", columnDefinition = "TEXT")
     private String duLieuCu;
 
-    @Column(name = "DuLieuMoi", columnDefinition = "TEXT")
+    @Column(name = "du_lieu_moi", columnDefinition = "TEXT")
     private String duLieuMoi;
 
-    @Column(name = "LyDo", length = 500)
+    @Column(name = "ly_do", length = 500)
     private String lyDo;
 
-    @Column(name = "NgayTao")
+    @Column(name = "ngay_tao")
     private LocalDateTime ngayTao;
 
     // Foreign Keys - allow direct ID insertion
-    @Column(name = "NguoiThucHienID")
+    @Column(name = "nguoi_thuc_hien_id")
     private Integer nguoiThucHienId;
 
     // Relations (read-only for display)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "NguoiThucHienID", insertable = false, updatable = false)
+    @JoinColumn(name = "nguoi_thuc_hien_id", insertable = false, updatable = false)
     private User nguoiThucHien;
 
     @PrePersist

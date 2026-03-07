@@ -9,32 +9,32 @@ public class ExportDetail {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "SoLuong", nullable = false)
+    @Column(name = "so_luong", nullable = false)
     private Integer soLuong;
 
-    @Column(name = "DonGiaXuat", precision = 18, scale = 2)
+    @Column(name = "don_gia_xuat", precision = 18, scale = 2)
     private BigDecimal donGiaXuat;
 
-    @Column(name = "ThanhTien", precision = 18, scale = 2)
+    @Column(name = "thanh_tien", precision = 18, scale = 2)
     private BigDecimal thanhTien;
 
     // Foreign Keys
-    @Column(name = "PhieuXuatKhoID", insertable = false, updatable = false)
+    @Column(name = "phieu_xuat_kho_id", insertable = false, updatable = false)
     private Integer phieuXuatKhoId;
 
-    @Column(name = "HangHoaID", insertable = false, updatable = false)
+    @Column(name = "hang_hoa_id", insertable = false, updatable = false)
     private Integer hangHoaId;
 
     // Relations
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "PhieuXuatKhoID", nullable = false)
+    @JoinColumn(name = "phieu_xuat_kho_id", nullable = false)
     private ExportNote phieuXuatKho;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "HangHoaID", nullable = false)
+    @JoinColumn(name = "hang_hoa_id", nullable = false)
     private Product hangHoa;
 
     public ExportDetail() {

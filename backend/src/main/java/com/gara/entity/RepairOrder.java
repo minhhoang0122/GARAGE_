@@ -8,94 +8,94 @@ import java.util.List;
 
 @Entity
 @Table(name = "DonHangSuaChua", indexes = {
-        @Index(name = "idx_trang_thai", columnList = "TrangThai"),
-        @Index(name = "idx_ngay_tao", columnList = "NgayTao")
+        @Index(name = "idx_trang_thai", columnList = "trang_thai"),
+        @Index(name = "idx_ngay_tao", columnList = "ngay_tao")
 })
 public class RepairOrder {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "NgayTao")
+    @Column(name = "ngay_tao")
     private LocalDateTime ngayTao;
 
-    @Column(name = "NgayDuyet")
+    @Column(name = "ngay_duyet")
     private LocalDateTime ngayDuyet;
 
-    @Column(name = "TrangThai", length = 30)
+    @Column(name = "trang_thai", length = 30)
     private String trangThai = "TIEP_NHAN";
 
-    @Column(name = "TienCoc", precision = 18, scale = 2)
+    @Column(name = "tien_coc", precision = 18, scale = 2)
     private BigDecimal tienCoc = BigDecimal.ZERO;
 
-    @Column(name = "TongTienHang", precision = 18, scale = 2)
+    @Column(name = "tong_tien_hang", precision = 18, scale = 2)
     private BigDecimal tongTienHang = BigDecimal.ZERO;
 
-    @Column(name = "TongTienCong", precision = 18, scale = 2)
+    @Column(name = "tong_tien_cong", precision = 18, scale = 2)
     private BigDecimal tongTienCong = BigDecimal.ZERO;
 
-    @Column(name = "ChietKhauTong", precision = 18, scale = 2)
+    @Column(name = "chiet_khau_tong", precision = 18, scale = 2)
     private BigDecimal chietKhauTong = BigDecimal.ZERO;
 
-    @Column(name = "ThueVAT", precision = 18, scale = 2)
+    @Column(name = "thue_vat", precision = 18, scale = 2)
     private BigDecimal thueVAT = BigDecimal.ZERO;
 
-    @Column(name = "TongCong", precision = 18, scale = 2)
+    @Column(name = "tong_cong", precision = 18, scale = 2)
     private BigDecimal tongCong = BigDecimal.ZERO;
 
-    @Column(name = "LaDonBaoHanh")
+    @Column(name = "la_don_bao_hanh")
     private Boolean laDonBaoHanh = false;
 
-    @Column(name = "SoTienDaTra", precision = 18, scale = 2)
+    @Column(name = "so_tien_da_tra", precision = 18, scale = 2)
     private BigDecimal soTienDaTra = BigDecimal.ZERO;
 
-    @Column(name = "CongNo", precision = 18, scale = 2)
+    @Column(name = "cong_no", precision = 18, scale = 2)
     private BigDecimal congNo = BigDecimal.ZERO;
 
-    @Column(name = "PhuongThuc", length = 50)
+    @Column(name = "phuong_thuc", length = 50)
     private String phuongThuc;
 
-    @Column(name = "NgayThanhToan")
+    @Column(name = "ngay_thanh_toan")
     private LocalDateTime ngayThanhToan;
 
-    @Column(name = "GhiChu", length = 500)
+    @Column(name = "ghi_chu", length = 500)
     private String ghiChu;
 
-    @Column(name = "ParentOrderID", insertable = false, updatable = false)
+    @Column(name = "parent_order_id", insertable = false, updatable = false)
     private Integer parentOrderId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ParentOrderID")
+    @JoinColumn(name = "parent_order_id")
     private RepairOrder parentOrder;
 
-    @Column(name = "PhieuTiepNhanID", insertable = false, updatable = false)
+    @Column(name = "phieu_tiep_nhan_id", insertable = false, updatable = false)
     private Integer phieuTiepNhanId;
 
-    @Column(name = "ThoPhanCongID", insertable = false, updatable = false)
+    @Column(name = "tho_phan_cong_id", insertable = false, updatable = false)
     private Integer thoPhanCongId;
 
-    @Column(name = "NguoiPhuTrachID", insertable = false, updatable = false)
+    @Column(name = "nguoi_phu_trach_id", insertable = false, updatable = false)
     private Integer nguoiPhuTrachId;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "PhieuTiepNhanID", nullable = false)
+    @JoinColumn(name = "phieu_tiep_nhan_id", nullable = false)
     private Reception phieuTiepNhan;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ThoPhanCongID")
+    @JoinColumn(name = "tho_phan_cong_id")
     private User thoPhanCong;
 
-    @Column(name = "ThoChanDoanID", insertable = false, updatable = false)
+    @Column(name = "tho_chan_doan_id", insertable = false, updatable = false)
     private Integer thoChanDoanId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ThoChanDoanID")
+    @JoinColumn(name = "tho_chan_doan_id")
     private User thoChanDoan;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "NguoiPhuTrachID")
+    @JoinColumn(name = "nguoi_phu_trach_id")
     private User nguoiPhuTrach;
 
     @OneToMany(mappedBy = "donHangSuaChua", cascade = CascadeType.ALL)

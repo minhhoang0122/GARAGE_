@@ -10,76 +10,76 @@ public class OrderItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "SoLuong", nullable = false)
+    @Column(name = "so_luong", nullable = false)
     private Integer soLuong;
 
-    @Column(name = "DonGiaGoc", precision = 18, scale = 2)
+    @Column(name = "don_gia_goc", precision = 18, scale = 2)
     private BigDecimal donGiaGoc;
 
-    @Column(name = "GiamGiaTien", precision = 18, scale = 2)
+    @Column(name = "giam_gia_tien", precision = 18, scale = 2)
     private BigDecimal giamGiaTien = BigDecimal.ZERO;
 
-    @Column(name = "GiamGiaPhanTram", precision = 5, scale = 2)
+    @Column(name = "giam_gia_phan_tram", precision = 5, scale = 2)
     private BigDecimal giamGiaPhanTram = BigDecimal.ZERO;
 
-    @Column(name = "ThanhTien", precision = 18, scale = 2)
+    @Column(name = "thanh_tien", precision = 18, scale = 2)
     private BigDecimal thanhTien;
 
-    @Column(name = "UuTien")
+    @Column(name = "uu_tien")
     private Integer uuTien = 0;
 
-    @Column(name = "LyDoChinhGia", length = 200)
+    @Column(name = "ly_do_chinh_gia", length = 200)
     private String lyDoChinhGia;
 
-    @Column(name = "TrangThai", length = 20)
+    @Column(name = "trang_thai", length = 20)
     private String trangThai = "DE_XUAT"; // DE_XUAT, KHACH_DONG_Y, KHACH_TU_CHOI
 
-    @Column(name = "LaHangBaoHanh")
+    @Column(name = "la_hang_bao_hanh")
     private Boolean laHangBaoHanh = false;
 
-    @Column(name = "GhiChuBaoHanh", length = 500)
+    @Column(name = "ghi_chu_bao_hanh", length = 500)
     private String ghiChuBaoHanh;
 
-    @Column(name = "DaHoanThanh")
+    @Column(name = "da_hoan_thanh")
     private Boolean daHoanThanh = false;
 
-    @Column(name = "SoLuongThoToiDa")
+    @Column(name = "so_luong_tho_toi_da")
     private Integer soLuongThoToiDa = 4;
 
     // Foreign Keys
-    @Column(name = "DonHangSuaChuaID", insertable = false, updatable = false)
+    @Column(name = "don_hang_sua_chua_id", insertable = false, updatable = false)
     private Integer donHangSuaChuaId;
 
-    @Column(name = "HangHoaID", insertable = false, updatable = false)
+    @Column(name = "hang_hoa_id", insertable = false, updatable = false)
     private Integer hangHoaId;
 
     // Relations
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "DonHangSuaChuaID", nullable = false)
+    @JoinColumn(name = "don_hang_sua_chua_id", nullable = false)
     private RepairOrder donHangSuaChua;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "HangHoaID", nullable = false)
+    @JoinColumn(name = "hang_hoa_id", nullable = false)
     private Product hangHoa;
 
-    @Column(name = "NguoiThucHienID", insertable = false, updatable = false)
+    @Column(name = "nguoi_thuc_hien_id", insertable = false, updatable = false)
     private Integer nguoiThucHienId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "NguoiThucHienID")
+    @JoinColumn(name = "nguoi_thuc_hien_id")
     private User nguoiThucHien;
 
     @OneToMany(mappedBy = "chiTietDonHang", cascade = CascadeType.ALL)
     private List<TaskAssignment> phanCongTho;
 
-    @Column(name = "NguoiDeXuatID", insertable = false, updatable = false)
+    @Column(name = "nguoi_de_xuat_id", insertable = false, updatable = false)
     private Integer nguoiDeXuatId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "NguoiDeXuatID")
+    @JoinColumn(name = "nguoi_de_xuat_id")
     private User nguoiDeXuat;
 
     public OrderItem() {

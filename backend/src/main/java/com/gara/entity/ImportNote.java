@@ -10,29 +10,29 @@ import java.util.List;
 public class ImportNote {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "MaPhieu", length = 50, unique = true)
+    @Column(name = "ma_phieu", length = 50, unique = true)
     private String maPhieu;
 
-    @Column(name = "NhaCungCap", length = 200)
+    @Column(name = "nha_ cung_cap", length = 200)
     private String nhaCungCap;
 
-    @Column(name = "NgayNhap")
+    @Column(name = "ngay_nhap")
     private LocalDateTime ngayNhap;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "NguoiTaoID")
+    @JoinColumn(name = "nguoi_nhap_id")
     private User nguoiNhap;
 
-    @Column(name = "TongTien", precision = 18, scale = 2)
+    @Column(name = "tong_tien", precision = 18, scale = 2)
     private BigDecimal tongTien;
 
-    @Column(name = "GhiChu", length = 500)
+    @Column(name = "ghi_chu", length = 500)
     private String ghiChu;
 
-    @Column(name = "TrangThai", length = 20)
+    @Column(name = "trang_thai", length = 20)
     private String trangThai; // PENDING, COMPLETED, REJECTED
 
     @OneToMany(mappedBy = "phieuNhap", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

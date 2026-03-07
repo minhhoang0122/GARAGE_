@@ -9,24 +9,24 @@ public class TaskAssignment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ChiTietDonHangID", nullable = false)
+    @JoinColumn(name = "chi_tiet_don_hang_id", nullable = false)
     private OrderItem chiTietDonHang;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ThoID", nullable = false)
+    @JoinColumn(name = "tho_id", nullable = false)
     private User tho;
 
-    @Column(name = "PhanTramCong", precision = 5, scale = 2)
+    @Column(name = "phan_tram_cong", precision = 5, scale = 2)
     private BigDecimal phanTramCong; // e.g. 70.00 for 70%
 
-    @Column(name = "LaThoChinh")
+    @Column(name = "la_tho_chinh")
     private Boolean laThoChinh = false;
 
-    @Column(name = "TrangThai", length = 20)
+    @Column(name = "trang_thai", length = 20)
     private String trangThai; // APPROVED, PENDING
 
     public TaskAssignment() {

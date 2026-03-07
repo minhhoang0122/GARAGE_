@@ -9,13 +9,13 @@ import jakarta.persistence.Table;
 @Table(name = "SystemConfig")
 public class SystemConfig {
     @Id
-    @Column(name = "ConfigKey", length = 50)
+    @Column(name = "config_key", length = 50)
     private String configKey;
 
-    @Column(name = "ConfigValue", length = 255)
+    @Column(name = "config_value", length = 255)
     private String configValue;
 
-    @Column(name = "Description", length = 255)
+    @Column(name = "description", length = 255)
     private String description;
 
     public SystemConfig() {

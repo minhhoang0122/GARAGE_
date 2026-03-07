@@ -8,37 +8,37 @@ import java.time.LocalDateTime;
 public class Notification {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "NguoiDungID")
+    @Column(name = "nguoi_dung_id")
     private Integer userId;
 
-    @Column(name = "VaiTro")
+    @Column(name = "vai_tro")
     private String role; // Role-based notification (e.g. THO, NHAN_VIEN_KHO)
 
     @org.hibernate.annotations.Nationalized
-    @Column(name = "TieuDe", columnDefinition = "VARCHAR(255)")
+    @Column(name = "tieu_de", columnDefinition = "VARCHAR(255)")
     private String title;
 
     @org.hibernate.annotations.Nationalized
-    @Column(name = "NoiDung", columnDefinition = "TEXT")
+    @Column(name = "noi_dung", columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "Loai")
+    @Column(name = "loai")
     private String type; // INFO, WARNING, SUCCESS, ERROR
 
-    @Column(name = "LienKet")
+    @Column(name = "lien_ket")
     private String link;
 
-    @Column(name = "DaXem")
+    @Column(name = "da_xem")
     private Boolean isRead = false;
 
-    @Column(name = "NgayTao")
+    @Column(name = "ngay_tao")
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "NguoiDungID", insertable = false, updatable = false)
+    @JoinColumn(name = "nguoi_dung_id", insertable = false, updatable = false)
     private User user;
 
     public Notification() {

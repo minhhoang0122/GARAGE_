@@ -9,33 +9,33 @@ import java.time.LocalDate;
 public class ImportDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID")
+    @Column(name = "id")
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "PhieuNhapKhoID", nullable = false)
+    @JoinColumn(name = "phieu_nhap_kho_id", nullable = false)
     private ImportNote phieuNhap;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "HangHoaID", nullable = false)
+    @JoinColumn(name = "hang_hoa_id", nullable = false)
     private Product hangHoa;
 
-    @Column(name = "SoLuong", nullable = false)
+    @Column(name = "so_luong", nullable = false)
     private Integer soLuong;
 
-    @Column(name = "DonGiaNhap", precision = 18, scale = 2)
+    @Column(name = "don_gia_nhap", precision = 18, scale = 2)
     private BigDecimal donGiaNhap;
 
-    @Column(name = "ThanhTien", precision = 18, scale = 2)
+    @Column(name = "thanh_tien", precision = 18, scale = 2)
     private BigDecimal thanhTien;
 
-    @Column(name = "HanSuDung")
+    @Column(name = "han_su_dung")
     private LocalDate hanSuDung;
 
-    @Column(name = "ThueVAT", precision = 5, scale = 2)
+    @Column(name = "thue_vat", precision = 5, scale = 2)
     private BigDecimal thueVAT;
 
-    @Column(name = "SoLuongConLai")
+    @Column(name = "so_luong_con_lai")
     private Integer soLuongConLai;
 
     public ImportDetail() {

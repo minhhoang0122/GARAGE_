@@ -9,25 +9,24 @@ import java.time.LocalDateTime;
 @Entity
 public class FinancialTransaction {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Integer id;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(name = "amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "type", nullable = false)
     private TransactionType type; // DEPOSIT, PAYMENT, REFUND
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "method", nullable = false)
     private PaymentMethod method; // CASH, TRANSFER
 
     @Column(name = "reference_code")
     private String referenceCode; // For bank transfer ID
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 
     @ManyToOne(fetch = FetchType.LAZY)
