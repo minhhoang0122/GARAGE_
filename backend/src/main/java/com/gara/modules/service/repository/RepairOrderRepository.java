@@ -178,15 +178,15 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         "AND FUNCTION('DATEADD', month, h.baoHanhSoThang, r.ngayTao) > CURRENT_TIMESTAMP")
         List<RepairOrder> findOrdersWithActiveWarranty();
 
-        @Query(value = "SELECT COUNT(DISTINCT i.ID) " +
-                        "FROM DonHangSuaChua r " +
-                        "JOIN ChiTietDonHang i ON r.ID = i.DonHangSuaChuaID " +
-                        "JOIN HangHoa h ON i.HangHoaID = h.ID " +
-                        "JOIN PhieuTiepNhan ptn ON r.PhieuTiepNhanID = ptn.ID " +
-                        "JOIN Xe x ON ptn.XeBienSo = x.BienSo " +
-                        "WHERE x.BienSo = :plate " +
-                        "AND r.TrangThai IN ('HOAN_THANH', 'DONG') " +
-                        "AND h.BaoHanh_SoThang > 0 " +
-                        "AND DATEADD(month, h.BaoHanh_SoThang, r.NgayTao) > GETDATE()", nativeQuery = true)
+        @Query(value = "SELECT COUNT(DISTINCT i.id) " +
+                        "FROM don_hang_sua_chua r " +
+                        "JOIN chi_tiet_don_hang i ON r.id = i.don_hang_sua_chua_id " +
+                        "JOIN hang_hoa h ON i.hang_hoa_id = h.id " +
+                        "JOIN phieu_tiep_nhan ptn ON r.phieu_tiep_nhan_id = ptn.id " +
+                        "JOIN xe x ON ptn.xe_bien_so = x.bien_so " +
+                        "WHERE x.bien_so = :plate " +
+                        "AND r.trang_thai IN ('HOAN_THANH', 'DONG') " +
+                        "AND h.bao_hanh_so_thang > 0 " +
+                        "AND (r.ngay_tao + (h.bao_hanh_so_thang || ' month')::interval) > CURRENT_TIMESTAMP", nativeQuery = true)
         long countActiveWarrantiesByPlate(@org.springframework.data.repository.query.Param("plate") String plate);
 }
