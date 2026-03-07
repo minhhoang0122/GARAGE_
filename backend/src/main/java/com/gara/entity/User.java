@@ -151,18 +151,6 @@ public class User {
         this.ngayTao = ngayTao;
     }
 
-    // Redundant property to satisfy Spring Data JPA if referenced as 'ngay_tao'
-    @Column(name = "ngay_tao", insertable = false, updatable = false)
-    private LocalDateTime ngay_tao;
-
-    public LocalDateTime getNgay_tao() {
-        return ngayTao;
-    }
-
-    public void setNgay_tao(LocalDateTime ngay_tao) {
-        this.ngayTao = ngay_tao;
-    }
-
     public static UserBuilder builder() {
         return new UserBuilder();
     }

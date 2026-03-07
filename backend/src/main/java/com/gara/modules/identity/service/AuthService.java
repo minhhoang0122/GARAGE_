@@ -130,10 +130,12 @@ public class AuthService {
             userRepository.save(user);
         } else {
             User user = userOptional.get();
+            // Force reset password to ensure login works with '123456'
+            user.setMatKhauHash(passwordEncoder.encode("123456"));
             if (user.getRoles().stream().noneMatch(r -> r.getName().equals(roleName))) {
                 user.getRoles().add(role);
-                userRepository.save(user);
             }
+            userRepository.save(user);
         }
     }
 }

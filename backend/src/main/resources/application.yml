@@ -43,7 +43,6 @@ spring:
     properties:
       hibernate:
         format_sql: false
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         # Batch optimization
         default_batch_fetch_size: 50
         jdbc:

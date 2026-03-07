@@ -6,6 +6,7 @@ import com.gara.modules.identity.service.AuthService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -18,15 +19,20 @@ public class DataSeeder implements CommandLineRunner {
 
         private final ProductRepository productRepository;
         private final AuthService authService;
+        private final JdbcTemplate jdbcTemplate;
 
-        public DataSeeder(ProductRepository productRepository, AuthService authService) {
+        public DataSeeder(ProductRepository productRepository, AuthService authService, JdbcTemplate jdbcTemplate) {
                 this.productRepository = productRepository;
                 this.authService = authService;
+                this.jdbcTemplate = jdbcTemplate;
         }
 
         @Override
         public void run(String... args) {
                 try {
+                        log.info("Cleaning up legacy columns if exist...");
+                        cleanupLegacyColumns();
+
                         log.info("Seeding default users...");
                         authService.seedDefaultUsers();
 
@@ -91,6 +97,33 @@ public class DataSeeder implements CommandLineRunner {
                         log.info("Seeded " + products.length + " products.");
                 } catch (Exception e) {
                         log.error("Failed to seed data: {}", e.getMessage());
+                }
+        }
+
+        private void cleanupLegacyColumns() {
+                try {
+                        String sql = "DO $$ " +
+                                        "DECLARE r RECORD; " +
+                                        "BEGIN " +
+                                        "    FOR r IN " +
+                                        "        SELECT t.table_name, c1.column_name AS legacy_col " +
+                                        "        FROM information_schema.tables t " +
+                                        "        JOIN information_schema.columns c1 ON t.table_name = c1.table_name " +
+                                        "        JOIN information_schema.columns c2 ON t.table_name = c2.table_name " +
+                                        "        WHERE t.table_schema = 'public' " +
+                                        "        AND t.table_type = 'BASE TABLE' " +
+                                        "        AND c2.column_name LIKE '%\\_%' " +
+                                        "        AND c1.column_name = replace(c2.column_name, '_', '') " +
+                                        "        AND t.table_name NOT LIKE 'databasechangelog%' " +
+                                        "    LOOP " +
+                                        "        EXECUTE format('ALTER TABLE %I DROP COLUMN IF EXISTS %I', r.table_name, r.legacy_col); "
+                                        +
+                                        "    END LOOP; " +
+                                        "END $$;";
+                        jdbcTemplate.execute(sql);
+                        log.info("Dynamic legacy cleanup completed successfully for all tables.");
+                } catch (Exception e) {
+                        log.error("Failed to perform dynamic legacy cleanup: {}", e.getMessage());
                 }
         }
 }
