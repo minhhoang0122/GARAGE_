@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, User, Phone, Car, FileText, CheckCircle2, Loader2, Mail, MapPin } from 'lucide-react';
+import { Calendar, User, Phone, Car, FileText, CheckCircle2, Loader2, Wrench, ArrowLeft, TriangleAlert } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 
 export default function BookingPage() {
     const { showToast } = useToast();
@@ -46,12 +47,12 @@ export default function BookingPage() {
 
             if (result.success) {
                 setSubmitted(true);
-                showToast('success', 'Đặt lịch thành công!');
+                // Xoá toast success mỏng manh vì đã có màn hình Phiếu cứng cáp
             } else {
-                showToast('error', result.message || 'Có lỗi xảy ra');
+                showToast('error', result.message || 'Có lỗi xảy ra khi truyền dữ liệu');
             }
         } catch (error) {
-            showToast('error', 'Lỗi kết nối máy chủ');
+            showToast('error', 'Mất kết nối với máy chủ xưởng');
         } finally {
             setLoading(false);
         }
@@ -66,190 +67,282 @@ export default function BookingPage() {
         }));
     };
 
+    // --- Mechanical Motion Variants ---
+    const mechanicalSpring = {
+        type: "spring" as const,
+        stiffness: 400,
+        damping: 25
+    };
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: { staggerChildren: 0.05 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, scale: 0.98, y: 10 },
+        show: { opacity: 1, scale: 1, y: 0, transition: mechanicalSpring }
+    };
+
+    // --- Màn hình Hoàn tất: Dạng "Phiếu Tiếp Nhận" Công nghiệp ---
     if (submitted) {
         return (
-            <div className="min-h-screen bg-[#fafaf8] flex items-center justify-center p-4">
-                <div className="max-w-md w-full bg-white rounded-sm shadow-xl p-10 text-center border-t-4 border-orange-500">
-                    <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <CheckCircle2 size={40} />
+            <div className="min-h-screen bg-[#1C1917] flex items-center justify-center p-4 selection:bg-orange-500 selection:text-white">
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={mechanicalSpring}
+                    className="max-w-xl w-full bg-[#fafaf8] border-t-[12px] border-orange-600 shadow-2xl relative"
+                >
+                    {/* Dấu xé giấy ở viền */}
+                    <div className="absolute top-0 left-0 w-full h-3 flex overflow-hidden -mt-3">
+                        {Array.from({ length: 20 }).map((_, i) => (
+                            <div key={i} className="w-8 h-8 rounded-full bg-[#1C1917] -mt-5 mx-0.5 shrink-0"></div>
+                        ))}
                     </div>
-                    <h2 className="text-3xl font-bold text-slate-900 mb-4">Hoàn tất đặt lịch!</h2>
-                    <p className="text-slate-600 mb-8">
-                        Cảm ơn {formData.hoTen}. Chúng tôi đã tiếp nhận yêu cầu đặt lịch của bạn.
-                        Nhân viên kỹ thuật sẽ liên hệ báo giá sơ bộ và xác nhận trong thời gian sớm nhất.
-                    </p>
-                    <Link href="/" className="block w-full bg-orange-600 text-white py-4 rounded-sm font-bold hover:bg-orange-700 transition-colors">
-                        Quay lại trang chủ
-                    </Link>
-                </div>
+
+                    <div className="p-10 md:p-14">
+                        <div className="flex justify-between items-start mb-10 border-b-2 border-stone-200 pb-8">
+                            <div>
+                                <h2 className="text-3xl font-extrabold text-[#111] uppercase tracking-tight">Phiếu Tiếp Nhận</h2>
+                                <p className="text-stone-500 mt-1 font-mono uppercase text-sm">Mã chờ: #GN-{Math.floor(1000 + Math.random() * 9000)}</p>
+                            </div>
+                            <div className="w-16 h-16 bg-stone-900 flex items-center justify-center text-orange-500 shadow-[4px_4px_0_0_#ea580c]">
+                                <CheckCircle2 size={32} strokeWidth={2.5} />
+                            </div>
+                        </div>
+
+                        <div className="space-y-6 mb-12 font-mono text-sm tracking-tight text-stone-700">
+                            <div className="grid grid-cols-3 gap-4 border-l-2 border-stone-300 pl-4">
+                                <span className="font-bold">Khách hàng:</span>
+                                <span className="col-span-2 text-stone-900 uppercase font-bold">{formData.hoTen}</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4 border-l-2 border-stone-300 pl-4">
+                                <span className="font-bold">Biển số:</span>
+                                <span className="col-span-2 text-stone-900 border border-stone-900 bg-white px-2 py-0.5 inline-block w-fit font-bold">{formData.bienSoXe || 'CHƯA CẬP NHẬT'}</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4 border-l-2 border-stone-300 pl-4">
+                                <span className="font-bold">SĐT Liên hệ:</span>
+                                <span className="col-span-2 text-stone-900">{formData.soDienThoai}</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4 border-l-2 border-stone-300 pl-4">
+                                <span className="font-bold">Hạng mục:</span>
+                                <span className="col-span-2 text-stone-900">
+                                    {formData.selectedServiceIds.length > 0
+                                        ? `${formData.selectedServiceIds.length} Dịch vụ yêu cầu`
+                                        : 'Chẩn đoán chung'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="bg-orange-50 p-4 border border-orange-200 mb-10 flex gap-4">
+                            <TriangleAlert className="text-orange-600 shrink-0" />
+                            <p className="text-sm font-medium text-orange-900 leading-relaxed">
+                                Cố vấn Dịch vụ sẽ gọi cho quý khách trong vòng 30 phút để chốt giờ đưa xe vào cầu nâng. Xin để ý điện thoại.
+                            </p>
+                        </div>
+
+                        <Link href="/" className="group block w-full bg-[#111] hover:bg-black text-white text-center py-5 font-bold uppercase tracking-widest transition-all active:scale-95 shadow-xl hover:shadow-orange-600/20 shadow-orange-600/10 flex items-center justify-center gap-3">
+                            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+                            Quay Về Trang Chủ
+                        </Link>
+                    </div>
+                </motion.div>
             </div>
         );
     }
 
+    // --- Màn hình Form Booking ---
     return (
-        <div className="min-h-screen bg-[#fafaf8] py-12 px-4 selection:bg-orange-200">
-            <div className="max-w-4xl mx-auto">
-                <div className="mb-10 text-center">
-                    <h1 className="text-4xl font-extrabold text-[#111] mb-4 tracking-tight">Đặt lịch sửa chữa</h1>
-                    <p className="text-stone-600 text-lg">Khám bắt bệnh miễn phí. Có báo giá mới làm.</p>
+        <div className="min-h-screen bg-[#1C1917] selection:bg-orange-500 selection:text-white py-12 md:py-20 px-4">
+            <div className="max-w-5xl mx-auto">
+                {/* Header Back & Info */}
+                <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
+                    <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={mechanicalSpring}
+                    >
+                        <Link href="/" className="inline-flex items-center gap-2 text-stone-400 hover:text-white mb-6 uppercase text-xs font-bold tracking-widest transition-colors">
+                            <ArrowLeft size={16} /> Quay lại
+                        </Link>
+                        <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-3 tracking-tighter uppercase">Xếp Nốt Đưa Xe Vào Xưởng</h1>
+                        <p className="text-stone-400 text-lg border-l-4 border-orange-600 pl-4 mt-4">Khai báo tình trạng để thợ máy chuẩn bị cầu nâng và phụ tùng trước khi bạn đến.</p>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={mechanicalSpring}
+                        className="bg-stone-800 text-stone-300 p-4 border border-stone-700 flex items-center gap-4 hidden lg:flex shrink-0"
+                    >
+                        <div className="w-12 h-12 bg-orange-600 flex items-center justify-center text-white font-bold text-xl scale-110">
+                            24/7
+                        </div>
+                        <div>
+                            <p className="text-sm uppercase tracking-wide">Hotline Cứu Hộ Lốp/Máy</p>
+                            <a href="tel:0987654321" className="text-xl font-bold text-white tracking-widest">098.765.4321</a>
+                        </div>
+                    </motion.div>
                 </div>
 
-                <div className="bg-white rounded-none shadow-sm border border-stone-200 overflow-hidden">
-                    <form onSubmit={handleSubmit} className="divide-y divide-stone-100">
-                        {/* Section 1: Customer Info */}
-                        <div className="p-8">
-                            <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-orange-600">
-                                <User size={20} />
-                                THÔNG TIN CHỦ XE
-                            </h2>
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-bold text-stone-700 mb-2">Họ và tên *</label>
+                {/* Form Wrapper */}
+                <motion.div
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="show"
+                    className="bg-[#fafaf8] rounded-none shadow-2xl relative"
+                >
+                    {/* Industrial Tab Edge */}
+                    <div className="absolute top-0 left-0 w-full h-[6px] bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500"></div>
+
+                    <form onSubmit={handleSubmit} className="divide-y-4 divide-stone-200">
+                        {/* Khu vực 1: Con Người */}
+                        <div className="p-8 md:p-12 lg:grid lg:grid-cols-4 gap-12">
+                            <div className="lg:col-span-1 mb-8 lg:mb-0">
+                                <div className="flex items-center gap-3 font-bold text-[#111] uppercase tracking-wider mb-2">
+                                    <div className="bg-[#111] text-white p-2 shrink-0 shadow-[2px_2px_0_0_#ea580c]">
+                                        <User size={20} />
+                                    </div>
+                                    <span className="text-lg">Tài xế</span>
+                                </div>
+                                <p className="text-sm text-stone-500 mt-4 leading-relaxed">Thông tin người liên hệ trực tiếp nhận báo giá và tư vấn từ Cố Vấn Dịch Vụ.</p>
+                            </div>
+
+                            <motion.div className="lg:col-span-3 grid md:grid-cols-2 gap-6">
+                                <motion.div variants={itemVariants}>
+                                    <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-2">Tên gọi *</label>
                                     <input
                                         required
                                         type="text"
-                                        className="w-full px-4 py-3 rounded-none border border-stone-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
+                                        className="w-full px-5 py-4 bg-white border-2 border-stone-200 focus:border-[#111] focus:ring-0 outline-none transition-colors font-medium text-lg placeholder:font-normal placeholder:text-stone-300 shadow-inner"
                                         placeholder="Nguyễn Văn A"
                                         value={formData.hoTen}
                                         onChange={e => setFormData({ ...formData, hoTen: e.target.value })}
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-stone-700 mb-2">Số điện thoại *</label>
+                                </motion.div>
+                                <motion.div variants={itemVariants}>
+                                    <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-2">Số điện thoại *</label>
                                     <input
                                         required
                                         type="tel"
-                                        className="w-full px-4 py-3 rounded-none border border-stone-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
+                                        className="w-full px-5 py-4 bg-white border-2 border-stone-200 focus:border-[#111] focus:ring-0 outline-none transition-colors font-medium text-lg placeholder:font-normal placeholder:text-stone-300 font-mono shadow-inner"
                                         placeholder="09xx xxx xxx"
                                         value={formData.soDienThoai}
                                         onChange={e => setFormData({ ...formData, soDienThoai: e.target.value })}
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-stone-700 mb-2">Email</label>
-                                    <input
-                                        type="email"
-                                        className="w-full px-4 py-3 rounded-none border border-stone-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
-                                        placeholder="khach@example.com"
-                                        value={formData.email}
-                                        onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-stone-700 mb-2">Khu vực</label>
-                                    <input
-                                        type="text"
-                                        className="w-full px-4 py-3 rounded-none border border-stone-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
-                                        placeholder="Quận/Huyện"
-                                        value={formData.diaChi}
-                                        onChange={e => setFormData({ ...formData, diaChi: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Section 2: Vehicle Info */}
-                        <div className="p-8 bg-[#fafaf8]">
-                            <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-orange-600">
-                                <Car size={20} />
-                                THÔNG TIN VỀ XE
-                            </h2>
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-bold text-stone-700 mb-2">Biển số xe *</label>
+                                </motion.div>
+                                <motion.div variants={itemVariants}>
+                                    <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-2">Biển số (* Bắt buộc)</label>
                                     <input
                                         required
                                         type="text"
-                                        className="w-full px-4 py-3 rounded-none border border-stone-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all uppercase"
-                                        placeholder="30A-123.45"
+                                        className="w-full px-5 py-4 bg-yellow-50 border-2 border-yellow-400 focus:border-[#111] text-[#111] focus:bg-white focus:ring-0 outline-none transition-colors font-bold text-xl uppercase tracking-widest placeholder:text-yellow-300/50 placeholder:font-medium shadow-inner"
+                                        placeholder="30E-123.45"
                                         value={formData.bienSoXe}
                                         onChange={e => setFormData({ ...formData, bienSoXe: e.target.value })}
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-stone-700 mb-2">Dòng xe (Đời xe)</label>
+                                </motion.div>
+                                <motion.div variants={itemVariants}>
+                                    <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-2">Đời xe (VD: CX5 2020)</label>
                                     <input
                                         type="text"
-                                        className="w-full px-4 py-3 rounded-none border border-stone-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
-                                        placeholder="Ví dụ: Innova G 2018"
+                                        className="w-full px-5 py-4 bg-white border-2 border-stone-200 focus:border-[#111] focus:ring-0 outline-none transition-colors font-medium text-lg placeholder:font-normal placeholder:text-stone-300 uppercase shadow-inner"
+                                        placeholder="Hãng/Model/Năm"
                                         value={formData.modelXe}
                                         onChange={e => setFormData({ ...formData, modelXe: e.target.value })}
                                     />
-                                </div>
-                            </div>
+                                </motion.div>
+                            </motion.div>
                         </div>
 
-                        {/* Section 3: Appointment & Services */}
-                        <div className="p-8">
-                            <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-orange-600">
-                                <Calendar size={20} />
-                                NHU CẦU SỬA CHỮA
-                            </h2>
-                            <div className="space-y-6">
-                                <div>
-                                    <label className="block text-sm font-bold text-stone-700 mb-2">Thời gian mang xe qua *</label>
+                        {/* Khu Vực 2: Tình Trạng */}
+                        <div className="p-8 md:p-12 lg:grid lg:grid-cols-4 gap-12 bg-white">
+                            <div className="lg:col-span-1 mb-8 lg:mb-0">
+                                <div className="flex items-center gap-3 font-bold text-[#111] uppercase tracking-wider mb-2">
+                                    <div className="bg-orange-600 text-white p-2 shrink-0 shadow-[2px_2px_0_0_#111]">
+                                        <Wrench size={20} />
+                                    </div>
+                                    <span className="text-lg">Bắt Bệnh</span>
+                                </div>
+                                <p className="text-sm text-stone-500 mt-4 leading-relaxed">Hãy miêu tả chi tiết tiếng kêu, biểu hiện lạ hoặc đèn báo rỗi trên taplo.</p>
+                            </div>
+
+                            <div className="lg:col-span-3 space-y-8">
+                                <motion.div variants={itemVariants}>
+                                    <label className="block text-xs font-bold text-[#111] uppercase tracking-widest mb-3">Ngày giờ vứt xe tại xưởng *</label>
                                     <input
                                         required
                                         type="datetime-local"
-                                        className="w-full px-4 py-3 rounded-none border border-stone-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
+                                        className="w-full md:w-1/2 px-5 py-4 bg-[#fafaf8] border-2 border-[#111] focus:ring-0 outline-none transition-colors font-bold text-lg font-mono shadow-[4px_4px_0_0_#111] focus:translate-y-1 focus:translate-x-1 focus:shadow-[0px_0px_0_0_#111]"
                                         value={formData.ngayHen}
                                         onChange={e => setFormData({ ...formData, ngayHen: e.target.value })}
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-stone-700 mb-4">Mô tả bệnh của xe</label>
+                                </motion.div>
+
+                                <motion.div variants={itemVariants}>
+                                    <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-3">Miêu tả triệu chứng xe</label>
                                     <textarea
                                         rows={4}
-                                        className="w-full px-4 py-3 rounded-none border border-stone-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
-                                        placeholder="Xe bị hụt ga, điều hòa không mát, gầm kêu lộc cộc..."
+                                        className="w-full px-5 py-4 bg-[#fafaf8] border-2 border-stone-200 focus:border-[#111] focus:ring-0 outline-none transition-colors font-medium text-lg placeholder:font-normal placeholder:text-stone-300 shadow-inner resize-none"
+                                        placeholder="VD: Xe chạy cao tốc rung tay lái. Đèn check engine sáng vàng. Điều hòa hàng ghế sau không mát..."
                                         value={formData.ghiChu}
                                         onChange={e => setFormData({ ...formData, ghiChu: e.target.value })}
                                     ></textarea>
-                                </div>
+                                </motion.div>
+
                                 {services.length > 0 && (
-                                    <div>
-                                        <label className="block text-sm font-bold text-stone-700 mb-4">Các dịch vụ quan tâm thêm</label>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                            {services.map(s => (
-                                                <button
-                                                    key={s.id}
-                                                    type="button"
-                                                    onClick={() => toggleService(s.id)}
-                                                    className={`p-3 text-sm rounded-sm border text-left transition-all font-medium ${formData.selectedServiceIds.includes(s.id)
-                                                        ? 'bg-orange-50 border-orange-500 text-orange-700 ring-1 ring-orange-500'
-                                                        : 'border-stone-200 text-stone-600 hover:border-orange-300'
-                                                        }`}
-                                                >
-                                                    {s.tenHang}
-                                                </button>
-                                            ))}
+                                    <motion.div variants={itemVariants}>
+                                        <label className="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-4 border-b border-stone-200 pb-2">Hạng mục đã chốt (Option)</label>
+                                        <div className="flex flex-wrap gap-3">
+                                            {services.map(s => {
+                                                const isSelected = formData.selectedServiceIds.includes(s.id);
+                                                return (
+                                                    <button
+                                                        key={s.id}
+                                                        type="button"
+                                                        onClick={() => toggleService(s.id)}
+                                                        className={`px-4 py-3 text-sm font-bold tracking-wide uppercase transition-all duration-75 active:scale-95 border-2 ${isSelected
+                                                                ? 'bg-[#111] border-[#111] text-white shadow-[2px_2px_0_0_#ea580c] -translate-y-0.5'
+                                                                : 'bg-white border-stone-200 text-stone-500 hover:border-stone-400 hover:text-[#111]'
+                                                            }`}
+                                                    >
+                                                        {isSelected && <CheckCircle2 size={16} className="inline mr-2 text-orange-500" />}
+                                                        {s.tenHang}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="p-8 bg-[#111]">
+                        {/* Submit Action */}
+                        <motion.div variants={itemVariants} className="p-8 md:p-12 bg-stone-100 flex flex-col md:flex-row items-center justify-between gap-6">
+                            <p className="text-stone-500 text-sm font-medium w-full md:max-w-xs text-center md:text-left leading-relaxed">
+                                Nhấp xác nhận, kỹ thuật viên sẽ chuẩn bị báo giá vật tư và chờ đón lõng xe của bạn ở khu vực lễ tân.
+                            </p>
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full bg-orange-600 text-white py-5 rounded-sm font-bold text-xl hover:bg-orange-500 transition-all flex items-center justify-center gap-2 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(234,88,12,0.4)] disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                                className="w-full md:w-auto min-w-[300px] bg-orange-600 border-2 border-[#111] text-white py-5 px-10 font-bold uppercase tracking-widest text-lg hover:bg-orange-500 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-[8px_8px_0_0_#111] hover:shadow-[4px_4px_0_0_#111] hover:translate-x-1 hover:translate-y-1 disabled:opacity-50 disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0"
                             >
                                 {loading ? (
                                     <>
                                         <Loader2 className="animate-spin" />
-                                        Đang chuyển thông tin...
+                                        ĐANG BÁO BỘ ĐÀM...
                                     </>
                                 ) : (
-                                    'XÁC NHẬN ĐẶT LỊCH'
+                                    'XÁC NHẬN MANG XE TỚI'
                                 )}
                             </button>
-                        </div>
+                        </motion.div>
                     </form>
-                </div>
-                <div className="mt-8 text-center text-stone-500 text-sm">
-                    Gặp sự cố trên đường? Gọi ngay hotline cứu hộ: <a href="tel:098.765.4321" className="font-bold text-orange-600">098.765.4321</a>
-                </div>
+                </motion.div>
             </div>
         </div>
     );
