@@ -3,12 +3,47 @@
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { ArrowRight, MapPin, PhoneCall, Clock, ShieldCheck, Wrench, Settings, Search, CheckCircle2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export default function LandingPage() {
     const { data: session } = useSession();
 
+    // Định nghĩa các variant motion theo phong cách "Cơ khí": Nhanh, có độ nảy mạnh, dứt khoát
+    // Khác với Thagore lả lướt mỏng manh
+    const mechanicalSpring = {
+        type: "spring",
+        stiffness: 400,
+        damping: 25 // Độ nảy thấp, dừng lại nhanh
+    };
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1, // Chữ xuất hiện rất nhanh
+                delayChildren: 0.1
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, scale: 0.95 },   // Thay vì trượt dài từ dưới lên, chỉ scale và opacity
+        show: { opacity: 1, scale: 1, transition: mechanicalSpring }
+    };
+
+    const hardSlideInLeft = {
+        hidden: { opacity: 0, x: -50 },
+        visible: { opacity: 1, x: 0, transition: mechanicalSpring }
+    };
+
+    const hardSlideInRight = {
+        hidden: { opacity: 0, x: 50 },
+        visible: { opacity: 1, x: 0, transition: mechanicalSpring }
+    };
+
     return (
-        <div className="flex flex-col min-h-screen bg-[#fafaf8] selection:bg-orange-200">
+        <div className="flex flex-col min-h-screen bg-[#fafaf8] selection:bg-orange-200 overflow-x-hidden">
             {/* Top Bar - Trust Signal First */}
             <div className="bg-[#1C1917] text-stone-300 py-2.5 px-4 text-xs md:text-sm font-medium">
                 <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-2">
@@ -27,7 +62,10 @@ export default function LandingPage() {
             <header className="relative w-full h-[85vh] min-h-[600px] flex items-center">
                 {/* Background Image - Real Photography */}
                 <div className="absolute inset-0 z-0">
-                    <img
+                    <motion.img
+                        initial={{ scale: 1.1, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.8 }} // Ảnh nền hơi chậm để tạo chiều sâu
                         src="https://images.unsplash.com/photo-1625047509168-a7026f36de04?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80"
                         alt="Mechanic working on car engine"
                         className="w-full h-full object-cover object-center grayscale-[20%]"
@@ -37,38 +75,43 @@ export default function LandingPage() {
                 </div>
 
                 <div className="container mx-auto px-6 relative z-10 w-full pt-10">
-                    <div className="max-w-3xl">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-sm mb-8">
+                    <motion.div
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="show"
+                        className="max-w-3xl"
+                    >
+                        <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-sm mb-8">
                             <ShieldCheck size={18} className="text-orange-500" />
                             <span className="text-white text-sm font-medium tracking-wide uppercase">Trung Tâm Chăm Sóc & Sửa Chữa Ô Tô Toàn Diện</span>
-                        </div>
+                        </motion.div>
 
-                        <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 text-white leading-[1.1] tracking-tight">
+                        <motion.h1 variants={itemVariants} className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 text-white leading-[1.1] tracking-tight">
                             Bảo dưỡng định kỳ.<br />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-600">
                                 Đại tu động cơ.
                             </span><br />
                             Phục hồi thân vỏ.
-                        </h1>
+                        </motion.h1>
 
-                        <p className="text-lg md:text-xl mb-12 text-stone-300 max-w-xl leading-relaxed font-light">
+                        <motion.p variants={itemVariants} className="text-lg md:text-xl mb-12 text-stone-300 max-w-xl leading-relaxed font-light">
                             Hệ thống xưởng dịch vụ quy mô lớn, kỹ thuật viên giàu kinh nghiệm cùng trang thiết bị chẩn đoán hiện đại nhập khẩu. Cam kết phụ tùng chính hãng, bảo hành dài hạn.
-                        </p>
+                        </motion.p>
 
-                        <div className="flex flex-col sm:flex-row gap-5">
+                        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-5">
                             {session?.user ? (
-                                <Link href="/admin" className="group bg-orange-600 hover:bg-orange-500 text-white px-8 py-5 rounded-sm font-bold transition-all shadow-lg hover:shadow-orange-600/20 hover:-translate-y-0.5 flex items-center justify-center gap-3 w-fit">
+                                <Link href="/admin" className="group bg-orange-600 hover:bg-orange-500 text-white px-8 py-5 rounded-sm font-bold transition-all shadow-[0_8px_30px_rgb(234,88,12,0.3)] hover:shadow-[0_8px_30px_rgb(234,88,12,0.5)] flex items-center justify-center gap-3 w-fit">
                                     Vào Hệ Thống Quản Lý
                                     <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                                 </Link>
                             ) : (
-                                <Link href="/booking" className="group bg-orange-600 hover:bg-orange-500 text-white px-8 py-5 rounded-sm font-bold transition-all shadow-[0_8px_30px_rgb(234,88,12,0.3)] hover:shadow-[0_8px_30px_rgb(234,88,12,0.5)] hover:-translate-y-1 flex items-center justify-center gap-3 w-fit text-lg">
+                                <Link href="/booking" className="group bg-orange-600 hover:bg-orange-500 text-white px-8 py-5 rounded-sm font-bold transition-all shadow-[0_8px_30px_rgb(234,88,12,0.3)] hover:shadow-[0_8px_30px_rgb(234,88,12,0.5)] flex items-center justify-center gap-3 w-fit text-lg">
                                     Đặt Lịch Dịch Vụ
                                     <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                                 </Link>
                             )}
 
-                            <div className="flex items-center gap-4 text-stone-400">
+                            <div className="flex items-center gap-4 text-stone-400 mt-4 sm:mt-0">
                                 <div className="flex -space-x-4">
                                     <img className="w-12 h-12 border-2 border-black rounded-full object-cover" src="https://images.unsplash.com/photo-1543610892-0b1f7e6d8ac1?auto=format&fit=crop&w=100&q=80" alt="Customer" />
                                     <img className="w-12 h-12 border-2 border-black rounded-full object-cover" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80" alt="Customer" />
@@ -79,8 +122,8 @@ export default function LandingPage() {
                                     Hàng ngàn lượt xe/năm
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        </motion.div>
+                    </motion.div>
                 </div>
             </header>
 
@@ -89,7 +132,13 @@ export default function LandingPage() {
                 <div className="container mx-auto px-6">
                     {/* Story Block 1 */}
                     <div className="flex flex-col lg:flex-row items-center gap-16 lg:gap-24 mb-32">
-                        <div className="w-full lg:w-1/2 order-2 lg:order-1 relative">
+                        <motion.div
+                            variants={hardSlideInLeft}
+                            initial="hidden"
+                            whileInView="visible"
+                            viewport={{ once: true, amount: 0.3 }}
+                            className="w-full lg:w-1/2 order-2 lg:order-1 relative"
+                        >
                             {/* Real Image, Imperfect Shape */}
                             <div className="relative z-10 before:absolute before:inset-0 before:-translate-x-4 before:translate-y-4 before:bg-stone-100 before:-z-10">
                                 <img
@@ -100,7 +149,11 @@ export default function LandingPage() {
                             </div>
 
                             {/* Floating Stats Block */}
-                            <div className="absolute -bottom-8 -right-8 bg-[#1C1917] text-white p-6 shadow-xl z-20 max-w-xs border-l-4 border-orange-500 hover:-translate-y-1 transition-transform">
+                            <motion.div
+                                whileHover={{ scale: 1.05 }}
+                                transition={mechanicalSpring}
+                                className="absolute -bottom-8 -right-8 bg-[#1C1917] text-white p-6 shadow-xl z-20 max-w-xs border-l-4 border-orange-500 cursor-default"
+                            >
                                 <div className="flex items-start gap-4">
                                     <CheckCircle2 size={32} className="text-orange-500 shrink-0" />
                                     <div>
@@ -108,39 +161,45 @@ export default function LandingPage() {
                                         <p className="text-stone-400 text-sm">Sử dụng máy test OBD chuyên hãng để báo lỗi nhanh nhất.</p>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
+                            </motion.div>
+                        </motion.div>
 
-                        <div className="w-full lg:w-1/2 order-1 lg:order-2">
-                            <h2 className="text-sm font-bold text-orange-600 tracking-widest uppercase mb-4 uppercase">Các Hạng Mục Trọng Tâm</h2>
-                            <h3 className="text-4xl md:text-5xl font-extrabold text-[#111] mb-8 leading-tight">
+                        <motion.div
+                            variants={containerVariants}
+                            initial="hidden"
+                            whileInView="show"
+                            viewport={{ once: true, amount: 0.3 }}
+                            className="w-full lg:w-1/2 order-1 lg:order-2"
+                        >
+                            <motion.h2 variants={itemVariants} className="text-sm font-bold text-orange-600 tracking-widest uppercase mb-4 uppercase">Các Hạng Mục Trọng Tâm</motion.h2>
+                            <motion.h3 variants={itemVariants} className="text-4xl md:text-5xl font-extrabold text-[#111] mb-8 leading-tight">
                                 Giải pháp toàn diện cho xế hộp của bạn
-                            </h3>
+                            </motion.h3>
 
                             <ul className="space-y-8">
-                                <li className="flex items-start gap-5">
+                                <motion.li variants={itemVariants} className="flex items-start gap-5">
                                     <div className="w-12 h-12 shrink-0 bg-stone-100 border border-stone-200 flex items-center justify-center text-xl font-bold text-stone-800">01</div>
                                     <div>
                                         <h4 className="text-xl font-bold text-stone-900 mb-2">Bảo dưỡng máy gầm, điện & phần mềm</h4>
                                         <p className="text-stone-600 leading-relaxed">Đại tu động cơ, hộp số. Khắc phục triệt để tiếng kêu gầm, xử lý hệ thống treo, thước lái. Chẩn đoán và xóa lỗi hệ thống điện tử nhanh chóng.</p>
                                     </div>
-                                </li>
-                                <li className="flex items-start gap-5">
+                                </motion.li>
+                                <motion.li variants={itemVariants} className="flex items-start gap-5">
                                     <div className="w-12 h-12 shrink-0 bg-stone-100 border border-stone-200 flex items-center justify-center text-xl font-bold text-stone-800">02</div>
                                     <div>
                                         <h4 className="text-xl font-bold text-stone-900 mb-2">Đồng sơn gò hàn & Phục hồi bề mặt</h4>
                                         <p className="text-stone-600 leading-relaxed">Xử lý móp méo cản trước sau, trầy xước nước sơn. Sơn quây toàn bộ xe, đánh bóng phủ ceramic giúp xe lấy lại vẻ đẹp nguyên bản.</p>
                                     </div>
-                                </li>
-                                <li className="flex items-start gap-5">
+                                </motion.li>
+                                <motion.li variants={itemVariants} className="flex items-start gap-5">
                                     <div className="w-12 h-12 shrink-0 bg-orange-600 text-white flex items-center justify-center text-xl font-bold shadow-lg shadow-orange-600/20">03</div>
                                     <div>
                                         <h4 className="text-xl font-bold text-stone-900 mb-2">Bảo dưỡng điều hòa & Thay dầu định kỳ</h4>
                                         <p className="text-stone-600 leading-relaxed">Thông rửa giàn lạnh, thay lốc lạnh, nạp gas bổ sung. Thay dầu nhớt nhập khẩu Castrol, Mobil 1 tiêu chuẩn, làm sạch buồng đốt tẩy muội than.</p>
                                     </div>
-                                </li>
+                                </motion.li>
                             </ul>
-                        </div>
+                        </motion.div>
                     </div>
                 </div>
             </section>
@@ -148,13 +207,28 @@ export default function LandingPage() {
             {/* Social Proof - Raw Typography style, No sliders */}
             <section className="py-24 bg-[#1C1917] text-stone-300">
                 <div className="container mx-auto px-6">
-                    <div className="text-center max-w-2xl mx-auto mb-16">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        transition={mechanicalSpring}
+                        viewport={{ once: true, amount: 0.8 }}
+                        className="text-center max-w-2xl mx-auto mb-16"
+                    >
                         <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Đánh giá từ khách hàng</h2>
                         <p className="text-lg text-stone-400">Gara đã đón nhận sự tin tưởng của đông đảo các hội nhóm xe tại Hà Nội.</p>
-                    </div>
+                    </motion.div>
 
-                    <div className="grid md:grid-cols-2 gap-8 md:gap-12">
-                        <div className="p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors">
+                    <motion.div
+                        variants={containerVariants}
+                        initial="hidden"
+                        whileInView="show"
+                        viewport={{ once: true, amount: 0.3 }}
+                        className="grid md:grid-cols-2 gap-8 md:gap-12"
+                    >
+                        <motion.div
+                            variants={itemVariants}
+                            className="p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors"
+                        >
                             <p className="text-xl text-white font-serif italic mb-6 leading-relaxed">
                                 "Xe tôi CRV lên dốc bị giật cục, vào hãng báo giá mười mấy củ. Ra đây các thợ check bằng máy xong bổ ga ra thay cụm bướm ga và buri vệ sinh cổ hút là hết bệnh ngay. Chi phí bằng một góc."
                             </p>
@@ -164,9 +238,12 @@ export default function LandingPage() {
                                     <p className="text-sm text-stone-500">Khách vãng lai • Honda CR-V 2020</p>
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
 
-                        <div className="p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors">
+                        <motion.div
+                            variants={itemVariants}
+                            className="p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors"
+                        >
                             <p className="text-xl text-white font-serif italic mb-6 leading-relaxed">
                                 "Xưởng rộng rãi, xe nằm chờ có cầu nâng đo đàng hoàng chứ ko phải kích tay ngắm bằng mắt. Bộ phận đồng sơn bên này tôi đánh giá làm kỹ, sơn xong vào buồng sấy đàng hoàng màu lên tiệp 99%."
                             </p>
@@ -176,8 +253,8 @@ export default function LandingPage() {
                                     <p className="text-sm text-stone-500">Làm đồng sơn mâm xe • GLC 200</p>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        </motion.div>
+                    </motion.div>
                 </div>
             </section>
 
@@ -186,20 +263,26 @@ export default function LandingPage() {
                 <div className="absolute inset-0 z-0 opacity-10 mix-blend-multiply">
                     <img src="https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80" alt="garage texture" className="w-full h-full object-cover" />
                 </div>
-                <div className="container mx-auto px-6 relative z-10 text-center">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    transition={mechanicalSpring}
+                    viewport={{ once: true, amount: 0.5 }}
+                    className="container mx-auto px-6 relative z-10 text-center"
+                >
                     <h2 className="text-4xl md:text-5xl font-extrabold mb-8">Xe đang bệnh? Để thợ chúng tôi khám.</h2>
                     <p className="text-xl mb-12 max-w-2xl mx-auto opacity-90">Gọi hotline báo tình trạng hoặc đặt lịch mang xe qua xưởng. Chúng tôi cắm máy đọc lỗi miễn phí.</p>
 
                     <div className="flex flex-col sm:flex-row justify-center gap-6">
-                        <Link href="/booking" className="bg-[#111] hover:bg-black text-white px-10 py-5 font-bold transition-all shadow-2xl hover:-translate-y-1 text-lg shrink-0">
+                        <Link href="/booking" className="bg-[#111] hover:bg-black text-white px-10 py-5 font-bold shadow-2xl transition-transform active:scale-95 text-lg shrink-0">
                             Mang xe qua xưởng ngay
                         </Link>
-                        <a href="tel:0987654321" className="bg-transparent border-2 border-white/30 hover:border-white text-white px-10 py-5 font-bold transition-all text-lg flex items-center justify-center gap-3">
+                        <a href="tel:0987654321" className="bg-transparent border-2 border-white/30 hover:border-white text-white px-10 py-5 font-bold text-lg flex items-center justify-center gap-3 transition-transform active:scale-95">
                             <PhoneCall size={20} />
                             Gọi 098.765.4321
                         </a>
                     </div>
-                </div>
+                </motion.div>
             </section>
 
             {/* Footer */}
@@ -230,4 +313,3 @@ export default function LandingPage() {
         </div>
     );
 }
-
