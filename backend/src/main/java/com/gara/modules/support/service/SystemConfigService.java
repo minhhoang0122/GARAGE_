@@ -3,7 +3,8 @@ package com.gara.modules.support.service;
 import com.gara.modules.identity.service.UserService;
 import com.gara.entity.SystemConfig;
 import com.gara.modules.system.repository.SystemConfigRepository;
-import com.gara.modules.system.repository.AuditLogRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,23 +13,25 @@ import java.util.stream.Collectors;
 
 @Service
 public class SystemConfigService {
-    private final AuditLogRepository auditLogRepository;
+    private final com.gara.modules.support.service.AsyncAuditService asyncAuditService;
     private final UserService userService;
     private final SystemConfigRepository systemConfigRepository;
 
-    public SystemConfigService(AuditLogRepository auditLogRepository,
+    public SystemConfigService(com.gara.modules.support.service.AsyncAuditService asyncAuditService,
             UserService userService,
             SystemConfigRepository systemConfigRepository) {
-        this.auditLogRepository = auditLogRepository;
+        this.asyncAuditService = asyncAuditService;
         this.userService = userService;
         this.systemConfigRepository = systemConfigRepository;
     }
 
+    @Cacheable("systemConfig")
     public Map<String, String> getAllConfigs() {
         return systemConfigRepository.findAll().stream()
                 .collect(Collectors.toMap(SystemConfig::getConfigKey, SystemConfig::getConfigValue));
     }
 
+    @CacheEvict(value = "systemConfig", allEntries = true)
     public void updateConfigs(Map<String, String> configs) {
         StringBuilder changes = new StringBuilder();
 
@@ -48,15 +51,15 @@ public class SystemConfigService {
                 .toList();
         systemConfigRepository.saveAll(entities);
 
-        // Audit Log
+        // Async Audit Log
         if (changes.length() > 0) {
             try {
                 com.gara.entity.User currentUser = userService.getCurrentUser();
-                auditLogRepository.save(com.gara.entity.AuditLog.builder()
+                asyncAuditService.logAsync(com.gara.entity.AuditLog.builder()
                         .bang("SYSTEM_CONFIG")
                         .banGhiId(0)
                         .hanhDong("UPDATE")
-                        .nguoiThucHien(currentUser)
+                        .nguoiThucHienId(currentUser.getId())
                         .duLieuMoi(changes.toString())
                         .lyDo("Cập nhật cấu hình hệ thống")
                         .ngayTao(java.time.LocalDateTime.now())
@@ -69,6 +72,7 @@ public class SystemConfigService {
     }
 
     // Helper to get specific config
+    @Cacheable(value = "systemConfig", key = "#key")
     public String getConfig(String key, String defaultValue) {
         return systemConfigRepository.findById(key)
                 .map(SystemConfig::getConfigValue)

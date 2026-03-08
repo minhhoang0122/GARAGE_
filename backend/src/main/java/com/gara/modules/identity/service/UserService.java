@@ -5,6 +5,8 @@ import com.gara.entity.Role;
 import com.gara.entity.User;
 import com.gara.modules.auth.repository.RoleRepository;
 import com.gara.modules.auth.repository.UserRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,11 +30,13 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    @Cacheable("users_list")
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
     @Transactional
+    @CacheEvict(value = "users_list", allEntries = true)
     public User createUser(UserReqDTO req) {
         if (userRepository.findByTenDangNhap(req.getTenDangNhap()).isPresent()) {
             throw new RuntimeException("Tên đăng nhập đã tồn tại");
@@ -57,6 +61,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(value = "users_list", allEntries = true)
     public User updateUser(Integer id, UserReqDTO req) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -84,6 +89,7 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(value = "users_list", allEntries = true)
     public void toggleActive(Integer id) {
         User currentUser = getCurrentUser();
         if (currentUser != null && currentUser.getId().equals(id)) {
