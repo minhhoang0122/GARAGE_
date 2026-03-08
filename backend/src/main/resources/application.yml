@@ -1,5 +1,6 @@
 server:
   port: 8081
+  shutdown: graceful
   # Enable response compression
   compression:
     enabled: true
@@ -7,6 +8,8 @@ server:
     min-response-size: 1024
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/GaraManagement}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
