@@ -1,12 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import { ArrowRight, MapPin, PhoneCall, Clock, ShieldCheck, Wrench, Settings, Search, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function LandingPage() {
-    const { data: session } = useSession();
 
     // Định nghĩa các variant motion theo phong cách "Cơ khí": Nhanh, có độ nảy mạnh, dứt khoát
     // Khác với Thagore lả lướt mỏng manh
@@ -106,17 +104,10 @@ export default function LandingPage() {
                         </motion.p>
 
                         <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-5">
-                            {session?.user ? (
-                                <Link href="/admin" className="group bg-orange-600 hover:bg-orange-500 text-white px-8 py-5 rounded-sm font-bold transition-all shadow-[0_8px_30px_rgb(234,88,12,0.3)] hover:shadow-[0_8px_30px_rgb(234,88,12,0.5)] flex items-center justify-center gap-3 w-fit">
-                                    Vào Hệ Thống Quản Lý
-                                    <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                                </Link>
-                            ) : (
-                                <Link href="/booking" className="group bg-orange-600 hover:bg-orange-500 text-white px-8 py-5 rounded-sm font-bold transition-all shadow-[0_8px_30px_rgb(234,88,12,0.3)] hover:shadow-[0_8px_30px_rgb(234,88,12,0.5)] flex items-center justify-center gap-3 w-fit text-lg">
-                                    Đặt Lịch Dịch Vụ
-                                    <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                                </Link>
-                            )}
+                            <Link href="/booking" className="group bg-orange-600 hover:bg-orange-500 text-white px-8 py-5 rounded-sm font-bold transition-all shadow-[0_8px_30px_rgb(234,88,12,0.3)] hover:shadow-[0_8px_30px_rgb(234,88,12,0.5)] flex items-center justify-center gap-3 w-fit text-lg">
+                                Đặt Lịch Dịch Vụ
+                                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                            </Link>
 
                             <div className="flex items-center gap-4 text-stone-400 mt-4 sm:mt-0">
                                 <div className="flex -space-x-4">
@@ -325,7 +316,7 @@ export default function LandingPage() {
                             </div>
                         </div>
                         <div className="md:text-right">
-                            <a href="/admin" className="text-orange-500 hover:text-orange-400 font-medium underline underline-offset-4 decoration-orange-500/30">Cổng đăng nhập hệ thống (Nội bộ)</a>
+                            {/* Empty or secondary links */}
                         </div>
                     </div>
                     <div className="pt-8 border-t border-stone-800 text-sm flex justify-between items-center">
