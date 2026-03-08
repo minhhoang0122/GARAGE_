@@ -31,36 +31,36 @@ public class SaleService {
     private final OrderItemRepository orderItemRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
-    private final NotificationRepository notificationRepository;
     private final InventoryReservationService reservationService;
-    private final AuditLogRepository auditLogRepository;
     private final FinancialTransactionRepository transactionRepository;
     private final VehicleRepository vehicleRepository;
     private final ReceptionRepository receptionRepository;
     private final TransactionService transactionService;
+    private final com.gara.modules.support.service.AsyncAuditService asyncAuditService;
+    private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
 
     public SaleService(RepairOrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             ProductRepository productRepository,
             CustomerRepository customerRepository,
-            NotificationRepository notificationRepository,
             InventoryReservationService reservationService,
-            AuditLogRepository auditLogRepository,
             FinancialTransactionRepository transactionRepository,
             VehicleRepository vehicleRepository,
             ReceptionRepository receptionRepository,
-            TransactionService transactionService) {
+            TransactionService transactionService,
+            com.gara.modules.support.service.AsyncAuditService asyncAuditService,
+            com.gara.modules.support.service.AsyncNotificationService asyncNotificationService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
-        this.notificationRepository = notificationRepository;
         this.reservationService = reservationService;
-        this.auditLogRepository = auditLogRepository;
         this.transactionRepository = transactionRepository;
         this.vehicleRepository = vehicleRepository;
         this.receptionRepository = receptionRepository;
         this.transactionService = transactionService;
+        this.asyncAuditService = asyncAuditService;
+        this.asyncNotificationService = asyncNotificationService;
     }
 
     // 7. Get Dashboard Stats
@@ -358,7 +358,7 @@ public class SaleService {
         }
 
         // Audit Log for Deletion (Micro-rule)
-        auditLogRepository.save(AuditLog.builder()
+        asyncAuditService.logAsync(AuditLog.builder()
                 .bang("ChiTietDonHang")
                 .banGhiId(order.getId())
                 .hanhDong("DELETE")
@@ -388,7 +388,7 @@ public class SaleService {
         orderRepository.save(order);
 
         // Log transition
-        auditLogRepository.save(AuditLog.builder()
+        asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
@@ -404,7 +404,7 @@ public class SaleService {
         // Notify Customer (Rule 9.3.1)
         Customer customer = order.getPhieuTiepNhan().getXe().getKhachHang();
         if (customer.getUserId() != null) {
-            notificationRepository.save(Notification.builder()
+            asyncNotificationService.pushAsync(Notification.builder()
                     .userId(customer.getUserId())
                     .role("CUSTOMER")
                     .title("Báo giá mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
@@ -444,7 +444,7 @@ public class SaleService {
 
         // We don't change the main order status if it's already DANG_SUA
         // But we log the action
-        auditLogRepository.save(AuditLog.builder()
+        asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
@@ -456,7 +456,7 @@ public class SaleService {
 
         // Notify customer about replenishment quote
         Customer repCustomer = order.getPhieuTiepNhan().getXe().getKhachHang();
-        notificationRepository.save(Notification.builder()
+        asyncNotificationService.pushAsync(Notification.builder()
                 .userId(repCustomer.getUserId())
                 .role("CUSTOMER")
                 .title("Báo giá bổ sung: " + order.getPhieuTiepNhan().getXe().getBienSo())
@@ -497,7 +497,7 @@ public class SaleService {
         orderRepository.save(order);
 
         // Log transition
-        auditLogRepository.save(AuditLog.builder()
+        asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
@@ -508,7 +508,7 @@ public class SaleService {
                 .build());
 
         // Notify Repair Mechanic
-        notificationRepository.save(Notification.builder()
+        asyncNotificationService.pushAsync(Notification.builder()
                 .role("THO_SUA_CHUA")
                 .title("Lệnh sửa chữa mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
                 .content("Báo giá đã được duyệt. Vui lòng nhận việc.")
@@ -521,7 +521,7 @@ public class SaleService {
         // Notify Warehouse to prepare parts
         boolean hasParts = order.getChiTietDonHang().stream().anyMatch(i -> !i.getHangHoa().getLaDichVu());
         if (hasParts) {
-            notificationRepository.save(Notification.builder()
+            asyncNotificationService.pushAsync(Notification.builder()
                     .role("KHO")
                     .title("Phiếu xuất kho mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
                     .content("Đơn hàng đã được duyệt. Vui lòng chuẩn bị vật tư.")
@@ -560,7 +560,7 @@ public class SaleService {
 
             if (completedCount > 0) {
                 // Allow cancel but log as HIGH RISK action
-                auditLogRepository.save(AuditLog.builder()
+                asyncAuditService.logAsync(AuditLog.builder()
                         .bang("DonHangSuaChua")
                         .banGhiId(orderId)
                         .hanhDong("CANCEL_RISK")
@@ -594,7 +594,7 @@ public class SaleService {
         orderRepository.save(order);
 
         // Log transition
-        auditLogRepository.save(AuditLog.builder()
+        asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
@@ -738,7 +738,7 @@ public class SaleService {
         warrantyOrder.setChiTietDonHang(warrantyItems);
         orderRepository.save(warrantyOrder);
 
-        auditLogRepository.save(AuditLog.builder()
+        asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(warrantyOrder.getId())
                 .hanhDong("CREATE_WARRANTY")
@@ -777,7 +777,7 @@ public class SaleService {
         orderRepository.save(order);
 
         // Log transition
-        auditLogRepository.save(AuditLog.builder()
+        asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
@@ -945,7 +945,7 @@ public class SaleService {
         orderRepository.save(order);
 
         // Audit log
-        auditLogRepository.save(AuditLog.builder()
+        asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("APPROVE")
@@ -957,7 +957,7 @@ public class SaleService {
 
         // Notify Sale
         if (order.getNguoiPhuTrach() != null) {
-            notificationRepository.save(Notification.builder()
+            asyncNotificationService.pushAsync(Notification.builder()
                     .userId(order.getNguoiPhuTrach().getId())
                     .role("SALE")
                     .title("Khách đã duyệt: " + order.getPhieuTiepNhan().getXe().getBienSo())
@@ -970,7 +970,7 @@ public class SaleService {
         }
 
         // Notify Mechanic
-        notificationRepository.save(Notification.builder()
+        asyncNotificationService.pushAsync(Notification.builder()
                 .role("THO_SUA_CHUA")
                 .title("Lệnh mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
                 .content("Báo giá được duyệt, sẵn sàng nhận việc.")
@@ -983,7 +983,7 @@ public class SaleService {
         // Notify Warehouse (CRITICAL MISSING FEATURE RESTORED)
         boolean hasParts = order.getChiTietDonHang().stream().anyMatch(i -> !i.getHangHoa().getLaDichVu());
         if (hasParts) {
-            notificationRepository.save(Notification.builder()
+            asyncNotificationService.pushAsync(Notification.builder()
                     .role("KHO")
                     .title("Phiếu xuất kho mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
                     .content("Đơn hàng đã được duyệt bởi khách. Vui lòng chuẩn bị vật tư.")
@@ -1010,7 +1010,7 @@ public class SaleService {
         orderRepository.save(order);
 
         // Audit log
-        auditLogRepository.save(AuditLog.builder()
+        asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("REJECT")
@@ -1022,7 +1022,7 @@ public class SaleService {
 
         // Notify Sale
         if (order.getNguoiPhuTrach() != null) {
-            notificationRepository.save(Notification.builder()
+            asyncNotificationService.pushAsync(Notification.builder()
                     .userId(order.getNguoiPhuTrach().getId())
                     .role("SALE")
                     .title("Báo giá bị từ chối: " + order.getPhieuTiepNhan().getXe().getBienSo())
@@ -1053,7 +1053,7 @@ public class SaleService {
         orderRepository.save(order);
 
         // Audit log
-        auditLogRepository.save(AuditLog.builder()
+        asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("REQUEST_REVISION")
@@ -1065,7 +1065,7 @@ public class SaleService {
 
         // Notify Sale
         if (order.getNguoiPhuTrach() != null) {
-            notificationRepository.save(Notification.builder()
+            asyncNotificationService.pushAsync(Notification.builder()
                     .userId(order.getNguoiPhuTrach().getId())
                     .role("SALE")
                     .title("Yêu cầu chỉnh báo giá: " + order.getPhieuTiepNhan().getXe().getBienSo())

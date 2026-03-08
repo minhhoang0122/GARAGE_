@@ -31,6 +31,7 @@ public class WarehouseService {
     private final ImportNoteRepository importNoteRepository;
     private final ImportDetailRepository importDetailRepository;
     private final ExportDetailRepository exportDetailRepository;
+    private final com.gara.modules.support.service.AsyncAuditService asyncAuditService;
 
     public WarehouseService(ProductRepository productRepository,
             OrderItemRepository orderItemRepository,
@@ -41,7 +42,8 @@ public class WarehouseService {
             AuditLogRepository auditLogRepository,
             ImportNoteRepository importNoteRepository,
             ImportDetailRepository importDetailRepository,
-            ExportDetailRepository exportDetailRepository) {
+            ExportDetailRepository exportDetailRepository,
+            com.gara.modules.support.service.AsyncAuditService asyncAuditService) {
         this.productRepository = productRepository;
         this.orderItemRepository = orderItemRepository;
         this.exportNoteRepository = exportNoteRepository;
@@ -52,6 +54,7 @@ public class WarehouseService {
         this.importNoteRepository = importNoteRepository;
         this.importDetailRepository = importDetailRepository;
         this.exportDetailRepository = exportDetailRepository;
+        this.asyncAuditService = asyncAuditService;
     }
 
     public List<ProductDTO> getProducts(String search) {
@@ -453,6 +456,10 @@ public class WarehouseService {
 
         BigDecimal totalImportValue = BigDecimal.ZERO;
 
+        // Setup BATCH LISTS
+        List<ImportDetail> detailsToSave = new ArrayList<>();
+        List<Product> productsToSave = new ArrayList<>();
+
         for (com.gara.dto.ImportRequestDTO.ImportItemDTO item : req.items()) {
             Product product = productRepository.findByIdWithLock(item.productId())
                     .orElseThrow(() -> new RuntimeException("Product not found: " + item.productId()));
@@ -513,7 +520,7 @@ public class WarehouseService {
 
                 product.setSoLuongTon(oldStock + importQty);
                 product.setThueVAT(importVat); // Sync product VAT with latest import
-                productRepository.save(product);
+                productsToSave.add(product);
             }
 
             ImportDetail detail = ImportDetail.builder()
@@ -528,13 +535,22 @@ public class WarehouseService {
                     .build();
 
             note.getChiTietNhap().add(detail);
+            detailsToSave.add(detail);
             totalImportValue = totalImportValue.add(newImportValue);
         }
 
         note.setTongTien(totalImportValue);
         importNoteRepository.save(note);
 
-        auditLogRepository.save(AuditLog.builder()
+        // Execute BATCH SAVES
+        if (!productsToSave.isEmpty()) {
+            productRepository.saveAll(productsToSave);
+        }
+        if (!detailsToSave.isEmpty()) {
+            importDetailRepository.saveAll(detailsToSave);
+        }
+
+        asyncAuditService.logAsync(AuditLog.builder()
                 .bang("PhieuNhapKho")
                 .banGhiId(note.getId())
                 .hanhDong("CREATE")
