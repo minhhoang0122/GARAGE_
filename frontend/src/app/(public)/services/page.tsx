@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Info, Tag, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { API_URL } from '@/lib/api';
 
 export default function ServicesPage() {
     const [services, setServices] = useState<any[]>([]);
     const [search, setSearch] = useState('');
 
     useEffect(() => {
-        fetch('/api/public/services')
+        fetch(`${API_URL}/public/services`)
             .then(res => res.json())
             .then(data => setServices(data))
             .catch(err => console.error('Error fetching services:', err));

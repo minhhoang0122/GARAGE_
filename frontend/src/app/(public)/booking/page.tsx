@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, Loader2, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import Link from 'next/link';
+import { API_URL } from '@/lib/api';
 
 export default function BookingPage() {
     const { showToast } = useToast();
@@ -24,7 +25,7 @@ export default function BookingPage() {
     });
 
     useEffect(() => {
-        fetch('/api/public/services')
+        fetch(`${API_URL}/public/services`)
             .then(res => res.json())
             .then(data => setServices(data))
             .catch(err => console.error('Error fetching services:', err));
@@ -35,7 +36,7 @@ export default function BookingPage() {
         setLoading(true);
 
         try {
-            const res = await fetch('/api/public/booking', {
+            const res = await fetch(`${API_URL}/public/booking`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
@@ -199,8 +200,8 @@ export default function BookingPage() {
                                                         type="button"
                                                         onClick={() => toggleService(s.id)}
                                                         className={`px-4 py-2 text-sm rounded border transition-colors ${isSelected
-                                                                ? 'bg-orange-50 border-orange-500 text-orange-700 font-medium'
-                                                                : 'bg-white border-stone-200 text-stone-600 hover:border-stone-300'
+                                                            ? 'bg-orange-50 border-orange-500 text-orange-700 font-medium'
+                                                            : 'bg-white border-stone-200 text-stone-600 hover:border-stone-300'
                                                             }`}
                                                     >
                                                         {s.tenHang}

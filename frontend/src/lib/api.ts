@@ -1,5 +1,5 @@
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api` : 'http://localhost:8081/api';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api` : 'http://localhost:8081/api';
 
 // In-memory cache for instant access (faster than sessionStorage)
 const memoryCache = new Map<string, { data: any; timestamp: number }>();
