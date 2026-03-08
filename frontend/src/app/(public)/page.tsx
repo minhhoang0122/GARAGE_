@@ -51,9 +51,16 @@ export default function LandingPage() {
                         <span className="flex items-center gap-2"><MapPin size={16} className="text-orange-500" /> 123 Đường Láng, Hà Nội</span>
                         <span className="flex items-center gap-2 hidden sm:flex"><Clock size={16} className="text-orange-500" /> T2 - T7: 8:00 - 18:00</span>
                     </div>
-                    <div className="flex items-center gap-2 text-white bg-orange-600/20 px-3 py-1 rounded-full border border-orange-500/30">
-                        <PhoneCall size={14} className="text-orange-500" />
-                        <span className="tracking-wide">Hotline Kỹ Thuật: <strong className="text-orange-400">098.765.4321</strong></span>
+                    <div className="flex items-center gap-4">
+                        <Link href="/admin" className="flex items-center gap-1.5 text-stone-400 hover:text-white transition-colors duration-200">
+                            <Settings size={14} className="text-stone-400" />
+                            <span className="hidden sm:inline">Nội bộ</span>
+                        </Link>
+                        <div className="w-px h-4 bg-stone-700 hidden sm:block"></div>
+                        <div className="flex items-center gap-2 text-white bg-orange-600/20 px-3 py-1 rounded-full border border-orange-500/30">
+                            <PhoneCall size={14} className="text-orange-500" />
+                            <span className="tracking-wide">Hotline: <strong className="text-orange-400">098.765.4321</strong></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -233,7 +240,7 @@ export default function LandingPage() {
                             {[1, 2].map((loopIndex) => (
                                 <div key={loopIndex} className="flex gap-8">
                                     <div className="w-[350px] md:w-[450px] whitespace-normal p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors shrink-0">
-                                        <p className="text-lg md:text-xl text-white font-serif italic mb-6 leading-relaxed">
+                                        <p className="text-lg md:text-xl text-stone-300 italic font-light mb-6 leading-relaxed">
                                             "Xe tôi CRV lên dốc bị giật cục, vào hãng báo giá mười mấy củ. Ra đây các thợ check bằng máy xong bổ ga ra thay cụm bướm ga và buri vệ sinh cổ hút là hết bệnh ngay. Chi phí bằng một góc."
                                         </p>
                                         <div className="flex items-center gap-4">
@@ -245,7 +252,7 @@ export default function LandingPage() {
                                     </div>
 
                                     <div className="w-[350px] md:w-[450px] whitespace-normal p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors shrink-0">
-                                        <p className="text-lg md:text-xl text-white font-serif italic mb-6 leading-relaxed">
+                                        <p className="text-lg md:text-xl text-stone-300 italic font-light mb-6 leading-relaxed">
                                             "Xưởng rộng rãi, xe nằm chờ có cầu nâng đo đàng hoàng chứ ko phải kích tay ngắm bằng mắt. Bộ phận đồng sơn bên này tôi đánh giá làm kỹ, sơn xong vào buồng sấy đàng hoàng màu lên tiệp 99%."
                                         </p>
                                         <div className="flex items-center gap-4">
@@ -257,7 +264,7 @@ export default function LandingPage() {
                                     </div>
 
                                     <div className="w-[350px] md:w-[450px] whitespace-normal p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors shrink-0">
-                                        <p className="text-lg md:text-xl text-white font-serif italic mb-6 leading-relaxed">
+                                        <p className="text-lg md:text-xl text-stone-300 italic font-light mb-6 leading-relaxed">
                                             "Thay dầu bảo dưỡng 4 vạn. Báo giá công khai trước khi làm, ko phát sinh lằng nhằng. Thợ trẻ nhưng tháo lắp đồ nhựa dứt khoát không gãy ngàm. Lần sau đến kỳ sẽ quay lại tiếp tục."
                                         </p>
                                         <div className="flex items-center gap-4">
