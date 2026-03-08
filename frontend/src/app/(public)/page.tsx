@@ -11,7 +11,7 @@ export default function LandingPage() {
     // Định nghĩa các variant motion theo phong cách "Cơ khí": Nhanh, có độ nảy mạnh, dứt khoát
     // Khác với Thagore lả lướt mỏng manh
     const mechanicalSpring = {
-        type: "spring",
+        type: "spring" as const,
         stiffness: 400,
         damping: 25 // Độ nảy thấp, dừng lại nhanh
     };
@@ -218,43 +218,59 @@ export default function LandingPage() {
                         <p className="text-lg text-stone-400">Gara đã đón nhận sự tin tưởng của đông đảo các hội nhóm xe tại Hà Nội.</p>
                     </motion.div>
 
-                    <motion.div
-                        variants={containerVariants}
-                        initial="hidden"
-                        whileInView="show"
-                        viewport={{ once: true, amount: 0.3 }}
-                        className="grid md:grid-cols-2 gap-8 md:gap-12"
-                    >
-                        <motion.div
-                            variants={itemVariants}
-                            className="p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors"
-                        >
-                            <p className="text-xl text-white font-serif italic mb-6 leading-relaxed">
-                                "Xe tôi CRV lên dốc bị giật cục, vào hãng báo giá mười mấy củ. Ra đây các thợ check bằng máy xong bổ ga ra thay cụm bướm ga và buri vệ sinh cổ hút là hết bệnh ngay. Chi phí bằng một góc."
-                            </p>
-                            <div className="flex items-center gap-4">
-                                <div>
-                                    <h4 className="font-bold text-white">Anh Dũng - Thanh Xuân</h4>
-                                    <p className="text-sm text-stone-500">Khách vãng lai • Honda CR-V 2020</p>
-                                </div>
-                            </div>
-                        </motion.div>
+                    {/* Infinite Marquee Container */}
+                    <div className="relative w-full overflow-hidden flex py-4">
+                        {/* Gradient Masks for smooth fading edges */}
+                        <div className="absolute left-0 top-0 bottom-0 w-24 md:w-48 bg-gradient-to-r from-[#1C1917] to-transparent z-10 pointer-events-none"></div>
+                        <div className="absolute right-0 top-0 bottom-0 w-24 md:w-48 bg-gradient-to-l from-[#1C1917] to-transparent z-10 pointer-events-none"></div>
 
                         <motion.div
-                            variants={itemVariants}
-                            className="p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors"
+                            className="flex gap-8 whitespace-nowrap min-w-max"
+                            animate={{ x: ["0%", "-50%"] }}
+                            transition={{ repeat: Infinity, ease: "linear", duration: 30 }}
                         >
-                            <p className="text-xl text-white font-serif italic mb-6 leading-relaxed">
-                                "Xưởng rộng rãi, xe nằm chờ có cầu nâng đo đàng hoàng chứ ko phải kích tay ngắm bằng mắt. Bộ phận đồng sơn bên này tôi đánh giá làm kỹ, sơn xong vào buồng sấy đàng hoàng màu lên tiệp 99%."
-                            </p>
-                            <div className="flex items-center gap-4">
-                                <div>
-                                    <h4 className="font-bold text-white">Chú Cường - Đống Đa</h4>
-                                    <p className="text-sm text-stone-500">Làm đồng sơn mâm xe • GLC 200</p>
+                            {/* Duplicate items 2 times to create seamless infinite loop */}
+                            {[1, 2].map((loopIndex) => (
+                                <div key={loopIndex} className="flex gap-8">
+                                    <div className="w-[350px] md:w-[450px] whitespace-normal p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors shrink-0">
+                                        <p className="text-lg md:text-xl text-white font-serif italic mb-6 leading-relaxed">
+                                            "Xe tôi CRV lên dốc bị giật cục, vào hãng báo giá mười mấy củ. Ra đây các thợ check bằng máy xong bổ ga ra thay cụm bướm ga và buri vệ sinh cổ hút là hết bệnh ngay. Chi phí bằng một góc."
+                                        </p>
+                                        <div className="flex items-center gap-4">
+                                            <div>
+                                                <h4 className="font-bold text-white">Anh Dũng - Thanh Xuân</h4>
+                                                <p className="text-sm text-stone-500">Khách vãng lai • Honda CR-V 2020</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="w-[350px] md:w-[450px] whitespace-normal p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors shrink-0">
+                                        <p className="text-lg md:text-xl text-white font-serif italic mb-6 leading-relaxed">
+                                            "Xưởng rộng rãi, xe nằm chờ có cầu nâng đo đàng hoàng chứ ko phải kích tay ngắm bằng mắt. Bộ phận đồng sơn bên này tôi đánh giá làm kỹ, sơn xong vào buồng sấy đàng hoàng màu lên tiệp 99%."
+                                        </p>
+                                        <div className="flex items-center gap-4">
+                                            <div>
+                                                <h4 className="font-bold text-white">Chú Cường - Đống Đa</h4>
+                                                <p className="text-sm text-stone-500">Làm đồng sơn mâm xe • GLC 200</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="w-[350px] md:w-[450px] whitespace-normal p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors shrink-0">
+                                        <p className="text-lg md:text-xl text-white font-serif italic mb-6 leading-relaxed">
+                                            "Thay dầu bảo dưỡng 4 vạn. Báo giá công khai trước khi làm, ko phát sinh lằng nhằng. Thợ trẻ nhưng tháo lắp đồ nhựa dứt khoát không gãy ngàm. Lần sau đến kỳ sẽ quay lại tiếp tục."
+                                        </p>
+                                        <div className="flex items-center gap-4">
+                                            <div>
+                                                <h4 className="font-bold text-white">Anh Việt - Long Biên</h4>
+                                                <p className="text-sm text-stone-500">Bảo dưỡng định kỳ • Mazda CX-5</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            ))}
                         </motion.div>
-                    </motion.div>
+                    </div>
                 </div>
             </section>
 
