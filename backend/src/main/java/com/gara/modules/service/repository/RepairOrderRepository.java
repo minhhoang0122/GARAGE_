@@ -189,4 +189,51 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         "AND h.bao_hanh_so_thang > 0 " +
                         "AND (r.ngay_tao + (h.bao_hanh_so_thang || ' month')::interval) > CURRENT_TIMESTAMP", nativeQuery = true)
         long countActiveWarrantiesByPlate(@org.springframework.data.repository.query.Param("plate") String plate);
+
+        // ===== N+1 FIX: Full detail fetch for single order (used by SaleService,
+        // MechanicService, PaymentService) =====
+        @Query("SELECT DISTINCT r FROM RepairOrder r " +
+                        "LEFT JOIN FETCH r.chiTietDonHang i " +
+                        "LEFT JOIN FETCH i.hangHoa " +
+                        "LEFT JOIN FETCH i.nguoiDeXuat " +
+                        "LEFT JOIN FETCH i.nguoiThucHien " +
+                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
+                        "LEFT JOIN FETCH ptn.xe x " +
+                        "LEFT JOIN FETCH x.khachHang " +
+                        "LEFT JOIN FETCH r.nguoiPhuTrach " +
+                        "LEFT JOIN FETCH r.thoPhanCong " +
+                        "LEFT JOIN FETCH r.thoChanDoan " +
+                        "WHERE r.id = :id")
+        java.util.Optional<RepairOrder> findByIdWithFullDetails(
+                        @org.springframework.data.repository.query.Param("id") Integer id);
+
+        // ===== N+1 FIX: Orders by single status with eager fetch (used by
+        // SaleService.getOrders) =====
+        @Query("SELECT DISTINCT r FROM RepairOrder r " +
+                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
+                        "LEFT JOIN FETCH ptn.xe x " +
+                        "LEFT JOIN FETCH x.khachHang kh " +
+                        "WHERE r.trangThai = :status " +
+                        "ORDER BY r.ngayTao DESC")
+        List<RepairOrder> findByStatusOptimized(
+                        @org.springframework.data.repository.query.Param("status") String status);
+
+        // ===== N+1 FIX: Orders by multiple statuses with eager fetch =====
+        @Query("SELECT DISTINCT r FROM RepairOrder r " +
+                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
+                        "LEFT JOIN FETCH ptn.xe x " +
+                        "LEFT JOIN FETCH x.khachHang kh " +
+                        "WHERE r.trangThai IN :statuses " +
+                        "ORDER BY r.ngayTao DESC")
+        List<RepairOrder> findByStatusesOptimized(
+                        @org.springframework.data.repository.query.Param("statuses") List<String> statuses);
+
+        // ===== N+1 FIX: Order by reception ID with items + products (used by
+        // MechanicService.getReceptionDetail) =====
+        @Query("SELECT DISTINCT r FROM RepairOrder r " +
+                        "LEFT JOIN FETCH r.chiTietDonHang i " +
+                        "LEFT JOIN FETCH i.hangHoa " +
+                        "WHERE r.phieuTiepNhan.id = :receptionId")
+        java.util.Optional<RepairOrder> findByPhieuTiepNhanIdWithDetails(
+                        @org.springframework.data.repository.query.Param("receptionId") Integer receptionId);
 }

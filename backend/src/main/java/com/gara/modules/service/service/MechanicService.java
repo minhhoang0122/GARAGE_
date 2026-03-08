@@ -647,7 +647,7 @@ public class MechanicService {
     // 9. Get Job Details (For Worker View) - Optimized with batch loading
     @Transactional(readOnly = true)
     public Map<String, Object> getJobDetails(Integer orderId) {
-        RepairOrder order = orderRepository.findById(orderId)
+        RepairOrder order = orderRepository.findByIdWithFullDetails(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
         // Filter approved items first
@@ -725,7 +725,7 @@ public class MechanicService {
         Reception reception = receptionRepository.findById(receptionId)
                 .orElseThrow(() -> new RuntimeException("Reception not found"));
 
-        RepairOrder order = orderRepository.findByPhieuTiepNhanId(receptionId).orElse(null);
+        RepairOrder order = orderRepository.findByPhieuTiepNhanIdWithDetails(receptionId).orElse(null);
 
         List<Map<String, Object>> existingItems = new ArrayList<>();
         if (order != null) {

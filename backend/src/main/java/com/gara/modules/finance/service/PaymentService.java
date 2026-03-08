@@ -63,7 +63,7 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public PaymentSummaryDTO getPaymentSummary(Integer orderId) {
-        RepairOrder order = orderRepository.findById(orderId)
+        RepairOrder order = orderRepository.findByIdWithFullDetails(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
         return mapToPaymentSummaryDTO(order);

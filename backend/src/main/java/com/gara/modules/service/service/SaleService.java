@@ -75,7 +75,7 @@ public class SaleService {
         long countPendingPayment = orderRepository.countByTrangThai("CHO_THANH_TOAN");
 
         // Waiting Vehicles List (Recently received - all active, not just TIEP_NHAN)
-        List<RepairOrder> waitingOrders = orderRepository.findByTrangThaiInOrderByNgayTaoDesc(
+        List<RepairOrder> waitingOrders = orderRepository.findByStatusesOptimized(
                 List.of("TIEP_NHAN", "CHO_CHAN_DOAN"));
         List<DashboardStatsDTO.DashboardVehicleDTO> waitingVehicles = waitingOrders.stream()
                 .limit(5)
@@ -143,7 +143,7 @@ public class SaleService {
     // 1. Get Order Details
     @Transactional(readOnly = true)
     public OrderDetailDTO getOrderDetails(Integer orderId) {
-        RepairOrder order = orderRepository.findById(orderId)
+        RepairOrder order = orderRepository.findByIdWithFullDetails(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
         List<OrderItemDTO> items = order.getChiTietDonHang().stream()
@@ -805,9 +805,9 @@ public class SaleService {
         if (status != null && !status.isEmpty()) {
             if (status.contains(",")) {
                 List<String> statuses = List.of(status.split(","));
-                orders = orderRepository.findByTrangThaiInOrderByNgayTaoDesc(statuses);
+                orders = orderRepository.findByStatusesOptimized(statuses);
             } else {
-                orders = orderRepository.findByTrangThaiOrderByNgayTaoDesc(status);
+                orders = orderRepository.findByStatusOptimized(status);
             }
         } else {
             // Optimized: Use paginated query with JOIN FETCH instead of findAll()

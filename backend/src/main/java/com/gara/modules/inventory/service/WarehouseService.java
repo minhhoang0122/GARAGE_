@@ -299,7 +299,7 @@ public class WarehouseService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getPendingExportOrders() {
         List<String> statuses = java.util.Arrays.asList("DA_DUYET", "CHO_SUA_CHUA", "DANG_SUA");
-        List<RepairOrder> orders = orderRepository.findByTrangThaiInOrderByNgayTaoDesc(statuses);
+        List<RepairOrder> orders = orderRepository.findWithDetailsByStatusIn(statuses);
 
         return orders.stream()
                 .map(order -> {
@@ -597,9 +597,7 @@ public class WarehouseService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getExportHistory() {
-        List<ExportNote> notes = exportNoteRepository.findAll(
-                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC,
-                        "ngayXuat"));
+        List<ExportNote> notes = exportNoteRepository.findAllWithDetails();
 
         return notes.stream().limit(100).map(note -> {
             Map<String, Object> map = new HashMap<>();
