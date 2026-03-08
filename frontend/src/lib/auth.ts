@@ -69,7 +69,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }),
     ],
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger, session }) {
+            // Cho phép âm thầm cập nhật Roles và Permissions qua useSession().update()
+            if (trigger === "update" && session) {
+                if (session.roles) token.roles = session.roles;
+                if (session.permissions) token.permissions = session.permissions;
+            }
+
             if (user) {
                 token.id = user.id;
                 token.roles = (user as any).roles;

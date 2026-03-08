@@ -17,6 +17,7 @@ export const metadata: Metadata = {
 import { Inter } from 'next/font/google';
 
 const font = Inter({ subsets: ['latin'] });
+import { SessionSync } from '@/modules/common/components/layout/SessionSync';
 
 export default function RootLayout({
     children,
@@ -27,6 +28,7 @@ export default function RootLayout({
         <html lang="vi">
             <body className={font.className}>
                 <SessionProvider refetchOnWindowFocus={false}>
+                    <SessionSync />
                     <ToastProvider>
                         <ThemeProvider>
                             <ConfirmProvider>
