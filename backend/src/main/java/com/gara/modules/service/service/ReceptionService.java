@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import com.gara.entity.enums.OrderStatus;
 
 @Service
 public class ReceptionService {
@@ -61,7 +62,7 @@ public class ReceptionService {
             m.put("ID", o.getId());
             m.put("NgayTao", o.getNgayTao());
             m.put("TongCong", o.getTongCong());
-            m.put("TrangThai", o.getTrangThai());
+            m.put("TrangThai", o.getTrangThai() != null ? o.getTrangThai().name() : null);
             m.put("ChiTietDonHang", o.getChiTietDonHang().stream().map(i -> {
                 Map<String, Object> im = new HashMap<>();
                 im.put("HangHoa", Map.of("TenHang", i.getHangHoa().getTenHang()));
@@ -141,7 +142,7 @@ public class ReceptionService {
         RepairOrder order = new RepairOrder();
         order.setPhieuTiepNhan(reception);
         order.setNguoiPhuTrach(user); // Sale Owner
-        order.setTrangThai("TIEP_NHAN");
+        order.setTrangThai(OrderStatus.TIEP_NHAN);
         order.setTongTienHang(BigDecimal.ZERO);
         order.setTongTienCong(BigDecimal.ZERO);
         order.setTongCong(BigDecimal.ZERO);
@@ -184,7 +185,17 @@ public class ReceptionService {
             if (row[7] != null) {
                 Map<String, Object> orderMap = new HashMap<>();
                 orderMap.put("ID", row[7]);
-                orderMap.put("TrangThai", row[8]);
+
+                // Assuming row[8] contains the enum status, handle accordingly
+                String statusStr = null;
+                if (row[8] != null) {
+                    if (row[8] instanceof OrderStatus) {
+                        statusStr = ((OrderStatus) row[8]).name();
+                    } else {
+                        statusStr = row[8].toString();
+                    }
+                }
+                orderMap.put("TrangThai", statusStr);
                 m.put("DonHangSuaChua", orderMap);
             }
             return m;

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { PackageCheck, Loader2 } from 'lucide-react';
 import { confirmExport } from '@/modules/inventory/warehouse';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/contexts/ToastContext';
 
 interface ExportConfirmButtonProps {
     orderId: number;
@@ -14,19 +15,21 @@ export default function ExportConfirmButton({ orderId, disabled = false }: Expor
     const [isLoading, setIsLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const router = useRouter();
+    const { showToast } = useToast();
 
     const handleConfirm = async () => {
         setIsLoading(true);
         try {
             const result = await confirmExport(orderId);
             if (result.success) {
+                showToast('success', 'Đã xác nhận xuất kho thành công!');
                 setShowConfirm(false);
                 router.refresh();
             } else {
-                alert('Lỗi: ' + result.error);
+                showToast('error', result.error || 'Thao tác thất bại');
             }
         } catch (error) {
-            alert('Lỗi hệ thống');
+            showToast('error', 'Lỗi kết nối máy chủ');
         } finally {
             setIsLoading(false);
         }

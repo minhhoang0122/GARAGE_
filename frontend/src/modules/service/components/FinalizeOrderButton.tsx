@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { FileCheck, Loader2 } from 'lucide-react';
 import { finalizeOrder } from '@/modules/service/order';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/contexts/ToastContext';
 
 interface FinalizeOrderButtonProps {
     orderId: number;
@@ -15,19 +16,21 @@ export default function FinalizeOrderButton({ orderId, disabled = false, hasItem
     const [isLoading, setIsLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const router = useRouter();
+    const { showToast } = useToast();
 
     const handleConfirm = async () => {
         setIsLoading(true);
         try {
             const result = await finalizeOrder(orderId);
             if (result.success) {
+                showToast('success', 'Đã chốt báo giá thành công!');
                 setShowConfirm(false);
                 router.refresh();
             } else {
-                alert('Lỗi: ' + result.error);
+                showToast('error', result.error || 'Thao tác thất bại');
             }
         } catch (error) {
-            alert('Lỗi hệ thống');
+            showToast('error', 'Lỗi hệ thống');
         } finally {
             setIsLoading(false);
         }
@@ -49,7 +52,7 @@ export default function FinalizeOrderButton({ orderId, disabled = false, hasItem
             <button
                 onClick={() => {
                     if (!hasItems) {
-                        alert('Chưa có hạng mục nào trong báo giá. Vui lòng thêm phụ tùng/dịch vụ trước khi chốt.');
+                        showToast('warning', 'Chưa có hạng mục nào trong báo giá. Vui lòng thêm phụ tùng/dịch vụ trước khi chốt.');
                         return;
                     }
                     setShowConfirm(true);

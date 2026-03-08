@@ -1,12 +1,26 @@
 package com.gara.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 
 public class UserReqDTO {
+    @NotBlank(message = "Tên đăng nhập không được để trống")
+    @Size(min = 3, max = 50, message = "Tên đăng nhập từ 3 đến 50 ký tự")
     private String tenDangNhap;
+
+    @NotBlank(message = "Mật khẩu không được để trống")
+    @Size(min = 6, message = "Mật khẩu ít nhất 6 ký tự")
     private String matKhauHash;
+
+    @NotBlank(message = "Họ tên không được để trống")
     private String hoTen;
+
+    @NotBlank(message = "Số điện thoại không được để trống")
+    @Pattern(regexp = "^(0|\\+84)[0-9]{8,9}$", message = "Số điện thoại không hợp lệ")
     private String soDienThoai;
+
     private List<String> roleCodes;
 
     public String getTenDangNhap() {

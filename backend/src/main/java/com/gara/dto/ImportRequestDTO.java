@@ -3,11 +3,16 @@ package com.gara.dto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.Valid;
 
 public record ImportRequestDTO(
-        String supplierName,
+        @NotBlank(message = "Tên nhà cung cấp không được để trống") String supplierName,
         String note,
-        List<ImportItemDTO> items) {
+        @NotEmpty(message = "Danh sách sản phẩm nhập không được rỗng") @Valid List<ImportItemDTO> items) {
 
     public static ImportRequestDTOBuilder builder() {
         return new ImportRequestDTOBuilder();
@@ -39,10 +44,10 @@ public record ImportRequestDTO(
     }
 
     public record ImportItemDTO(
-            Integer productId,
-            Integer quantity,
-            BigDecimal costPrice,
-            BigDecimal vatRate,
+            @NotNull(message = "Sản phẩm không được để trống") Integer productId,
+            @NotNull(message = "Số lượng không được để trống") @Min(value = 1, message = "Số lượng phải lớn hơn 0") Integer quantity,
+            @NotNull(message = "Giá nhập không được để trống") @Min(value = 0, message = "Giá nhập không hợp lệ") BigDecimal costPrice,
+            @NotNull(message = "Thuế VAT không được để trống") @Min(value = 0, message = "Thuế VAT không hợp lệ") BigDecimal vatRate,
             LocalDate expiryDate,
             BigDecimal sellingPrice,
             Boolean updateGlobalPrice) {

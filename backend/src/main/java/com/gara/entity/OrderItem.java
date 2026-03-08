@@ -3,6 +3,7 @@ package com.gara.entity;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.util.List;
+import com.gara.entity.enums.ItemStatus;
 
 @Entity
 @Table(name = "chitietdonhang")
@@ -34,8 +35,9 @@ public class OrderItem {
     @Column(name = "ly_do_chinh_gia", length = 200)
     private String lyDoChinhGia;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "trang_thai", length = 20)
-    private String trangThai = "DE_XUAT"; // DE_XUAT, KHACH_DONG_Y, KHACH_TU_CHOI
+    private ItemStatus trangThai = ItemStatus.DE_XUAT; // DE_XUAT, KHACH_DONG_Y, KHACH_TU_CHOI
 
     @Column(name = "la_hang_bao_hanh")
     private Boolean laHangBaoHanh = false;
@@ -86,7 +88,7 @@ public class OrderItem {
     }
 
     public OrderItem(Integer id, Integer soLuong, BigDecimal donGiaGoc, BigDecimal giamGiaTien,
-            BigDecimal giamGiaPhanTram, BigDecimal thanhTien, Integer uuTien, String lyDoChinhGia, String trangThai,
+            BigDecimal giamGiaPhanTram, BigDecimal thanhTien, Integer uuTien, String lyDoChinhGia, ItemStatus trangThai,
             Boolean laHangBaoHanh, String ghiChuBaoHanh, Boolean daHoanThanh, Integer soLuongThoToiDa,
             Integer donHangSuaChuaId, Integer hangHoaId, RepairOrder donHangSuaChua, Product hangHoa,
             Integer nguoiThucHienId, User nguoiThucHien, List<TaskAssignment> phanCongTho) {
@@ -98,7 +100,7 @@ public class OrderItem {
         this.thanhTien = thanhTien;
         this.uuTien = uuTien != null ? uuTien : 0;
         this.lyDoChinhGia = lyDoChinhGia;
-        this.trangThai = trangThai != null ? trangThai : "DE_XUAT";
+        this.trangThai = trangThai != null ? trangThai : ItemStatus.DE_XUAT;
         this.laHangBaoHanh = laHangBaoHanh != null ? laHangBaoHanh : false;
         this.ghiChuBaoHanh = ghiChuBaoHanh;
         this.daHoanThanh = daHoanThanh != null ? daHoanThanh : false;
@@ -176,11 +178,11 @@ public class OrderItem {
         this.lyDoChinhGia = lyDoChinhGia;
     }
 
-    public String getTrangThai() {
+    public ItemStatus getTrangThai() {
         return trangThai;
     }
 
-    public void setTrangThai(String trangThai) {
+    public void setTrangThai(ItemStatus trangThai) {
         this.trangThai = trangThai;
     }
 
@@ -301,7 +303,7 @@ public class OrderItem {
         private BigDecimal thanhTien;
         private Integer uuTien = 0;
         private String lyDoChinhGia;
-        private String trangThai = "DE_XUAT";
+        private ItemStatus trangThai = ItemStatus.DE_XUAT;
         private Boolean laHangBaoHanh = false;
         private String ghiChuBaoHanh;
         private Boolean daHoanThanh = false;
@@ -354,7 +356,7 @@ public class OrderItem {
             return this;
         }
 
-        public OrderItemBuilder trangThai(String trangThai) {
+        public OrderItemBuilder trangThai(ItemStatus trangThai) {
             this.trangThai = trangThai;
             return this;
         }

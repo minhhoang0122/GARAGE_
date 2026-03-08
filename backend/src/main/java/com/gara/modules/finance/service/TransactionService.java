@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import com.gara.entity.enums.OrderStatus;
 
 @Service
 public class TransactionService {
@@ -135,8 +136,8 @@ public class TransactionService {
         // Fix: Removed debt clamping to allow Negative Debt (Surplus)
         // if (debt.compareTo(BigDecimal.ZERO) < 0) debt = BigDecimal.ZERO;
 
-        if (debt.compareTo(BigDecimal.ZERO) <= 0 && "CHO_THANH_TOAN".equals(order.getTrangThai())) {
-            order.setTrangThai("HOAN_THANH");
+        if (debt.compareTo(BigDecimal.ZERO) <= 0 && OrderStatus.CHO_THANH_TOAN.equals(order.getTrangThai())) {
+            order.setTrangThai(OrderStatus.HOAN_THANH);
         }
 
         order.setCongNo(debt);

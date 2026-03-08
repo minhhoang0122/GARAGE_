@@ -12,6 +12,7 @@ import { Search, Plus, MapPin, Phone, Mail, User, RefreshCw, ChevronRight } from
 import { useSession } from 'next-auth/react';
 import { createCustomer } from '@/modules/service/sale';
 import { X, Loader2 } from 'lucide-react';
+import { useToast } from '@/contexts/ToastContext';
 
 export default function SaleCustomersPage() {
     const router = useRouter();
@@ -21,10 +22,10 @@ export default function SaleCustomersPage() {
 
     const [customers, setCustomers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    // Initialize keyword from URL to persist state on reload
     const keyword = searchParams.get('q') || '';
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { showToast } = useToast();
     const [formData, setFormData] = useState({
         hoTen: '',
         soDienThoai: '',
@@ -68,9 +69,10 @@ export default function SaleCustomersPage() {
         if (res.success) {
             setIsModalOpen(false);
             setFormData({ hoTen: '', soDienThoai: '', email: '', diaChi: '' });
+            showToast('success', 'Thêm khách hàng thành công!');
             loadCustomers(keyword);
         } else {
-            alert(res.error);
+            showToast('error', res.error || 'Có lỗi xảy ra');
         }
     };
 

@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
+import com.gara.entity.enums.OrderStatus;
 
 @Service
 public class ReportService {
@@ -100,9 +101,10 @@ public class ReportService {
                 LocalDateTime todayStart = LocalDate.now().atStartOfDay();
 
                 long waitingVehicles = orderRepository.countByTrangThaiIn(
-                                Arrays.asList("TIEP_NHAN", "CHO_CHAN_DOAN", "BAO_GIA", "CHO_KH_DUYET"));
+                                Arrays.asList(OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.BAO_GIA,
+                                                OrderStatus.CHO_KH_DUYET));
                 long inProgressJobs = orderRepository.countByTrangThaiIn(
-                                Arrays.asList("DA_DUYET", "CHO_SUA_CHUA", "DANG_SUA"));
+                                Arrays.asList(OrderStatus.DA_DUYET, OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA));
 
                 BigDecimal todayRevenue = transactionRepository.sumRevenueBetween(todayStart, LocalDateTime.now());
 

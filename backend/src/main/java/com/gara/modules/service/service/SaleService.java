@@ -8,8 +8,6 @@ import com.gara.modules.inventory.repository.*;
 import com.gara.modules.service.repository.*;
 import com.gara.modules.customer.repository.*;
 import com.gara.modules.finance.repository.*;
-import com.gara.modules.notification.repository.*;
-import com.gara.modules.system.repository.*;
 import com.gara.modules.reception.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +21,8 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.stream.Collectors;
+import com.gara.entity.enums.OrderStatus;
+import com.gara.entity.enums.ItemStatus;
 
 @Service
 public class SaleService {
@@ -68,15 +68,15 @@ public class SaleService {
     public DashboardStatsDTO getDashboardStats() {
         // Count all active vehicles in garage (not closed/cancelled)
         long countWaiting = orderRepository.countByTrangThaiIn(
-                List.of("TIEP_NHAN", "CHO_CHAN_DOAN", "BAO_GIA", "BAO_GIA_LAI",
-                        "CHO_KH_DUYET", "DA_DUYET", "CHO_SUA_CHUA", "DANG_SUA",
-                        "CHO_THANH_TOAN", "HOAN_THANH"));
-        long countPendingQuotes = orderRepository.countByTrangThai("CHO_KH_DUYET");
-        long countPendingPayment = orderRepository.countByTrangThai("CHO_THANH_TOAN");
+                List.of(OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.BAO_GIA, OrderStatus.BAO_GIA_LAI,
+                        OrderStatus.CHO_KH_DUYET, OrderStatus.DA_DUYET, OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
+                        OrderStatus.CHO_THANH_TOAN, OrderStatus.HOAN_THANH));
+        long countPendingQuotes = orderRepository.countByTrangThai(OrderStatus.CHO_KH_DUYET);
+        long countPendingPayment = orderRepository.countByTrangThai(OrderStatus.CHO_THANH_TOAN);
 
         // Waiting Vehicles List (Recently received - all active, not just TIEP_NHAN)
         List<RepairOrder> waitingOrders = orderRepository.findByStatusesOptimized(
-                List.of("TIEP_NHAN", "CHO_CHAN_DOAN"));
+                List.of(OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN));
         List<DashboardStatsDTO.DashboardVehicleDTO> waitingVehicles = waitingOrders.stream()
                 .limit(5)
                 .map(o -> {
@@ -125,7 +125,7 @@ public class SaleService {
                             .id(o.getId())
                             .plate(plate)
                             .total(o.getTongCong())
-                            .status(o.getTrangThai())
+                            .status(o.getTrangThai().name())
                             .build();
                 })
                 .toList();
@@ -157,14 +157,14 @@ public class SaleService {
                         .totalPrice(i.getThanhTien())
                         .discountPercent(i.getGiamGiaPhanTram())
                         .type(i.getHangHoa().getLaDichVu() ? "SERVICE" : "PRODUCT")
-                        .itemStatus(i.getTrangThai())
+                        .itemStatus(i.getTrangThai().name())
                         .proposedById(i.getNguoiDeXuatId())
                         .proposedByName(i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getHoTen() : null)
                         .proposedByRole(i.getNguoiDeXuat() != null && i.getNguoiDeXuat().getRoles() != null
                                 ? i.getNguoiDeXuat().getRoles().stream()
                                         .map(r -> r.getName()).findFirst().orElse(null)
                                 : null)
-                        .isWarranty(i.getTrangThai() != null && i.getTrangThai().contains("WARRANTY"))
+                        .isWarranty(i.getTrangThai() != null && i.getTrangThai().name().contains("WARRANTY"))
                         .build())
                 .toList();
 
@@ -185,7 +185,7 @@ public class SaleService {
 
         return OrderDetailDTO.builder()
                 .id(order.getId())
-                .status(order.getTrangThai())
+                .status(order.getTrangThai().name())
                 .plateNumber(order.getPhieuTiepNhan().getXe().getBienSo())
                 .customerName(order.getPhieuTiepNhan().getXe().getKhachHang().getHoTen())
                 .customerPhone(order.getPhieuTiepNhan().getXe().getKhachHang().getSoDienThoai())
@@ -269,11 +269,11 @@ public class SaleService {
         item.setThanhTien(product.getGiaBanNiemYet().multiply(BigDecimal.valueOf(quantity)));
 
         // Handle Arising Issues (Rule 3.3)
-        String status = order.getTrangThai();
-        if ("DA_DUYET".equals(status) || "DANG_SUA".equals(status)) {
-            item.setTrangThai("DE_XUAT"); // Arising issue needs approval
+        OrderStatus status = order.getTrangThai();
+        if (OrderStatus.DA_DUYET.equals(status) || OrderStatus.DANG_SUA.equals(status)) {
+            item.setTrangThai(ItemStatus.DE_XUAT); // Arising issue needs approval
         } else {
-            item.setTrangThai("KHACH_DONG_Y"); // Initial quote building
+            item.setTrangThai(ItemStatus.KHACH_DONG_Y); // Initial quote building
         }
 
         // Track who proposed this item
@@ -293,9 +293,9 @@ public class SaleService {
         validateOrderModifiable(item.getDonHangSuaChua());
 
         // Rule 10.2: Cannot edit approved items, only Arising (DE_XUAT) items
-        String orderStatus = item.getDonHangSuaChua().getTrangThai();
-        if ("DA_DUYET".equals(orderStatus) || "DANG_SUA".equals(orderStatus)) {
-            if (!"DE_XUAT".equals(item.getTrangThai())) {
+        OrderStatus orderStatus = item.getDonHangSuaChua().getTrangThai();
+        if (OrderStatus.DA_DUYET.equals(orderStatus) || OrderStatus.DANG_SUA.equals(orderStatus)) {
+            if (!ItemStatus.DE_XUAT.equals(item.getTrangThai())) {
                 throw new RuntimeException("Không thể chỉnh sửa hạng mục đã được duyệt (Báo giá gốc).");
             }
         }
@@ -327,7 +327,7 @@ public class SaleService {
 
     // 4b. Update Item Status (Approve/Reject)
     @Transactional
-    public void updateItemStatus(Integer itemId, String status, User user) {
+    public void updateItemStatus(Integer itemId, ItemStatus status, User user) {
         OrderItem item = orderItemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 
@@ -350,9 +350,9 @@ public class SaleService {
         validateOrderModifiable(order);
 
         // Rule 10.2: Cannot delete approved items, only Arising (DE_XUAT) items
-        String orderStatus = order.getTrangThai();
-        if ("DA_DUYET".equals(orderStatus) || "DANG_SUA".equals(orderStatus)) {
-            if (!"DE_XUAT".equals(item.getTrangThai())) {
+        OrderStatus orderStatus = order.getTrangThai();
+        if (OrderStatus.DA_DUYET.equals(orderStatus) || OrderStatus.DANG_SUA.equals(orderStatus)) {
+            if (!ItemStatus.DE_XUAT.equals(item.getTrangThai())) {
                 throw new RuntimeException("Không thể xóa hạng mục đã được duyệt (Báo giá gốc).");
             }
         }
@@ -383,8 +383,8 @@ public class SaleService {
             throw new RuntimeException("Lỗi hệ thống: User ID không tồn tại. Vui lòng đăng nhập lại.");
         }
 
-        String oldStatus = order.getTrangThai();
-        order.setTrangThai("CHO_KH_DUYET");
+        OrderStatus oldStatus = order.getTrangThai();
+        order.setTrangThai(OrderStatus.CHO_KH_DUYET);
         orderRepository.save(order);
 
         // Log transition
@@ -392,8 +392,8 @@ public class SaleService {
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
-                .duLieuCu(oldStatus)
-                .duLieuMoi("CHO_KH_DUYET")
+                .duLieuCu(oldStatus.name())
+                .duLieuMoi(OrderStatus.CHO_KH_DUYET.name())
                 .lyDo("Gửi báo giá cho khách")
                 .nguoiThucHienId(user.getId())
                 .build());
@@ -427,15 +427,15 @@ public class SaleService {
         checkOwnership(order, user);
 
         // Rule: Only allow replenishment during repair
-        String status = order.getTrangThai();
-        if ("CHO_THAN_TOAN".equals(status) || "HOAN_THANH".equals(status) ||
-                "DONG".equals(status) || "HUY".equals(status)) {
+        OrderStatus status = order.getTrangThai();
+        if (OrderStatus.CHO_THANH_TOAN.equals(status) || OrderStatus.HOAN_THANH.equals(status) ||
+                OrderStatus.DONG.equals(status) || OrderStatus.HUY.equals(status)) {
             throw new RuntimeException("Không thể báo giá phát sinh khi đơn hàng đã hoàn thành hoặc chờ thanh toán.");
         }
 
         // Filter items that are in 'DE_XUAT' status (Proposed by mechanic or sale)
         List<OrderItem> proposedItems = order.getChiTietDonHang().stream()
-                .filter(i -> "DE_XUAT".equals(i.getTrangThai()))
+                .filter(i -> ItemStatus.DE_XUAT.equals(i.getTrangThai()))
                 .toList();
 
         if (proposedItems.isEmpty()) {
@@ -448,8 +448,8 @@ public class SaleService {
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
-                .duLieuCu("DANG_SUA")
-                .duLieuMoi("DANG_SUA")
+                .duLieuCu(OrderStatus.DANG_SUA.name())
+                .duLieuMoi(OrderStatus.DANG_SUA.name())
                 .lyDo("Gửi báo giá bổ sung cho các hạng mục phát sinh")
                 .nguoiThucHienId(user.getId())
                 .build());
@@ -484,15 +484,15 @@ public class SaleService {
                     "Lỗi hệ thống: User ID không tồn tại trong phiên đăng nhập. Vui lòng đăng xuất và đăng nhập lại.");
         }
 
-        String oldStatus = order.getTrangThai();
+        OrderStatus oldStatus = order.getTrangThai();
 
         // Idempotency Check: Prevent double approval
-        if ("DA_DUYET".equals(oldStatus)) {
+        if (OrderStatus.DA_DUYET.equals(oldStatus)) {
             return; // Already approved, do nothing
         }
 
         // Rule: Only move to DA_DUYET if approved by customer
-        order.setTrangThai("DA_DUYET");
+        order.setTrangThai(OrderStatus.DA_DUYET);
         order.setNgayDuyet(LocalDateTime.now());
         orderRepository.save(order);
 
@@ -501,8 +501,8 @@ public class SaleService {
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
-                .duLieuCu(oldStatus)
-                .duLieuMoi("DA_DUYET")
+                .duLieuCu(oldStatus.name())
+                .duLieuMoi(OrderStatus.DA_DUYET.name())
                 .lyDo("Khách hàng đã duyệt báo giá")
                 .nguoiThucHienId(user.getId())
                 .build());
@@ -544,18 +544,18 @@ public class SaleService {
             reason = "Không có lý do cụ thể";
         }
 
-        String currentStatus = order.getTrangThai();
+        OrderStatus currentStatus = order.getTrangThai();
 
         // RULE: Cannot cancel COMPLETED or CLOSED orders
-        if ("HOAN_THANH".equals(currentStatus) || "DONG".equals(currentStatus)) {
+        if (OrderStatus.HOAN_THANH.equals(currentStatus) || OrderStatus.DONG.equals(currentStatus)) {
             throw new RuntimeException(
                     "Không thể hủy đơn hàng đã hoàn thành/đóng. Liên hệ Admin nếu cần.");
         }
 
         // RULE: Warn when canceling during repair with completed items
-        if ("DANG_SUA".equals(currentStatus) || "CHO_SUA_CHUA".equals(currentStatus)) {
+        if (OrderStatus.DANG_SUA.equals(currentStatus) || OrderStatus.CHO_SUA_CHUA.equals(currentStatus)) {
             long completedCount = order.getChiTietDonHang().stream()
-                    .filter(item -> "HOAN_THANH".equals(item.getTrangThai()))
+                    .filter(item -> ItemStatus.HOAN_THANH.equals(item.getTrangThai()))
                     .count();
 
             if (completedCount > 0) {
@@ -564,8 +564,8 @@ public class SaleService {
                         .bang("DonHangSuaChua")
                         .banGhiId(orderId)
                         .hanhDong("CANCEL_RISK")
-                        .duLieuCu(currentStatus)
-                        .duLieuMoi("HUY")
+                        .duLieuCu(currentStatus.name())
+                        .duLieuMoi(OrderStatus.HUY.name())
                         .lyDo("⚠️ HỦY RỦI RO CAO: " + completedCount + " hạng mục đã hoàn thành bị hủy. Lý do: "
                                 + reason)
                         .nguoiThucHienId(user.getId())
@@ -579,7 +579,7 @@ public class SaleService {
             boolean hasPendingItems = order.getChiTietDonHang().stream()
                     .anyMatch(item -> !item.getHangHoa().getLaDichVu() &&
                             item.getSoLuong() > 0 &&
-                            !"KHACH_TU_CHOI".equals(item.getTrangThai()));
+                            !ItemStatus.KHACH_TU_CHOI.equals(item.getTrangThai()));
 
             if (hasPendingItems) {
                 throw new RuntimeException(
@@ -589,8 +589,8 @@ public class SaleService {
 
         checkOwnership(order, user);
 
-        String oldStatus = order.getTrangThai();
-        order.setTrangThai("HUY");
+        OrderStatus oldStatus = order.getTrangThai();
+        order.setTrangThai(OrderStatus.HUY);
         orderRepository.save(order);
 
         // Log transition
@@ -598,8 +598,8 @@ public class SaleService {
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
-                .duLieuCu(oldStatus)
-                .duLieuMoi("HUY")
+                .duLieuCu(oldStatus.name())
+                .duLieuMoi(OrderStatus.HUY.name())
                 .lyDo("Hủy đơn hàng: " + reason)
                 .nguoiThucHienId(user.getId())
                 .build());
@@ -639,7 +639,8 @@ public class SaleService {
         RepairOrder originalOrder = orderRepository.findById(originalOrderId)
                 .orElseThrow(() -> new RuntimeException("Original Order not found"));
 
-        if (!"HOAN_THANH".equals(originalOrder.getTrangThai()) && !"DONG".equals(originalOrder.getTrangThai())) {
+        if (!OrderStatus.HOAN_THANH.equals(originalOrder.getTrangThai())
+                && !OrderStatus.DONG.equals(originalOrder.getTrangThai())) {
             throw new RuntimeException("Chỉ có thể tạo bảo hành từ đơn hàng đã hoàn thành hoặc đóng.");
         }
 
@@ -676,7 +677,7 @@ public class SaleService {
         RepairOrder warrantyOrder = RepairOrder.builder()
                 .phieuTiepNhan(warrantyVisit)
                 .nguoiPhuTrach(user)
-                .trangThai("TIEP_NHAN")
+                .trangThai(OrderStatus.TIEP_NHAN)
                 .laDonBaoHanh(true)
                 .parentOrder(originalOrder)
                 .ghiChu("Bảo hành theo đơn " + originalOrder.getId())
@@ -725,7 +726,7 @@ public class SaleService {
                     .soLuong(originalItem.getSoLuong())
                     .donGiaGoc(BigDecimal.ZERO)
                     .thanhTien(BigDecimal.ZERO)
-                    .trangThai("CHO_SUA_CHUA")
+                    .trangThai(ItemStatus.CHO_SUA_CHUA)
                     .build();
 
             warrantyItems.add(newItem);
@@ -772,8 +773,8 @@ public class SaleService {
 
         checkOwnership(order, user);
 
-        String oldStatus = order.getTrangThai();
-        order.setTrangThai("DONG");
+        OrderStatus oldStatus = order.getTrangThai();
+        order.setTrangThai(OrderStatus.DONG);
         orderRepository.save(order);
 
         // Log transition
@@ -781,8 +782,8 @@ public class SaleService {
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
-                .duLieuCu(oldStatus)
-                .duLieuMoi("DONG")
+                .duLieuCu(oldStatus.name())
+                .duLieuMoi(OrderStatus.DONG.name())
                 .lyDo("Đóng đơn hàng")
                 .nguoiThucHienId(user.getId())
                 .build());
@@ -804,10 +805,12 @@ public class SaleService {
         List<RepairOrder> orders;
         if (status != null && !status.isEmpty()) {
             if (status.contains(",")) {
-                List<String> statuses = List.of(status.split(","));
+                List<OrderStatus> statuses = List.of(status.split(",")).stream()
+                        .map(OrderStatus::valueOf)
+                        .collect(Collectors.toList());
                 orders = orderRepository.findByStatusesOptimized(statuses);
             } else {
-                orders = orderRepository.findByStatusOptimized(status);
+                orders = orderRepository.findByStatusOptimized(OrderStatus.valueOf(status));
             }
         } else {
             // Optimized: Use paginated query with JOIN FETCH instead of findAll()
@@ -844,7 +847,7 @@ public class SaleService {
             m.put("vehicleBrand", o.getPhieuTiepNhan().getXe().getNhanHieu());
             m.put("vehicleModel", o.getPhieuTiepNhan().getXe().getModel());
             m.put("customerName", o.getPhieuTiepNhan().getXe().getKhachHang().getHoTen());
-            m.put("status", o.getTrangThai());
+            m.put("status", o.getTrangThai().name());
             m.put("grandTotal", finalAmount);
             m.put("debt", debt);
             return m;
@@ -852,11 +855,11 @@ public class SaleService {
     }
 
     private void validateOrderModifiable(RepairOrder order) {
-        String status = order.getTrangThai();
+        OrderStatus status = order.getTrangThai();
         // Allow modification only in early stages
-        if ("CHO_THANH_TOAN".equals(status) || "HOAN_THANH".equals(status) ||
-                "DONG".equals(status) || "HUY".equals(status)) {
-            throw new RuntimeException("Không thể chỉnh sửa đơn hàng ở trạng thái " + status);
+        if (OrderStatus.CHO_THANH_TOAN.equals(status) || OrderStatus.HOAN_THANH.equals(status) ||
+                OrderStatus.DONG.equals(status) || OrderStatus.HUY.equals(status)) {
+            throw new RuntimeException("Không thể chỉnh sửa đơn hàng ở trạng thái " + status.getDescription());
         }
     }
 
@@ -869,7 +872,7 @@ public class SaleService {
 
         for (OrderItem item : items) {
             // Skip cancelled items (customer rejected)
-            if ("KHACH_TU_CHOI".equals(item.getTrangThai())) {
+            if (ItemStatus.KHACH_TU_CHOI.equals(item.getTrangThai())) {
                 continue;
             }
 
@@ -935,12 +938,13 @@ public class SaleService {
         // Verify ownership (Double check, though Controller also checks)
         // In Service we trust the user object passed is authenticated
 
-        if (!"CHO_KH_DUYET".equals(order.getTrangThai()) && !"BAO_GIA_LAI".equals(order.getTrangThai())) {
+        if (!OrderStatus.CHO_KH_DUYET.equals(order.getTrangThai())
+                && !OrderStatus.BAO_GIA_LAI.equals(order.getTrangThai())) {
             throw new RuntimeException("Đơn hàng không ở trạng thái chờ duyệt");
         }
 
-        String oldStatus = order.getTrangThai();
-        order.setTrangThai("DA_DUYET");
+        OrderStatus oldStatus = order.getTrangThai();
+        order.setTrangThai(OrderStatus.DA_DUYET);
         order.setNgayDuyet(LocalDateTime.now());
         orderRepository.save(order);
 
@@ -949,8 +953,8 @@ public class SaleService {
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("APPROVE")
-                .duLieuCu(oldStatus)
-                .duLieuMoi("DA_DUYET")
+                .duLieuCu(oldStatus.name())
+                .duLieuMoi(OrderStatus.DA_DUYET.name())
                 .lyDo("Khách hàng duyệt báo giá")
                 .nguoiThucHienId(user.getId())
                 .build());
@@ -1000,13 +1004,14 @@ public class SaleService {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        if (!"CHO_KH_DUYET".equals(order.getTrangThai()) && !"BAO_GIA_LAI".equals(order.getTrangThai())) {
+        if (!OrderStatus.CHO_KH_DUYET.equals(order.getTrangThai())
+                && !OrderStatus.BAO_GIA_LAI.equals(order.getTrangThai())) {
             throw new RuntimeException("Đơn hàng không ở trạng thái chờ duyệt");
         }
 
         String actualReason = (reason == null || reason.isEmpty()) ? "Không rõ lý do" : reason;
-        String oldStatus = order.getTrangThai();
-        order.setTrangThai("HUY");
+        OrderStatus oldStatus = order.getTrangThai();
+        order.setTrangThai(OrderStatus.HUY);
         orderRepository.save(order);
 
         // Audit log
@@ -1014,8 +1019,8 @@ public class SaleService {
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("REJECT")
-                .duLieuCu(oldStatus)
-                .duLieuMoi("HUY")
+                .duLieuCu(oldStatus.name())
+                .duLieuMoi(OrderStatus.HUY.name())
                 .lyDo("Khách hàng từ chối: " + actualReason)
                 .nguoiThucHienId(user.getId())
                 .build());
@@ -1043,12 +1048,12 @@ public class SaleService {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        if (!"CHO_KH_DUYET".equals(order.getTrangThai())) {
+        if (!OrderStatus.CHO_KH_DUYET.equals(order.getTrangThai())) {
             throw new RuntimeException("Chỉ có thể yêu cầu chỉnh sửa khi đang chờ duyệt");
         }
 
-        String oldStatus = order.getTrangThai();
-        order.setTrangThai("BAO_GIA_LAI");
+        OrderStatus oldStatus = order.getTrangThai();
+        order.setTrangThai(OrderStatus.BAO_GIA_LAI);
         order.setGhiChu(note);
         orderRepository.save(order);
 
@@ -1057,8 +1062,8 @@ public class SaleService {
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("REQUEST_REVISION")
-                .duLieuCu(oldStatus)
-                .duLieuMoi("BAO_GIA_LAI")
+                .duLieuCu(oldStatus.name())
+                .duLieuMoi(OrderStatus.BAO_GIA_LAI.name())
                 .lyDo("Khách yêu cầu chỉnh sửa: " + note)
                 .nguoiThucHienId(user.getId())
                 .build());

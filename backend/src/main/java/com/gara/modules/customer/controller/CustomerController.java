@@ -45,7 +45,8 @@ public class CustomerController {
         // Map to response format
         List<CustomerOrderDTO> result = orders.stream()
                 .map(order -> CustomerOrderDTO.builder().id(order.getId())
-                        .plate(order.getPhieuTiepNhan().getXe().getBienSo()).status(order.getTrangThai())
+                        .plate(order.getPhieuTiepNhan().getXe().getBienSo())
+                        .status(order.getTrangThai() != null ? order.getTrangThai().name() : null)
                         .createdAt(order.getNgayTao()).total(order.getTongCong()).paid(order.getSoTienDaTra())
                         .debt(order.getCongNo()).build())
                 .toList();

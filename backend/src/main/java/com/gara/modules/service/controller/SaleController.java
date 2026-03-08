@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import com.gara.entity.enums.ItemStatus;
 
 @RestController
 @RequestMapping("/api/sale")
@@ -83,7 +84,7 @@ public class SaleController {
     public ResponseEntity<?> updateItemStatus(@PathVariable Integer id, @RequestBody Map<String, String> body,
             @org.springframework.security.core.annotation.AuthenticationPrincipal com.gara.entity.User user) {
         try {
-            String status = body.get("status");
+            ItemStatus status = ItemStatus.valueOf(body.get("status"));
             saleService.updateItemStatus(id, status, user);
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {

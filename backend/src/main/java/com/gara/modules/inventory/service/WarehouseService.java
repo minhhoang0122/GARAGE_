@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.gara.entity.enums.OrderStatus;
+import com.gara.entity.enums.ItemStatus;
 
 @Service
 public class WarehouseService {
@@ -99,11 +101,11 @@ public class WarehouseService {
 
         // Rule 10.4: Check Deposit
         // Rule: Verify Status
-        String status = order.getTrangThai();
-        if (!"DA_DUYET".equals(status) && !"DANG_SUA".equals(status)) {
+        OrderStatus status = order.getTrangThai();
+        if (!OrderStatus.DA_DUYET.equals(status) && !OrderStatus.DANG_SUA.equals(status)) {
             throw new RuntimeException(
                     "Không thể xuất kho. Đơn hàng chưa được duyệt hoặc không ở trạng thái sửa chữa (Trạng thái: "
-                            + status + ").");
+                            + status.name() + ").");
         }
 
         java.math.BigDecimal threshold = new java.math.BigDecimal("5000000");
@@ -117,7 +119,7 @@ public class WarehouseService {
 
         // 1. Get Items to Export (Customer Accepted, Not Service)
         List<OrderItem> items = order.getChiTietDonHang().stream()
-                .filter(i -> "KHACH_DONG_Y".equals(i.getTrangThai()) && !i.getHangHoa().getLaDichVu())
+                .filter(i -> ItemStatus.KHACH_DONG_Y.equals(i.getTrangThai()) && !i.getHangHoa().getLaDichVu())
                 .toList();
 
         if (items.isEmpty()) {
@@ -196,8 +198,8 @@ public class WarehouseService {
             exportNote.getChiTietXuatKho().add(detail);
 
             // Mark Item as DANG_SUA (In progress) if was just approved
-            if ("KHACH_DONG_Y".equals(item.getTrangThai())) {
-                item.setTrangThai("DANG_SUA");
+            if (ItemStatus.KHACH_DONG_Y.equals(item.getTrangThai())) {
+                item.setTrangThai(ItemStatus.DANG_SUA);
                 orderItemRepository.save(item);
             }
         }
@@ -206,8 +208,8 @@ public class WarehouseService {
         exportNoteRepository.save(exportNote);
 
         // 6. Update Order Status
-        if ("DA_DUYET".equals(order.getTrangThai())) {
-            order.setTrangThai("DANG_SUA");
+        if (OrderStatus.DA_DUYET.equals(order.getTrangThai())) {
+            order.setTrangThai(OrderStatus.DANG_SUA);
             orderRepository.save(order);
         }
 
@@ -237,7 +239,8 @@ public class WarehouseService {
         }
 
         OrderItem orderItem = order.getChiTietDonHang().stream()
-                .filter(i -> i.getHangHoa().getId().equals(productId) && !"KHACH_TU_CHOI".equals(i.getTrangThai()))
+                .filter(i -> i.getHangHoa().getId().equals(productId)
+                        && !ItemStatus.KHACH_TU_CHOI.equals(i.getTrangThai()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Sản phẩm không có trong đơn hàng."));
 
@@ -255,7 +258,7 @@ public class WarehouseService {
 
         // 2. Update Order Item
         if (orderItem.getSoLuong() == quantity) {
-            orderItem.setTrangThai("KHACH_TU_CHOI"); // Cancel this item effectively
+            orderItem.setTrangThai(ItemStatus.KHACH_TU_CHOI); // Cancel this item effectively
             orderItem.setSoLuong(0);
             orderItem.setThanhTien(BigDecimal.ZERO);
         } else {
@@ -266,7 +269,7 @@ public class WarehouseService {
 
         // 3. Recalculate Order Totals
         BigDecimal total = order.getChiTietDonHang().stream()
-                .filter(i -> !"KHACH_TU_CHOI".equals(i.getTrangThai()))
+                .filter(i -> !ItemStatus.KHACH_TU_CHOI.equals(i.getTrangThai()))
                 .map(OrderItem::getThanhTien)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         order.setTongTienHang(total);
@@ -301,18 +304,20 @@ public class WarehouseService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getPendingExportOrders() {
-        List<String> statuses = java.util.Arrays.asList("DA_DUYET", "CHO_SUA_CHUA", "DANG_SUA");
+        List<OrderStatus> statuses = java.util.Arrays.asList(OrderStatus.DA_DUYET, OrderStatus.CHO_SUA_CHUA,
+                OrderStatus.DANG_SUA);
         List<RepairOrder> orders = orderRepository.findWithDetailsByStatusIn(statuses);
 
         return orders.stream()
                 .map(order -> {
                     boolean hasExported = !order.getPhieuXuatKho().isEmpty();
-                    if ("DANG_SUA".equals(order.getTrangThai()) && hasExported) {
+                    if (OrderStatus.DANG_SUA.equals(order.getTrangThai()) && hasExported) {
                         return null;
                     }
 
                     List<OrderItem> parts = order.getChiTietDonHang().stream()
-                            .filter(i -> !i.getHangHoa().getLaDichVu() && "KHACH_DONG_Y".equals(i.getTrangThai()))
+                            .filter(i -> !i.getHangHoa().getLaDichVu()
+                                    && ItemStatus.KHACH_DONG_Y.equals(i.getTrangThai()))
                             .toList();
 
                     if (parts.isEmpty())
@@ -331,7 +336,7 @@ public class WarehouseService {
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
                     map.put("totalValue", totalValue);
                     map.put("hasExported", hasExported);
-                    map.put("status", order.getTrangThai());
+                    map.put("status", order.getTrangThai() != null ? order.getTrangThai().name() : null);
 
                     return map;
                 })
@@ -353,7 +358,7 @@ public class WarehouseService {
         }
 
         List<Map<String, Object>> items = order.getChiTietDonHang().stream()
-                .filter(i -> !i.getHangHoa().getLaDichVu() && "KHACH_DONG_Y".equals(i.getTrangThai()))
+                .filter(i -> !i.getHangHoa().getLaDichVu() && ItemStatus.KHACH_DONG_Y.equals(i.getTrangThai()))
                 .map(i -> {
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", i.getId());
@@ -370,7 +375,7 @@ public class WarehouseService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("id", order.getId());
-        result.put("status", order.getTrangThai());
+        result.put("status", order.getTrangThai() != null ? order.getTrangThai().name() : null);
         result.put("plate", order.getPhieuTiepNhan().getXe().getBienSo());
         result.put("customerName", order.getPhieuTiepNhan().getXe().getKhachHang().getHoTen());
         result.put("customerPhone", order.getPhieuTiepNhan().getXe().getKhachHang().getSoDienThoai());
@@ -385,7 +390,7 @@ public class WarehouseService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getDashboardStats() {
-        long pendingOrders = orderRepository.countByTrangThai("DA_DUYET");
+        long pendingOrders = orderRepository.countByTrangThai(OrderStatus.DA_DUYET);
         long lowStockItems = productRepository.countLowStockProducts();
         java.time.LocalDateTime todayStart = java.time.LocalDate.now().atStartOfDay();
 

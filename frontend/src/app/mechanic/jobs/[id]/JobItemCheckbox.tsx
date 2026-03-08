@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { toggleItemCompletion } from '@/modules/service/mechanic';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/contexts/ToastContext';
 
 interface JobItemCheckboxProps {
     itemId: number;
@@ -14,6 +15,7 @@ export default function JobItemCheckbox({ itemId, isCompleted, disabled }: JobIt
     const [loading, setLoading] = useState(false);
     const [checked, setChecked] = useState(isCompleted);
     const router = useRouter();
+    const { showToast } = useToast();
 
     const handleToggle = async () => {
         if (disabled) return;
@@ -21,13 +23,14 @@ export default function JobItemCheckbox({ itemId, isCompleted, disabled }: JobIt
         try {
             const result = await toggleItemCompletion(itemId);
             if (result.success) {
+                showToast('success', 'Đã cập nhật trạng thái hạng mục!');
                 setChecked(result.completed ?? !checked);
                 router.refresh();
             } else {
-                alert('Lỗi: ' + result.error);
+                showToast('error', result.error || 'Thao tác thất bại');
             }
         } catch (error) {
-            alert('Lỗi hệ thống');
+            showToast('error', 'Lỗi kết nối máy chủ');
         } finally {
             setLoading(false);
         }

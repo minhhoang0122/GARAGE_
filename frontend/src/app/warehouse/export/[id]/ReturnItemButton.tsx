@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { returnStock } from '@/modules/inventory/warehouse';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/contexts/ToastContext';
 
 interface ReturnItemButtonProps {
     orderId: number;
@@ -19,6 +20,7 @@ export default function ReturnItemButton({ orderId, productId, productName, maxQ
     const [reason, setReason] = useState('Thừa không dùng');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const { showToast } = useToast();
 
     const handleReturn = async () => {
         if (quantity <= 0 || quantity > maxQuantity) return;
@@ -26,13 +28,14 @@ export default function ReturnItemButton({ orderId, productId, productName, maxQ
         try {
             const res = await returnStock(orderId, productId, quantity, reason);
             if (res.success) {
+                showToast('success', 'Hoàn nhập thành công!');
                 setIsOpen(false);
                 router.refresh();
             } else {
-                alert(res.error || 'Lỗi hoàn trả');
+                showToast('error', res.error || 'Lỗi hoàn trả');
             }
         } catch (e) {
-            alert('Lỗi kết nối');
+            showToast('error', 'Lỗi kết nối máy chủ');
         } finally {
             setLoading(false);
         }

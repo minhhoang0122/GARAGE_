@@ -10,9 +10,11 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import ImageCapture from '@/modules/shared/components/common/ImageCapture';
+import { useToast } from '@/contexts/ToastContext';
 
 export default function ReceptionPage() {
     const router = useRouter();
+    const { showToast } = useToast();
     const [vehicleType, setVehicleType] = useState<'CAR' | 'MOTO'>('CAR');
     const [plate, setPlate] = useState('');
     const debouncedPlate = useDebounce(plate, 500);
@@ -210,13 +212,16 @@ export default function ReceptionPage() {
             });
 
             if (result.success) {
+                showToast('success', 'Đã tiếp nhận xe thành công!');
                 router.replace('/sale');
                 router.refresh();
             } else {
                 setError(result.error || 'Có lỗi xảy ra');
+                showToast('error', result.error || 'Có lỗi xảy ra khi tạo phiếu tiếp nhận');
             }
         } catch (e) {
             setError('Lỗi kết nối');
+            showToast('error', 'Lỗi kết nối đến máy chủ');
         } finally {
             setIsSubmitting(false);
         }

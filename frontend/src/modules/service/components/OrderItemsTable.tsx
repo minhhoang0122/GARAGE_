@@ -6,6 +6,7 @@ import { Trash2, Edit2, Check, X, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
+import { useToast } from '@/contexts/ToastContext';
 
 interface OrderItemsTableProps {
     items: OrderDetailItem[];
@@ -50,6 +51,7 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
 function EditableRow({ item, readOnly }: { item: OrderDetailItem, readOnly: boolean }) {
     const router = useRouter();
     const confirm = useConfirm();
+    const { showToast } = useToast();
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -74,9 +76,10 @@ function EditableRow({ item, readOnly }: { item: OrderDetailItem, readOnly: bool
         try {
             await updateOrderItem(item.id, { quantity, discountPercent });
             setIsEditing(false);
+            showToast('success', 'Đã cập nhật mục báo giá');
             router.refresh();
         } catch (error) {
-            alert('Lỗi cập nhật');
+            showToast('error', 'Lỗi cập nhật');
         } finally {
             setIsSaving(false);
         }
@@ -111,11 +114,12 @@ function EditableRow({ item, readOnly }: { item: OrderDetailItem, readOnly: bool
 
         try {
             await toggleItemStatus(item.id, originalStatus);
+            showToast('success', optimisticStatus === 'KHACH_DONG_Y' ? 'Khách đã duyệt' : 'Khách từ chối duyệt');
             router.refresh();
         } catch (error) {
             // Revert on failure
             item.itemStatus = originalStatus;
-            alert('Lỗi cập nhật');
+            showToast('error', 'Lỗi cập nhật');
         } finally {
             setIsSaving(false);
         }
@@ -154,10 +158,10 @@ function EditableRow({ item, readOnly }: { item: OrderDetailItem, readOnly: bool
                     {isProposed && <span className="text-[10px] bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 px-1.5 py-0.5 rounded">Phát sinh mới</span>}
                     {item.proposedByName && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1 ${item.proposedByRole === 'THO_CHAN_DOAN' || item.proposedByRole === 'THO_SUA_CHUA'
-                                ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300'
-                                : item.proposedByRole === 'SALE'
-                                    ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
-                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                            ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300'
+                            : item.proposedByRole === 'SALE'
+                                ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
+                                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                             }`}>
                             {item.proposedByRole === 'THO_CHAN_DOAN' ? '🔧 Thợ khám' :
                                 item.proposedByRole === 'THO_SUA_CHUA' ? '🛠️ Thợ sửa' :

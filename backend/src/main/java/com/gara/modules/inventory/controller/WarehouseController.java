@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.gara.entity.User;
+import jakarta.validation.Valid;
 
 import java.util.Map;
 
@@ -144,7 +145,7 @@ public class WarehouseController {
 
     @PostMapping("/import")
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'KHO')")
-    public ResponseEntity<?> importStock(@RequestBody com.gara.dto.ImportRequestDTO req,
+    public ResponseEntity<?> importStock(@RequestBody @Valid com.gara.dto.ImportRequestDTO req,
             @AuthenticationPrincipal User user) {
         try {
             Integer importId = warehouseService.importStock(req, user.getId());

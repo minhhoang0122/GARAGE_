@@ -5,6 +5,7 @@ import { Search, Package, Wrench, Loader2 } from 'lucide-react';
 import { searchProducts, addItemToOrder, getAllProducts } from '@/modules/service/order';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/contexts/ToastContext';
 
 interface ProductSearchProps {
     orderId?: number;
@@ -25,6 +26,7 @@ type TabType = 'all' | 'parts' | 'services';
 
 export default function ProductSearch({ orderId, readOnly = false, onProductSelect }: ProductSearchProps) {
     const router = useRouter();
+    const { showToast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [results, setResults] = useState<Product[]>([]);
@@ -100,9 +102,10 @@ export default function ProductSearch({ orderId, readOnly = false, onProductSele
             await addItemToOrder(orderId, product.ID, 1);
             setSearchTerm('');
             setIsOpen(false);
+            showToast('success', 'Đã thêm vào báo giá');
             router.refresh();
         } catch (error) {
-            alert('Lỗi thêm sản phẩm');
+            showToast('error', 'Lỗi thêm sản phẩm');
         } finally {
             setIsAdding(false);
         }

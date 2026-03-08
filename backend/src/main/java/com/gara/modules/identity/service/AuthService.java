@@ -22,26 +22,40 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final com.gara.modules.support.service.LoginAttemptService loginAttemptService;
 
     public AuthService(UserRepository userRepository, RoleRepository roleRepository,
-            PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+            PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
+            com.gara.modules.support.service.LoginAttemptService loginAttemptService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.loginAttemptService = loginAttemptService;
     }
 
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByTenDangNhap(request.username())
-                .orElseThrow(() -> new RuntimeException("Tên đăng nhập không tồn tại"));
+        String username = request.username();
+        if (loginAttemptService.isBlocked(username)) {
+            throw new RuntimeException("Tài khoản đã bị tạm khóa (15 phút) do đăng nhập sai quá nhiều lần");
+        }
+
+        User user = userRepository.findByTenDangNhap(username)
+                .orElseThrow(() -> {
+                    loginAttemptService.loginFailed(username);
+                    return new RuntimeException("Tên đăng nhập không tồn tại");
+                });
 
         if (!user.getTrangThaiHoatDong()) {
             throw new RuntimeException("Tài khoản đã bị khóa");
         }
 
         if (!passwordEncoder.matches(request.password(), user.getMatKhauHash())) {
+            loginAttemptService.loginFailed(username);
             throw new RuntimeException("Mật khẩu không đúng");
         }
+
+        loginAttemptService.loginSucceeded(username);
 
         List<String> roles = user.getRoles().stream()
                 .map(Role::getName)

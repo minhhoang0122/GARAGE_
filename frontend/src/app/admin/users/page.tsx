@@ -10,6 +10,7 @@ import { Button } from '@/modules/shared/components/ui/button';
 import { Input } from '@/modules/shared/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/shared/components/ui/table';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
+import { useToast } from '@/contexts/ToastContext';
 
 export default function UsersPage() {
     const [users, setUsers] = useState<any[]>([]);
@@ -23,6 +24,7 @@ export default function UsersPage() {
         roleCodes: ['SALE'] as string[]
     });
     const confirm = useConfirm();
+    const { showToast } = useToast();
 
     useEffect(() => {
         loadUsers();
@@ -45,8 +47,9 @@ export default function UsersPage() {
             setEditingUser(null);
             resetForm();
             loadUsers();
+            showToast('success', editingUser ? 'Cập nhật thành công!' : 'Tạo mới thành công!');
         } catch (err) {
-            alert('Lỗi lưu người dùng');
+            showToast('error', 'Lỗi lưu người dùng');
         }
     };
 

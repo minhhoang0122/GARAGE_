@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CheckCircle, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 import { completeJob, qcPass, qcFail } from '@/modules/service/mechanic';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/contexts/ToastContext';
 
 interface CompleteJobButtonProps {
     orderId: number;
@@ -25,6 +26,7 @@ export default function CompleteJobButton({
     const [isLoading, setIsLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const router = useRouter();
+    const { showToast } = useToast();
 
     const handleAction = async () => {
         setIsLoading(true);
@@ -41,14 +43,15 @@ export default function CompleteJobButton({
             }
 
             if (result.success) {
+                showToast('success', isQC ? (qcAction === 'pass' ? 'Đã duyệt nghiệm thu!' : 'Đã từ chối nghiệm thu!') : 'Đã hoàn thành công việc!');
                 setShowConfirm(false);
                 router.replace('/mechanic/jobs');
                 router.refresh();
             } else {
-                alert('Lỗi: ' + result.error || 'Thao tác thất bại');
+                showToast('error', result.error || 'Thao tác thất bại');
             }
         } catch (error) {
-            alert('Lỗi hệ thống');
+            showToast('error', 'Lỗi kết nối đến máy chủ');
         } finally {
             setIsLoading(false);
         }
@@ -130,8 +133,8 @@ export default function CompleteJobButton({
                                 onClick={handleAction}
                                 disabled={isLoading}
                                 className={`px-4 py-2 text-white rounded-lg font-medium flex items-center gap-2 ${isQC && qcAction === 'fail'
-                                        ? 'bg-red-600 hover:bg-red-700'
-                                        : 'bg-emerald-600 hover:bg-emerald-700'
+                                    ? 'bg-red-600 hover:bg-red-700'
+                                    : 'bg-emerald-600 hover:bg-emerald-700'
                                     }`}
                             >
                                 {isLoading ? (

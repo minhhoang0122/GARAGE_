@@ -1,14 +1,18 @@
 package com.gara.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+
 public record ReceptionFormData(
-        String bienSo,
-        Integer odo,
+        @NotBlank(message = "Biển số xe không được để trống") String bienSo,
+        @NotNull(message = "Số km (ODO) không được để trống") Integer odo,
         String nhanHieu,
         String model,
         String soKhung,
         String soMay,
-        String tenKhach,
-        String sdtKhach,
+        @NotBlank(message = "Tên khách hàng không được để trống") String tenKhach,
+        @NotBlank(message = "Số điện thoại không được để trống") @Pattern(regexp = "^(0|\\+84)[0-9]{8,9}$", message = "Số điện thoại không hợp lệ") String sdtKhach,
         String diaChiKhach,
         String emailKhach,
         Double mucXang,

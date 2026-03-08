@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Hand } from 'lucide-react';
 import { claimJob } from '@/modules/service/mechanic';
+import { useToast } from '@/contexts/ToastContext';
 
 type ClaimJobButtonProps = {
     orderId: number;
@@ -14,6 +15,7 @@ type ClaimJobButtonProps = {
 export default function ClaimJobButton({ orderId, claimedByName, isClaimedByMe }: ClaimJobButtonProps) {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const { showToast } = useToast();
 
     // Already claimed by current user
     if (isClaimedByMe) {
@@ -38,9 +40,10 @@ export default function ClaimJobButton({ orderId, claimedByName, isClaimedByMe }
         setLoading(true);
         const result = await claimJob(orderId);
         if (result.success) {
+            showToast('success', 'Nhận việc thành công!');
             router.refresh();
         } else {
-            alert(result.error);
+            showToast('error', result.error || 'Thao tác thất bại');
         }
         setLoading(false);
     };

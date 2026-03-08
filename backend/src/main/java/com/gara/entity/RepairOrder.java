@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.gara.entity.enums.OrderStatus;
 
 @Entity
 @Table(name = "donhangsuachua", indexes = {
@@ -24,8 +25,9 @@ public class RepairOrder {
     @Column(name = "ngay_duyet")
     private LocalDateTime ngayDuyet;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "trang_thai", length = 30)
-    private String trangThai = "TIEP_NHAN";
+    private OrderStatus trangThai = OrderStatus.TIEP_NHAN;
 
     @Column(name = "tien_coc", precision = 18, scale = 2)
     private BigDecimal tienCoc = BigDecimal.ZERO;
@@ -108,13 +110,14 @@ public class RepairOrder {
     protected void onCreate() {
         ngayTao = LocalDateTime.now();
         if (trangThai == null)
-            trangThai = "TIEP_NHAN";
+            trangThai = OrderStatus.TIEP_NHAN;
     }
 
     public RepairOrder() {
     }
 
-    public RepairOrder(Integer id, LocalDateTime ngayTao, LocalDateTime ngayDuyet, String trangThai, BigDecimal tienCoc,
+    public RepairOrder(Integer id, LocalDateTime ngayTao, LocalDateTime ngayDuyet, OrderStatus trangThai,
+            BigDecimal tienCoc,
             BigDecimal tongTienHang, BigDecimal tongTienCong, BigDecimal chietKhauTong, BigDecimal thueVAT,
             BigDecimal tongCong, Boolean laDonBaoHanh, BigDecimal soTienDaTra, BigDecimal congNo, String phuongThuc,
             LocalDateTime ngayThanhToan, String ghiChu, Integer parentOrderId, RepairOrder parentOrder,
@@ -176,11 +179,11 @@ public class RepairOrder {
         this.ngayDuyet = ngayDuyet;
     }
 
-    public String getTrangThai() {
+    public OrderStatus getTrangThai() {
         return trangThai;
     }
 
-    public void setTrangThai(String trangThai) {
+    public void setTrangThai(OrderStatus trangThai) {
         this.trangThai = trangThai;
     }
 
@@ -384,7 +387,7 @@ public class RepairOrder {
         private Integer id;
         private LocalDateTime ngayTao;
         private LocalDateTime ngayDuyet;
-        private String trangThai = "TIEP_NHAN";
+        private OrderStatus trangThai = OrderStatus.TIEP_NHAN;
         private BigDecimal tienCoc = BigDecimal.ZERO;
         private BigDecimal tongTienHang = BigDecimal.ZERO;
         private BigDecimal tongTienCong = BigDecimal.ZERO;
@@ -428,7 +431,7 @@ public class RepairOrder {
             return this;
         }
 
-        public RepairOrderBuilder trangThai(String trangThai) {
+        public RepairOrderBuilder trangThai(OrderStatus trangThai) {
             this.trangThai = trangThai;
             return this;
         }

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { UserMinus, Loader2, AlertTriangle } from 'lucide-react';
 import { unclaimJob } from '@/modules/service/mechanic';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/contexts/ToastContext';
 
 interface UnclaimJobButtonProps {
     orderId: number;
@@ -14,19 +15,21 @@ export default function UnclaimJobButton({ orderId, completedItems }: UnclaimJob
     const [isLoading, setIsLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const router = useRouter();
+    const { showToast } = useToast();
 
     const handleUnclaim = async () => {
         setIsLoading(true);
         try {
             const result = await unclaimJob(orderId);
             if (result.success) {
+                showToast('success', 'Đã hủy nhận việc thành công!');
                 setShowConfirm(false);
                 router.refresh(); // Refresh page data
             } else {
-                alert('Lỗi: ' + result.error);
+                showToast('error', result.error || 'Thao tác thất bại');
             }
         } catch (error) {
-            alert('Lỗi hệ thống');
+            showToast('error', 'Lỗi kết nối máy chủ');
         } finally {
             setIsLoading(false);
         }

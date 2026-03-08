@@ -9,6 +9,7 @@ import { formatCurrency, removeAccents } from '@/lib/utils';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { Switch } from '@/modules/shared/components/ui/Switch';
 import CurrencyInput from '@/modules/shared/components/ui/CurrencyInput';
+import { useToast } from '@/contexts/ToastContext';
 
 
 type Product = {
@@ -499,16 +500,18 @@ function CreateProductModal({ isOpen, onClose, onSuccess, type, token }: { isOpe
         description: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { showToast } = useToast();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
             await api.post('/products', formData, token || '');
+            showToast('success', type === 'service' ? 'Thích dịch vụ thành công' : 'Thêm phụ tùng thành công');
             onSuccess();
         } catch (error) {
             console.error(error);
-            alert('Lỗi tạo mới');
+            showToast('error', 'Lỗi tạo mới');
         } finally {
             setIsSubmitting(false);
         }

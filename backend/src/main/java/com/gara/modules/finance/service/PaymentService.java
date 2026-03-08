@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.gara.entity.enums.OrderStatus;
+import com.gara.entity.enums.ItemStatus;
 
 @Service
 public class PaymentService {
@@ -45,9 +47,9 @@ public class PaymentService {
                 .debt(order.getCongNo())
                 .paymentMethod(order.getPhuongThuc())
                 .paymentDate(order.getNgayThanhToan())
-                .status(order.getTrangThai())
+                .status(order.getTrangThai() != null ? order.getTrangThai().name() : null)
                 .items(order.getChiTietDonHang().stream()
-                        .filter(i -> "KHACH_DONG_Y".equals(i.getTrangThai()))
+                        .filter(i -> ItemStatus.KHACH_DONG_Y.equals(i.getTrangThai()))
                         .map(i -> PaymentSummaryDTO.PaymentItemDTO.builder()
                                 .id(i.getId())
                                 .name(i.getHangHoa().getTenHang())
@@ -74,11 +76,11 @@ public class PaymentService {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        if (!"CHO_THANH_TOAN".equals(order.getTrangThai())) {
+        if (!OrderStatus.CHO_THANH_TOAN.equals(order.getTrangThai())) {
             // throw new RuntimeException("Order not in Payment state");
             // For safety, maybe allow if HOAN_THANH for debt payment?
             // TS Logic: Strict CHO_THANH_TOAN check.
-            if (!"HOAN_THANH".equals(order.getTrangThai())) {
+            if (!OrderStatus.HOAN_THANH.equals(order.getTrangThai())) {
                 throw new RuntimeException("Đơn hàng chưa ở trạng thái chờ thanh toán");
             }
         }
@@ -105,7 +107,7 @@ public class PaymentService {
 
         if (completed) {
             order.setNgayThanhToan(LocalDateTime.now());
-            order.setTrangThai("HOAN_THANH");
+            order.setTrangThai(OrderStatus.HOAN_THANH);
         }
 
         orderRepository.save(order);

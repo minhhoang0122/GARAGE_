@@ -8,6 +8,7 @@ import com.gara.modules.service.service.ReceptionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.Map;
 
@@ -53,7 +54,7 @@ public class ReceptionController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createReception(@RequestBody ReceptionFormData data,
+    public ResponseEntity<?> createReception(@RequestBody @Valid ReceptionFormData data,
             @AuthenticationPrincipal User user) {
         try {
             Integer receptionId = receptionService.createReception(data, user);

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.stream.Collectors;
 import java.util.Map;
 import java.util.HashMap;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/users")
@@ -35,12 +36,12 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createUser(@RequestBody UserReqDTO req) {
+    public ResponseEntity<?> createUser(@RequestBody @Valid UserReqDTO req) {
         return ResponseEntity.ok(mapUserToDTO(userService.createUser(req)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateUser(@PathVariable Integer id, @RequestBody UserReqDTO req) {
+    public ResponseEntity<?> updateUser(@PathVariable Integer id, @RequestBody @Valid UserReqDTO req) {
         return ResponseEntity.ok(mapUserToDTO(userService.updateUser(id, req)));
     }
 

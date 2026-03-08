@@ -1,23 +1,24 @@
 package com.gara.modules.service.repository;
 
 import com.gara.entity.RepairOrder;
+import com.gara.entity.enums.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 
 public interface RepairOrderRepository extends JpaRepository<RepairOrder, Integer> {
 
-        List<RepairOrder> findByTrangThaiIn(List<String> trangThaiList);
+        List<RepairOrder> findByTrangThaiIn(List<OrderStatus> trangThaiList);
 
         // Optimized: Ordered multi-status query
-        List<RepairOrder> findByTrangThaiInOrderByNgayTaoDesc(List<String> trangThaiList);
+        List<RepairOrder> findByTrangThaiInOrderByNgayTaoDesc(List<OrderStatus> trangThaiList);
 
-        long countByTrangThaiIn(List<String> statuses);
+        long countByTrangThaiIn(List<OrderStatus> statuses);
 
-        List<RepairOrder> findByTrangThai(String trangThai);
+        List<RepairOrder> findByTrangThai(OrderStatus trangThai);
 
         // Optimized: Use count instead of fetching list
-        long countByTrangThai(String trangThai);
+        long countByTrangThai(OrderStatus trangThai);
 
         // FIX: Eager load details for Export Logic to avoid N+1 or Lazy issues
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
@@ -26,9 +27,9 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         "WHERE r.trangThai IN :statuses " +
                         "ORDER BY r.ngayTao DESC")
         List<RepairOrder> findWithDetailsByStatusIn(
-                        @org.springframework.data.repository.query.Param("statuses") List<String> statuses);
+                        @org.springframework.data.repository.query.Param("statuses") List<OrderStatus> statuses);
 
-        List<RepairOrder> findByTrangThaiOrderByNgayTaoDesc(String trangThai);
+        List<RepairOrder> findByTrangThaiOrderByNgayTaoDesc(OrderStatus trangThai);
 
         // Optimized: Fetch items and products for history
         // Optimized: Fetch items and products for history
@@ -168,7 +169,7 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         @org.springframework.data.repository.query.Param("mechanicId") Integer mechanicId,
                         org.springframework.data.domain.Pageable pageable);
 
-        List<RepairOrder> findByPhieuTiepNhan_Xe_BienSoAndTrangThaiIn(String plate, List<String> statuses);
+        List<RepairOrder> findByPhieuTiepNhan_Xe_BienSoAndTrangThaiIn(String plate, List<OrderStatus> statuses);
 
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
                         "JOIN r.chiTietDonHang i " +
@@ -216,7 +217,7 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         "WHERE r.trangThai = :status " +
                         "ORDER BY r.ngayTao DESC")
         List<RepairOrder> findByStatusOptimized(
-                        @org.springframework.data.repository.query.Param("status") String status);
+                        @org.springframework.data.repository.query.Param("status") OrderStatus status);
 
         // ===== N+1 FIX: Orders by multiple statuses with eager fetch =====
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
@@ -226,7 +227,7 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         "WHERE r.trangThai IN :statuses " +
                         "ORDER BY r.ngayTao DESC")
         List<RepairOrder> findByStatusesOptimized(
-                        @org.springframework.data.repository.query.Param("statuses") List<String> statuses);
+                        @org.springframework.data.repository.query.Param("statuses") List<OrderStatus> statuses);
 
         // ===== N+1 FIX: Order by reception ID with items + products (used by
         // MechanicService.getReceptionDetail) =====

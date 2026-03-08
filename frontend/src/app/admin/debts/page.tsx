@@ -5,6 +5,7 @@ import { DashboardLayout } from '@/modules/common/components/layout';
 import { api } from '@/lib/api';
 import { useSession } from 'next-auth/react';
 import { Search, RefreshCw, AlertCircle, DollarSign, User, Phone, FileText } from 'lucide-react';
+import { useToast } from '@/contexts/ToastContext';
 
 type Debtor = {
     customerId: number;
@@ -27,6 +28,7 @@ export default function DebtsPage() {
 function DebtsContent() {
     const { data: session } = useSession();
     const token = (session?.user as any)?.accessToken;
+    const { showToast } = useToast();
 
     const [debtors, setDebtors] = useState<Debtor[]>([]);
     const [filteredDebtors, setFilteredDebtors] = useState<Debtor[]>([]);
@@ -153,7 +155,7 @@ function DebtsContent() {
                                     <td className="px-6 py-4 text-right">
                                         <button
                                             className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium text-xs border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 px-3 py-1.5 rounded-lg transition-all"
-                                            onClick={() => alert('Feature coming soon: View History')}
+                                            onClick={() => showToast('info', 'Tính năng đang phát triển')}
                                         >
                                             Chi tiết
                                         </button>

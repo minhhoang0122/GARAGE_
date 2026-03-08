@@ -12,6 +12,7 @@ import {
     ArrowUpCircle, AlertTriangle, Loader2, Trash2,
     Calendar, User, History, Layers
 } from 'lucide-react';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Batch {
     id: number;
@@ -43,6 +44,7 @@ export default function BatchDetailsPage() {
     const [activeTab, setActiveTab] = useState<'batches' | 'movements'>('batches');
     const [loading, setLoading] = useState(true);
     const [isDisposing, setIsDisposing] = useState<number | null>(null);
+    const { showToast } = useToast();
 
     useEffect(() => {
         // @ts-ignore
@@ -99,9 +101,10 @@ export default function BatchDetailsPage() {
             // @ts-ignore
             const token = session?.user?.accessToken;
             await api.post(`/warehouse/inventory/batch/${batchId}/dispose`, {}, token);
+            showToast('success', 'Thanh lý lô hàng thành công');
             await loadData(); // Reload all
         } catch (error) {
-            alert('Thanh lý thất bại');
+            showToast('error', 'Thanh lý thất bại');
         } finally {
             setIsDisposing(null);
         }

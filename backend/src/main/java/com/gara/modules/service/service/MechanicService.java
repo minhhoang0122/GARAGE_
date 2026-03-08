@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.gara.entity.enums.OrderStatus;
+import com.gara.entity.enums.ItemStatus;
 
 @Service
 public class MechanicService {
@@ -59,7 +61,7 @@ public class MechanicService {
         // jobs (CHO_KCS) if assigned
         if (user.hasPermission("CREATE_PROPOSAL") || user.hasPermission("APPROVE_QC")) {
             // Fetch jobs waiting for QC assigned to this diagnostician
-            return orderRepository.findByTrangThaiIn(List.of("CHO_KCS")).stream()
+            return orderRepository.findByTrangThaiIn(List.of(OrderStatus.CHO_KCS)).stream()
                     .filter(o -> o.getThoChanDoan() != null && o.getThoChanDoan().getId().equals(userId))
                     .map(this::mapToJobSummary)
                     .toList();
@@ -101,8 +103,8 @@ public class MechanicService {
         }
 
         order.setThoPhanCong(mechanic);
-        if ("DA_DUYET".equals(order.getTrangThai())) {
-            order.setTrangThai("DANG_SUA");
+        if (OrderStatus.DA_DUYET.equals(order.getTrangThai())) {
+            order.setTrangThai(OrderStatus.DANG_SUA);
         }
         orderRepository.save(order);
     }
@@ -114,7 +116,7 @@ public class MechanicService {
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
         order.setThoPhanCong(null);
-        order.setTrangThai("DA_DUYET");
+        order.setTrangThai(OrderStatus.DA_DUYET);
         orderRepository.save(order);
     }
 
@@ -206,7 +208,7 @@ public class MechanicService {
             item.setSoLuong(pItem.quantity());
             item.setDonGiaGoc(product.getGiaBanNiemYet());
             item.setThanhTien(product.getGiaBanNiemYet().multiply(BigDecimal.valueOf(pItem.quantity())));
-            item.setTrangThai("DE_XUAT");
+            item.setTrangThai(ItemStatus.DE_XUAT);
             item.setGiamGiaTien(BigDecimal.ZERO);
             item.setGiamGiaPhanTram(BigDecimal.ZERO);
             item.setNguoiDeXuat(user);
@@ -215,7 +217,7 @@ public class MechanicService {
         }
 
         // Update order status to CHO_KH_DUYET
-        order.setTrangThai("CHO_KH_DUYET");
+        order.setTrangThai(OrderStatus.CHO_KH_DUYET);
         orderRepository.save(order);
 
         // Recalculate totals
@@ -264,7 +266,7 @@ public class MechanicService {
             item.setSoLuong(pItem.quantity());
             item.setDonGiaGoc(product.getGiaBanNiemYet());
             item.setThanhTien(product.getGiaBanNiemYet().multiply(BigDecimal.valueOf(pItem.quantity())));
-            item.setTrangThai("DE_XUAT"); // Issues are proposed until Sale sends and Customer approves
+            item.setTrangThai(ItemStatus.DE_XUAT); // Issues are proposed until Sale sends and Customer approves
             item.setGiamGiaTien(BigDecimal.ZERO);
             item.setGiamGiaPhanTram(BigDecimal.ZERO);
             item.setNguoiDeXuat(user);
@@ -294,12 +296,12 @@ public class MechanicService {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        if (!"DANG_SUA".equals(order.getTrangThai())) {
+        if (!OrderStatus.DANG_SUA.equals(order.getTrangThai())) {
             throw new RuntimeException("Job must be in progress to complete.");
         }
 
         // Transition to QC
-        order.setTrangThai("CHO_KCS");
+        order.setTrangThai(OrderStatus.CHO_KCS);
         orderRepository.save(order);
 
         // Notify Lead/Diagnostician
@@ -325,7 +327,7 @@ public class MechanicService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!"CHO_KCS".equals(order.getTrangThai())) {
+        if (!OrderStatus.CHO_KCS.equals(order.getTrangThai())) {
             throw new RuntimeException("Order is not waiting for QC.");
         }
 
@@ -338,7 +340,7 @@ public class MechanicService {
             throw new RuntimeException("Chỉ kỹ thuật viên phụ trách nghiệm thu hoặc Admin mới được duyệt QC.");
         }
 
-        order.setTrangThai("CHO_THANH_TOAN");
+        order.setTrangThai(OrderStatus.CHO_THANH_TOAN);
         orderRepository.save(order);
 
         // Auto-export if not done yet
@@ -382,7 +384,7 @@ public class MechanicService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!"CHO_KCS".equals(order.getTrangThai())) {
+        if (!OrderStatus.CHO_KCS.equals(order.getTrangThai())) {
             throw new RuntimeException("Order is not waiting for QC.");
         }
 
@@ -395,7 +397,7 @@ public class MechanicService {
             throw new RuntimeException("Chỉ kỹ thuật viên phụ trách nghiệm thu hoặc Admin mới được từ chối QC.");
         }
 
-        order.setTrangThai("DANG_SUA");
+        order.setTrangThai(OrderStatus.DANG_SUA);
         orderRepository.save(order);
 
         // Notify Repair Lead
@@ -415,7 +417,7 @@ public class MechanicService {
 
     private JobSummaryDTO mapToJobSummary(RepairOrder o) {
         long completed = o.getChiTietDonHang().stream()
-                .filter(i -> "HOAN_THANH".equals(i.getTrangThai()))
+                .filter(i -> ItemStatus.HOAN_THANH.equals(i.getTrangThai()))
                 .count();
         String phone = null;
         try {
@@ -434,7 +436,7 @@ public class MechanicService {
                 .createdAt(o.getNgayTao())
                 .totalItems(o.getChiTietDonHang().size())
                 .completedItems((int) completed)
-                .status(o.getTrangThai())
+                .status(o.getTrangThai() != null ? o.getTrangThai().name() : null)
                 .claimedById(o.getThoPhanCong() != null ? o.getThoPhanCong().getId() : null)
                 .claimedByName(o.getThoPhanCong() != null ? o.getThoPhanCong().getHoTen() : null)
                 .build();
@@ -499,13 +501,14 @@ public class MechanicService {
             throw new RuntimeException("You are not assigned to this task.");
         }
 
-        if ("HOAN_THANH".equals(item.getTrangThai())) {
-            item.setTrangThai("DANG_SUA");
+        if (ItemStatus.HOAN_THANH.equals(item.getTrangThai())) {
+            item.setTrangThai(ItemStatus.DANG_SUA);
             item.setNguoiThucHien(null);
         } else {
             // Only allow toggling if it's approved or in progress
-            if ("KHACH_DONG_Y".equals(item.getTrangThai()) || "DANG_SUA".equals(item.getTrangThai())) {
-                item.setTrangThai("HOAN_THANH");
+            if (ItemStatus.KHACH_DONG_Y.equals(item.getTrangThai())
+                    || ItemStatus.DANG_SUA.equals(item.getTrangThai())) {
+                item.setTrangThai(ItemStatus.HOAN_THANH);
                 User completedBy = userRepository.findById(userId)
                         .orElseThrow(() -> new RuntimeException("User not found"));
                 item.setNguoiThucHien(completedBy);
@@ -523,7 +526,7 @@ public class MechanicService {
         User mechanic = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!"KHACH_DONG_Y".equals(item.getTrangThai()) && !"DANG_SUA".equals(item.getTrangThai())) {
+        if (!ItemStatus.KHACH_DONG_Y.equals(item.getTrangThai()) && !ItemStatus.DANG_SUA.equals(item.getTrangThai())) {
             throw new RuntimeException("Item is not available for work.");
         }
 
@@ -636,8 +639,8 @@ public class MechanicService {
     @Transactional(readOnly = true)
     public java.util.Map<String, Object> getDashboardStats() {
         // Use COUNT queries instead of fetching all records (O(1) vs O(n))
-        long inProgress = orderRepository.countByTrangThai("DANG_SUA");
-        long completed = orderRepository.countByTrangThai("CHO_THAN_TOAN");
+        long inProgress = orderRepository.countByTrangThai(OrderStatus.DANG_SUA);
+        long completed = orderRepository.countByTrangThai(OrderStatus.CHO_THANH_TOAN);
 
         return java.util.Map.of(
                 "inProgressJobs", inProgress,
@@ -652,8 +655,9 @@ public class MechanicService {
 
         // Filter approved items first
         List<OrderItem> filteredItems = order.getChiTietDonHang().stream()
-                .filter(i -> "KHACH_DONG_Y".equals(i.getTrangThai()) || "DANG_SUA".equals(i.getTrangThai())
-                        || "HOAN_THANH".equals(i.getTrangThai()))
+                .filter(i -> ItemStatus.KHACH_DONG_Y.equals(i.getTrangThai())
+                        || ItemStatus.DANG_SUA.equals(i.getTrangThai())
+                        || ItemStatus.HOAN_THANH.equals(i.getTrangThai()))
                 .toList();
 
         // Batch load ALL task assignments in ONE query (O(1) instead of O(n))
@@ -674,7 +678,7 @@ public class MechanicService {
                     m.put("productName", i.getHangHoa().getTenHang());
                     m.put("isService", i.getHangHoa().getLaDichVu());
                     m.put("quantity", i.getSoLuong());
-                    m.put("isCompleted", "HOAN_THANH".equals(i.getTrangThai()));
+                    m.put("isCompleted", ItemStatus.HOAN_THANH.equals(i.getTrangThai()));
                     m.put("completedById", i.getNguoiThucHien() != null ? i.getNguoiThucHien().getId() : null);
                     m.put("completedByName", i.getNguoiThucHien() != null ? i.getNguoiThucHien().getHoTen() : null);
                     m.put("maxMechanics", i.getSoLuongThoToiDa() != null ? i.getSoLuongThoToiDa() : 4);
@@ -705,7 +709,7 @@ public class MechanicService {
         result.put("vehicleModel", order.getPhieuTiepNhan().getXe().getModel());
         result.put("imageUrl", order.getPhieuTiepNhan().getHinhAnh());
         result.put("request", order.getPhieuTiepNhan().getYeuCauSoBo());
-        result.put("status", order.getTrangThai());
+        result.put("status", order.getTrangThai() != null ? order.getTrangThai().name() : null);
         result.put("items", items);
         result.put("totalItems", items.size());
         result.put("completedItems", items.stream().filter(m -> (Boolean) m.get("isCompleted")).count());
@@ -757,7 +761,7 @@ public class MechanicService {
         result.put("imageUrl", reception.getHinhAnh());
         result.put("hasOrder", order != null);
         result.put("orderId", order != null ? order.getId() : null);
-        result.put("status", order != null ? order.getTrangThai() : null);
+        result.put("status", order != null && order.getTrangThai() != null ? order.getTrangThai().name() : null);
         result.put("existingItems", existingItems);
 
         return result;
@@ -769,7 +773,7 @@ public class MechanicService {
         OrderItem item = orderItemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 
-        if (!"DE_XUAT".equals(item.getTrangThai())) {
+        if (!ItemStatus.DE_XUAT.equals(item.getTrangThai())) {
             throw new RuntimeException("Chỉ có thể xóa hạng mục đề xuất");
         }
 

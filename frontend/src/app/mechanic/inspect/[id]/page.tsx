@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 import ProductSearch from '@/modules/service/components/ProductSearch';
 import ImageGallery from '@/modules/shared/components/common/ImageGallery';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
+import { useToast } from '@/contexts/ToastContext';
 
 interface ProposalItem {
     productId: number;
@@ -43,6 +44,7 @@ export default function InspectPage() {
     const [proposalItems, setProposalItems] = useState<ProposalItem[]>([]);
     const [submitting, setSubmitting] = useState(false);
     const confirm = useConfirm();
+    const { showToast } = useToast();
 
     const source = searchParams.get('source');
     const backLink = source === 'history' ? '/mechanic/history' : '/mechanic/inspect';
@@ -67,7 +69,7 @@ export default function InspectPage() {
                 })
                 .catch(err => {
                     console.error(err);
-                    alert("Không thể tải thông tin xe");
+                    showToast('error', "Không thể tải thông tin xe");
                     router.replace('/mechanic');
                 });
         }
