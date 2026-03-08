@@ -14,11 +14,11 @@ spring:
     driver-class-name: org.postgresql.Driver
     # HikariCP Connection Pool Optimization
     hikari:
-      minimum-idle: 5
-      maximum-pool-size: 10
-      idle-timeout: 300000 # 5 minutes (was 30s)
+      minimum-idle: 2
+      maximum-pool-size: 5
+      idle-timeout: 30000 # 30 seconds - release idle connections quickly
       pool-name: GaraHikariPool
-      max-lifetime: 1800000
+      max-lifetime: 600000 # 10 minutes - recycle connections faster
       connection-timeout: 20000
       leak-detection-threshold: 60000
 
