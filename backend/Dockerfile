@@ -4,9 +4,8 @@ WORKDIR /app
 
 # Copy file pom.xml trước để tận dụng cache cho dependencies
 COPY pom.xml .
-# Tải các dependencies về trước (go-offline)
-# Bước này sẽ được cache trừ khi file pom.xml thay đổi
-RUN mvn dependency:go-offline -B
+# Tải các dependencies về trước. Sử dụng resolve thay vì go-offline để tránh lỗi Mirror
+RUN mvn dependency:resolve -B
 
 # Sau đó mới copy source code và build
 COPY src ./src
