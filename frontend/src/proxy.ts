@@ -13,7 +13,12 @@ export default auth((req) => {
     const pathname = nextUrl.pathname;
 
     // Cho phép public routes
-    if (publicRoutes.some((route) => pathname.startsWith(route))) {
+    const isPublicRoute = publicRoutes.some((route) => {
+        if (route === '/') return pathname === '/';
+        return pathname.startsWith(route);
+    });
+
+    if (isPublicRoute) {
         // Nếu đã đăng nhập mà truy cập /login, redirect về dashboard
         if (pathname === '/login' && session?.user) {
             const roles = (session.user as any).roles || [];

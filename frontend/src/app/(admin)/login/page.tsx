@@ -40,8 +40,14 @@ function LoginForm() {
       // NextAuth v5 beta quirk: result.error can be "CredentialsSignin" 
       // even on success. Use result.ok as the reliable indicator.
       if (result?.ok) {
-        router.refresh();
-        router.push(callbackUrl);
+        if (callbackUrl === '/' || !callbackUrl) {
+          // Ép load lại trang /login. Middleware proxy.ts sẽ tự động bắt vòng lặp này
+          // và chuyển hướng người dùng dến đúng Dashboard (Admin, Sale, Mechanic...) dựa trên Role.
+          window.location.href = '/login';
+        } else {
+          router.refresh();
+          router.push(callbackUrl);
+        }
       } else {
         setError('Tên đăng nhập hoặc mật khẩu không đúng');
       }
