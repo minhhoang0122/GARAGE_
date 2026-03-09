@@ -6,7 +6,7 @@ import { auth } from '@/lib/auth';
 import { ROUTE_PERMISSIONS, ROLE_ROUTES, VaiTroType } from '@/lib/auth';
 
 // Routes không cần đăng nhập
-const publicRoutes = ['/login', '/api/auth'];
+const publicRoutes = ['/login', '/api/auth', '/', '/services', '/tra-cuu', '/booking'];
 
 export default auth((req) => {
     const { nextUrl, auth: session } = req;
