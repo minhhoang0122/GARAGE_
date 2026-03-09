@@ -45,10 +45,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 
-                        // Admin only endpoints
-                        .requestMatchers("/api/users", "/api/users/**").hasAnyRole("ADMIN", "MANAGER")
-                        .requestMatchers("/api/reports", "/api/reports/**").hasAnyRole("ADMIN", "MANAGER")
-                        .requestMatchers("/api/config", "/api/config/**").hasAnyRole("ADMIN", "MANAGER")
+                        // Admin only endpoints - Using authorities for direct match from JWT
+                        .requestMatchers("/api/users", "/api/users/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
+                        .requestMatchers("/api/reports", "/api/reports/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
+                        .requestMatchers("/api/config", "/api/config/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
+                        .requestMatchers("/api/users/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
 
                         // Warehouse (§5: Kho)
                         .requestMatchers("/api/warehouse/**")

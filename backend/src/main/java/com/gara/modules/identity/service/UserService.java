@@ -30,9 +30,11 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    @Cacheable("users_list")
+    // Temporarily remove cache to ensure fresh data after migration
     public List<User> getAllUsers() {
-        return userRepository.findAll();
+        List<User> users = userRepository.findAll();
+        System.out.println("USER_DEBUG: Found " + users.size() + " users in database");
+        return users;
     }
 
     @Transactional
