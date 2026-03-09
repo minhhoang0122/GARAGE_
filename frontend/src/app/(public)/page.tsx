@@ -1,10 +1,37 @@
 'use client';
 
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, MapPin, PhoneCall, Clock, ShieldCheck, Wrench, Settings, Search, CheckCircle2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { ArrowRight, MapPin, PhoneCall, Clock, ShieldCheck, Wrench, Settings, Search, CheckCircle2, Menu, User, CarFront } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { API_URL } from '@/lib/api';
 
 export default function LandingPage() {
+    const [trackingPlate, setTrackingPlate] = useState('');
+    const [trackingResult, setTrackingResult] = useState<any>(null);
+    const [isTracking, setIsTracking] = useState(false);
+    const [trackError, setTrackError] = useState('');
+
+    const handleTrack = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!trackingPlate.trim()) return;
+        setIsTracking(true);
+        setTrackError('');
+        try {
+            const res = await fetch(`${API_URL}/public/tracking?bienSo=${trackingPlate}`);
+            const data = await res.json();
+            if (data.success) {
+                setTrackingResult(data);
+            } else {
+                setTrackError(data.message || 'Không tìm thấy dữ liệu.');
+                setTrackingResult(null);
+            }
+        } catch (error) {
+            setTrackError('Lỗi kết nối hoặc mất mạng.');
+        } finally {
+            setIsTracking(false);
+        }
+    }
 
     // Định nghĩa các variant motion theo phong cách "Cơ khí": Nhanh, có độ nảy mạnh, dứt khoát
     // Khác với Thagore lả lướt mỏng manh
@@ -43,85 +70,186 @@ export default function LandingPage() {
     return (
         <div className="flex flex-col min-h-screen bg-[#fafaf8] selection:bg-orange-200 overflow-x-hidden">
             {/* Top Bar - Trust Signal First */}
-            <div className="bg-[#1C1917] text-stone-300 py-2.5 px-4 text-xs md:text-sm font-medium">
-                <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-2">
+            <div className="bg-[#1C1917] text-stone-400 py-1.5 px-4 text-xs font-medium border-b border-white/10 hidden md:block">
+                <div className="container mx-auto flex justify-between items-center">
                     <div className="flex items-center gap-6">
-                        <span className="flex items-center gap-2"><MapPin size={16} className="text-orange-500" /> 123 Đường Láng, Hà Nội</span>
-                        <span className="flex items-center gap-2 hidden sm:flex"><Clock size={16} className="text-orange-500" /> T2 - T7: 8:00 - 18:00</span>
+                        <span className="flex items-center gap-1.5"><MapPin size={14} className="text-orange-500" /> 123 Đường Láng, Đống Đa, HN</span>
+                        <span className="flex items-center gap-1.5"><Clock size={14} className="text-orange-500" /> T2 - T7: 8:00 - 18:00 | CN: Nghỉ</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <Link href="/admin" className="flex items-center gap-1.5 text-stone-400 hover:text-white transition-colors duration-200">
-                            <Settings size={14} className="text-stone-400" />
-                            <span className="hidden sm:inline">Nội bộ</span>
-                        </Link>
-                        <div className="w-px h-4 bg-stone-700 hidden sm:block"></div>
-                        <div className="flex items-center gap-2 text-white bg-orange-600/20 px-3 py-1 rounded-full border border-orange-500/30">
-                            <PhoneCall size={14} className="text-orange-500" />
-                            <span className="tracking-wide">Hotline: <strong className="text-orange-400">098.765.4321</strong></span>
-                        </div>
+                        <Link href="/admin" className="hover:text-white transition-colors">Nội bộ xưởng</Link>
                     </div>
                 </div>
             </div>
 
-            {/* Hero Section - Visceral Impact */}
-            <header className="relative w-full h-[85vh] min-h-[600px] flex items-center">
+            {/* Navigation Bar */}
+            <nav className="bg-[#111] text-white/90 sticky top-0 z-50 border-b border-white/10 shadow-xl">
+                <div className="container mx-auto px-4 lg:px-6 h-20 flex items-center justify-between">
+                    <Link href="/" className="flex items-center gap-2">
+                        <div className="w-10 h-10 bg-orange-600 rounded flex items-center justify-center font-black text-white text-xl border-b-4 border-orange-800">
+                            GM
+                        </div>
+                        <span className="font-extrabold text-xl tracking-tight uppercase">Garage Master</span>
+                    </Link>
+
+                    <div className="hidden lg:flex items-center gap-8 font-semibold text-sm">
+                        <Link href="/services" className="hover:text-orange-500 transition-colors">BẢNG GIÁ DỊCH VỤ</Link>
+                        <a href="#quy-trinh" className="hover:text-orange-500 transition-colors">QUY TRÌNH</a>
+                        <a href="#co-so" className="hover:text-orange-500 transition-colors">CƠ SỞ VẬT CHẤT</a>
+                        <div className="flex items-center gap-2 text-orange-500 ml-4 font-bold text-lg">
+                            <PhoneCall size={20} className="animate-pulse" /> 098.765.4321
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <Link href="/login" className="hidden sm:flex items-center gap-2 bg-[#1C1917] hover:bg-stone-800 border border-stone-700 px-5 py-2.5 rounded text-sm font-bold transition-colors shadow-lg">
+                            <User size={16} /> Đăng Nhập Client
+                        </Link>
+                        <button className="lg:hidden p-2 text-stone-400 hover:text-white"><Menu size={24} /></button>
+                    </div>
+                </div>
+            </nav>
+
+            {/* Hero Section - Visceral Impact with Tracking Widget */}
+            <header className="relative w-full min-h-[85vh] flex items-center py-20 pb-20">
                 {/* Background Image - Real Photography */}
-                <div className="absolute inset-0 z-0">
+                <div className="absolute inset-0 z-0 bg-[#0a0a0a]">
                     <motion.img
-                        initial={{ scale: 1.1, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ duration: 0.8 }} // Ảnh nền hơi chậm để tạo chiều sâu
+                        initial={{ scale: 1.05, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 0.6 }}
+                        transition={{ duration: 0.8 }}
                         src="https://images.unsplash.com/photo-1625047509168-a7026f36de04?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80"
                         alt="Mechanic working on car engine"
-                        className="w-full h-full object-cover object-center grayscale-[20%]"
+                        className="w-full h-full object-cover object-center grayscale-[30%] mix-blend-luminosity"
                     />
-                    {/* Dark gradient overlay so text is readable, stronger on the left */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent"></div>
                 </div>
 
-                <div className="container mx-auto px-6 relative z-10 w-full pt-10">
-                    <motion.div
-                        variants={containerVariants}
-                        initial="hidden"
-                        animate="show"
-                        className="max-w-3xl"
-                    >
-                        <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-sm mb-8">
-                            <ShieldCheck size={18} className="text-orange-500" />
-                            <span className="text-white text-sm font-medium tracking-wide uppercase">Trung Tâm Chăm Sóc & Sửa Chữa Ô Tô Toàn Diện</span>
+                <div className="container mx-auto px-6 relative z-10 w-full mt-10">
+                    <div className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+                        <motion.div
+                            variants={containerVariants}
+                            initial="hidden"
+                            animate="show"
+                            className="lg:col-span-7"
+                        >
+                            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3 py-1.5 bg-orange-600/20 border border-orange-500/30 rounded-sm mb-6">
+                                <Wrench size={16} className="text-orange-500" />
+                                <span className="text-orange-400 text-xs font-bold tracking-widest uppercase">Trung tâm chăm sóc xe hiện đại</span>
+                            </motion.div>
+
+                            <motion.h1 variants={itemVariants} className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 text-white leading-[1.1] tracking-tight">
+                                Minh bạch quy trình.<br />
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-600">
+                                    Chi phí hợp lý.
+                                </span>
+                            </motion.h1>
+
+                            <motion.p variants={itemVariants} className="text-lg md:text-xl mb-10 text-stone-300 max-w-xl leading-relaxed font-light">
+                                Chẩn đoán chuyên sâu bằng thiết bị hiện đại. Báo giá chi tiết phụ tùng và nhân công. Cam kết chất lượng, tiến hành sửa chữa sau khi Khách hàng chốt phương án.
+                            </motion.p>
+
+                            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 mb-4 lg:mb-0">
+                                <Link href="/booking" className="bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-sm font-bold transition-all flex items-center justify-center gap-3 w-fit text-lg">
+                                    Đặt Lịch Mang Xe Tới Xưởng
+                                    <ArrowRight size={20} />
+                                </Link>
+                                <Link href="/services" className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-8 py-4 rounded-sm font-bold transition-all flex items-center justify-center w-fit text-lg">
+                                    Xem bảng giá sửa chữa
+                                </Link>
+                            </motion.div>
                         </motion.div>
 
-                        <motion.h1 variants={itemVariants} className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 text-white leading-[1.1] tracking-tight">
-                            Bảo dưỡng định kỳ.<br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-600">
-                                Đại tu động cơ.
-                            </span><br />
-                            Phục hồi thân vỏ.
-                        </motion.h1>
-
-                        <motion.p variants={itemVariants} className="text-lg md:text-xl mb-12 text-stone-300 max-w-xl leading-relaxed font-light">
-                            Hệ thống xưởng dịch vụ quy mô lớn, kỹ thuật viên giàu kinh nghiệm cùng trang thiết bị chẩn đoán hiện đại nhập khẩu. Cam kết phụ tùng chính hãng, bảo hành dài hạn.
-                        </motion.p>
-
-                        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-5">
-                            <Link href="/booking" className="group bg-orange-600 hover:bg-orange-500 text-white px-8 py-5 rounded-sm font-bold transition-all shadow-[0_8px_30px_rgb(234,88,12,0.3)] hover:shadow-[0_8px_30px_rgb(234,88,12,0.5)] flex items-center justify-center gap-3 w-fit text-lg">
-                                Đặt Lịch Dịch Vụ
-                                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                            </Link>
-
-                            <div className="flex items-center gap-4 text-stone-400 mt-4 sm:mt-0">
-                                <div className="flex -space-x-4">
-                                    <img className="w-12 h-12 border-2 border-black rounded-full object-cover" src="https://images.unsplash.com/photo-1543610892-0b1f7e6d8ac1?auto=format&fit=crop&w=100&q=80" alt="Customer" />
-                                    <img className="w-12 h-12 border-2 border-black rounded-full object-cover" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80" alt="Customer" />
-                                    <img className="w-12 h-12 border-2 border-black rounded-full object-cover" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80" alt="Customer" />
+                        {/* Fast Track Widget */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3, ...mechanicalSpring }}
+                            className="lg:col-span-5 w-full max-w-[450px] mx-auto lg:ml-auto block shrink-0"
+                        >
+                            <div className="bg-[#1C1917] p-8 md:p-10 border-t-4 border-orange-600 shadow-2xl relative w-full">
+                                <div className="absolute top-0 right-0 p-4 opacity-5">
+                                    <CarFront size={100} />
                                 </div>
-                                <div className="text-sm font-medium leading-tight">
-                                    <strong className="text-white">Uy tín lâu năm</strong><br />
-                                    Hàng ngàn lượt xe/năm
+                                <h2 className="text-2xl font-bold text-white mb-2 relative z-10">Kiểm tra tiến độ dịch vụ</h2>
+                                <p className="text-stone-400 text-sm mb-6 relative z-10">Vui lòng nhập biển số xe để tra cứu trạng thái sửa chữa hiện tại.</p>
+
+                                <form onSubmit={handleTrack} className="space-y-4 relative z-10">
+                                    <div>
+                                        <div className="flex bg-[#111] border border-stone-700 focus-within:border-orange-500 transition-colors p-1">
+                                            <input
+                                                type="text"
+                                                placeholder="Biển số VD: 30A-123.45"
+                                                className="w-full bg-transparent text-white px-4 py-3 outline-none uppercase font-mono text-lg"
+                                                value={trackingPlate}
+                                                onChange={e => setTrackingPlate(e.target.value)}
+                                            />
+                                            <button
+                                                type="submit"
+                                                disabled={isTracking || !trackingPlate.trim()}
+                                                className="bg-orange-600 hover:bg-orange-500 disabled:bg-stone-700 text-white px-6 font-bold flex items-center justify-center transition-colors shrink-0"
+                                            >
+                                                {isTracking ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Search size={20} />}
+                                            </button>
+                                        </div>
+                                        {trackError && <div className="text-red-400 text-sm mt-3 animate-pulse">{trackError}</div>}
+                                    </div>
+                                </form>
+
+                                {/* Tracking Results Modal */}
+                                <AnimatePresence>
+                                    {trackingResult && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="mt-6 pt-6 border-t border-stone-800 relative z-10 overflow-hidden"
+                                        >
+                                            <div className="flex justify-between items-start mb-5">
+                                                <div>
+                                                    <span className="text-stone-500 text-xs uppercase tracking-wider block mb-1">Cần check</span>
+                                                    <span className="text-white font-mono font-bold text-xl">{trackingResult.bienSo}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-stone-500 text-xs uppercase tracking-wider block mb-1">Dòng xe</span>
+                                                    <span className="text-white font-medium">{trackingResult.modelXe}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-orange-900/30 border border-orange-500/30 p-4 mb-5 rounded shadow-inner">
+                                                <span className="text-orange-500 text-[10px] sm:text-xs uppercase font-bold tracking-widest block mb-2">Trạng thái công việc</span>
+                                                <span className="text-orange-100 font-bold sm:text-lg flex items-center gap-3">
+                                                    <div className="w-3 h-3 rounded-full bg-orange-500 animate-pulse ring-4 ring-orange-500/30"></div>
+                                                    {trackingResult.trangThaiLabel}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-end bg-black/40 p-4 rounded border border-white/5">
+                                                <div>
+                                                    <span className="text-stone-500 text-xs uppercase tracking-wider block mb-1">Đã trả KH</span>
+                                                    <span className="text-stone-400 font-medium">
+                                                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(trackingResult.daThanhToan || 0)}
+                                                    </span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-stone-500 text-xs uppercase tracking-wider block mb-1">Hoá đơn tạm tính</span>
+                                                    <span className="text-white font-black text-xl text-green-400">
+                                                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(trackingResult.tongTien || 0)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
+                                <div className="mt-8 pt-6 border-t border-stone-800 text-center relative z-10">
+                                    <p className="text-stone-500 text-sm mb-3">Chủ xe cần xem chi tiết hạng mục, phụ tùng?</p>
+                                    <Link href="/login" className="inline-flex items-center gap-2 text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 px-4 py-2 rounded transition-colors text-sm font-medium">
+                                        Đăng nhập xem hoá đơn <ArrowRight size={14} />
+                                    </Link>
                                 </div>
                             </div>
                         </motion.div>
-                    </motion.div>
+                    </div>
                 </div>
             </header>
 
@@ -202,6 +330,95 @@ export default function LandingPage() {
                 </div>
             </section>
 
+            {/* Working Process - Raw & Transparent */}
+            <section id="quy-trinh" className="py-24 bg-stone-100 border-y border-stone-200">
+                <div className="container mx-auto px-6">
+                    <div className="text-center max-w-3xl mx-auto mb-16">
+                        <h2 className="text-sm font-bold text-stone-500 uppercase tracking-widest mb-4">Các Bước Thực Hiện</h2>
+                        <h3 className="text-4xl md:text-5xl font-extrabold text-stone-900 leading-tight">Quy trình 4 bước <br className="hidden md:block" /> bảo dưỡng chuyên sâu</h3>
+                        <p className="mt-6 text-stone-600 text-lg">Khách hàng chốt phương án trước khi thi công. Trung tâm cam kết chất lượng phụ tùng chính hãng và minh bạch tuyệt đối về chi phí.</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-4 gap-4 md:gap-8">
+                        {[
+                            { step: '01', title: 'Khảo Sát Nhu Cầu', desc: 'Cố vấn dịch vụ tiếp nhận xe, lắng nghe yêu cầu của Quý khách và sử dụng máy chẩn đoán chuyên sâu để xác định tình trạng.' },
+                            { step: '02', title: 'Tư Vấn & Báo Giá', desc: 'Đưa ra phương án sửa chữa tối ưu, minh bạch báo giá phụ tùng và nhân công. Chỉ tiến hành khi Quý khách chốt phương án.' },
+                            { step: '03', title: 'Thực Hiện Dịch Vụ', desc: 'Đội ngũ Kỹ thuật viên chuyên nghiệp tiến hành bảo dưỡng chuyên sâu, thay thế phụ tùng chính hãng tại khu vực cầu nâng.' },
+                            { step: '04', title: 'Quy Trình KCS', desc: 'Kiểm tra chất lượng (KCS) toàn diện, vệ sinh buồng đốt/khoang máy, vận hành thử xe trên đường thực tế trước khi bàn giao.' }
+                        ].map((item, idx) => (
+                            <div key={idx} className="bg-white p-8 md:p-10 border-t-4 border-stone-300 hover:border-orange-500 hover:shadow-2xl transition-all relative group cursor-default">
+                                <div className="text-6xl md:text-7xl font-black text-stone-100 absolute top-4 right-4 z-0 transition-colors group-hover:text-orange-50">
+                                    {item.step}
+                                </div>
+                                <h4 className="text-xl font-bold mb-4 mt-6 relative z-10 text-stone-900 group-hover:text-orange-600 transition-colors">{item.title}</h4>
+                                <p className="text-stone-600 text-sm leading-relaxed relative z-10">{item.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Facilities & Tools - Real Proof */}
+            <section id="co-so" className="py-24 bg-white overflow-hidden relative">
+                <div className="container mx-auto px-6 relative z-10">
+                    <div className="flex flex-col lg:flex-row gap-16 lg:gap-24 items-center">
+                        <motion.div
+                            initial={{ opacity: 0, x: -30 }}
+                            whileInView={{ opacity: 1, x: 0 }}
+                            viewport={{ once: true }}
+                            transition={mechanicalSpring}
+                            className="w-full lg:w-5/12"
+                        >
+                            <h2 className="text-4xl md:text-5xl font-extrabold text-[#111] mb-6 leading-tight">Hệ thống trang thiết bị<br /> hiện đại, toàn diện.</h2>
+                            <p className="text-lg text-stone-600 mb-10 leading-relaxed">Được đầu tư bài bản với máy móc nhập khẩu chuyên dụng, Trung tâm chúng tôi cam kết đáp ứng mọi tiêu chuẩn khắt khe nhất trong quá trình chẩn đoán và sửa chữa, đem lại sự an tâm tuyệt đối cho Quý khách.</p>
+
+                            <div className="grid grid-cols-2 gap-x-8 gap-y-10">
+                                <div>
+                                    <div className="text-4xl font-black text-orange-600 mb-2">10+</div>
+                                    <div className="font-bold text-stone-800 text-lg uppercase tracking-wide">Cầu Nâng Sức Mẻo</div>
+                                    <p className="text-stone-500 text-sm mt-3 leading-relaxed">Hệ thống cầu nâng 2 trụ, 4 trụ cân chỉnh thước lái phục vụ gầm cao lẫn sedan hạng D.</p>
+                                </div>
+                                <div>
+                                    <div className="text-4xl font-black text-orange-600 mb-2">02</div>
+                                    <div className="font-bold text-stone-800 text-lg uppercase tracking-wide">Phòng Sơn Sấy</div>
+                                    <p className="text-stone-500 text-sm mt-3 leading-relaxed">Cách ly hoàn toàn hạt bụi, hệ thống khò sấy bằng hồng ngoại giúp sơn chín tiệp màu 100%.</p>
+                                </div>
+                                <div>
+                                    <div className="text-4xl font-black text-orange-600 mb-2">100%</div>
+                                    <div className="font-bold text-stone-800 text-lg uppercase tracking-wide">Test Lỗi Hãng</div>
+                                    <p className="text-stone-500 text-sm mt-3 leading-relaxed">Có đủ máy VCI chẩn đoán hộp đen cho Mercedes, BMW, Audi, Lexus đến xe phổ thông.</p>
+                                </div>
+                                <div>
+                                    <div className="text-4xl font-black text-orange-600 mb-2">30+</div>
+                                    <div className="font-bold text-stone-800 text-lg uppercase tracking-wide">Đội Ngũ Kỹ Thuật</div>
+                                    <p className="text-stone-500 text-sm mt-3 leading-relaxed">Kỹ thuật viên chuyên nghiệp, giàu kinh nghiệm, phân bổ độc lập chuyên môn theo từng mảng: máy-gầm, điện, đồng sơn.</p>
+                                </div>
+                            </div>
+                        </motion.div>
+                        <motion.div
+                            initial={{ opacity: 0, x: 30 }}
+                            whileInView={{ opacity: 1, x: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: 0.2, ...mechanicalSpring }}
+                            className="w-full lg:w-7/12 grid grid-cols-2 gap-4 h-[500px] md:h-[600px] lg:h-[700px]"
+                        >
+                            {/* Raw Real Images from Garage */}
+                            <div className="col-span-1 p-2 bg-stone-100 shadow-xl overflow-hidden group">
+                                <img src="https://images.unsplash.com/photo-1504222490345-c075b6008014?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Thợ cơ khí chuyên nghiệp" />
+                            </div>
+                            <div className="col-span-1 grid grid-rows-2 gap-4 h-full">
+                                <div className="p-2 bg-stone-100 shadow-xl overflow-hidden group">
+                                    <img src="https://images.unsplash.com/photo-1493238792000-8113da705763?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Cầu nâng xe gầm" />
+                                </div>
+                                <div className="p-2 bg-stone-100 shadow-xl overflow-hidden group">
+                                    <img src="https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Sơn xe chuyên nghiệp buồng sấy" />
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                </div>
+            </section>
+
             {/* Social Proof - Raw Typography style, No sliders */}
             <section className="py-24 bg-[#1C1917] text-stone-300">
                 <div className="container mx-auto px-6">
@@ -232,7 +449,7 @@ export default function LandingPage() {
                                 <div key={loopIndex} className="flex gap-8">
                                     <div className="w-[350px] md:w-[450px] whitespace-normal p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors shrink-0">
                                         <p className="text-lg md:text-xl text-stone-300 italic font-light mb-6 leading-relaxed">
-                                            "Xe tôi CRV lên dốc bị giật cục, vào hãng báo giá mười mấy củ. Ra đây các thợ check bằng máy xong bổ ga ra thay cụm bướm ga và buri vệ sinh cổ hút là hết bệnh ngay. Chi phí bằng một góc."
+                                            "Xe CRV của tôi gặp sự cố lên dốc bị giật cục. Mặc dù tình trạng khá nan giải nhưng kỹ thuật viên tại Garage Master đã chẩn đoán chính xác bằng thiết bị chuyên dùng. Thay thế cụm bướm ga theo đúng khuyến cáo giúp xe hoạt động êm ái trở lại. Cố vấn dịch vụ tư vấn rất chuẩn xác."
                                         </p>
                                         <div className="flex items-center gap-4">
                                             <div>
@@ -244,7 +461,7 @@ export default function LandingPage() {
 
                                     <div className="w-[350px] md:w-[450px] whitespace-normal p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors shrink-0">
                                         <p className="text-lg md:text-xl text-stone-300 italic font-light mb-6 leading-relaxed">
-                                            "Xưởng rộng rãi, xe nằm chờ có cầu nâng đo đàng hoàng chứ ko phải kích tay ngắm bằng mắt. Bộ phận đồng sơn bên này tôi đánh giá làm kỹ, sơn xong vào buồng sấy đàng hoàng màu lên tiệp 99%."
+                                            "Không gian xưởng rất chuyên nghiệp, quy trình tiếp nhận và đưa xe lên cầu nâng rõ ràng, bài bản. Bề mặt sơn sau khi xử lý tại phòng sấy tiêu chuẩn cho màu sắc tiệp 99% so với nguyên bản. Rất đáng tin cậy."
                                         </p>
                                         <div className="flex items-center gap-4">
                                             <div>
@@ -256,7 +473,7 @@ export default function LandingPage() {
 
                                     <div className="w-[350px] md:w-[450px] whitespace-normal p-8 border-l-4 border-stone-700 bg-stone-900/50 hover:bg-stone-800/80 transition-colors shrink-0">
                                         <p className="text-lg md:text-xl text-stone-300 italic font-light mb-6 leading-relaxed">
-                                            "Thay dầu bảo dưỡng 4 vạn. Báo giá công khai trước khi làm, ko phát sinh lằng nhằng. Thợ trẻ nhưng tháo lắp đồ nhựa dứt khoát không gãy ngàm. Lần sau đến kỳ sẽ quay lại tiếp tục."
+                                            "Tới bảo dưỡng mốc 4 vạn km. Cố vấn dịch vụ báo giá công khai minh bạch ngay từ đầu. Thao tác tháo lắp của đội ngũ kỹ thuật rất chuẩn xác. Chắc chắn tôi sẽ tiếp tục ủng hộ Trung tâm vào lần tới."
                                         </p>
                                         <div className="flex items-center gap-4">
                                             <div>
@@ -284,8 +501,8 @@ export default function LandingPage() {
                     viewport={{ once: true, amount: 0.5 }}
                     className="container mx-auto px-6 relative z-10 text-center"
                 >
-                    <h2 className="text-4xl md:text-5xl font-extrabold mb-8">Xe đang bệnh? Để thợ chúng tôi khám.</h2>
-                    <p className="text-xl mb-12 max-w-2xl mx-auto opacity-90">Gọi hotline báo tình trạng hoặc đặt lịch mang xe qua xưởng. Chúng tôi cắm máy đọc lỗi miễn phí.</p>
+                    <h2 className="text-4xl md:text-5xl font-extrabold mb-8">Xe cần bảo dưỡng? Đội ngũ chuyên gia luôn sẵn sàng.</h2>
+                    <p className="text-xl mb-12 max-w-2xl mx-auto opacity-90">Quý khách vui lòng gọi Hotline để được tư vấn hoặc đặt lịch hẹn trực tiếp. Chúng tôi hỗ trợ chẩn đoán tổng quát miễn phí bằng máy chuyên dụng.</p>
 
                     <div className="flex flex-col sm:flex-row justify-center gap-6">
                         <Link href="/booking" className="bg-[#111] hover:bg-black text-white px-10 py-5 font-bold shadow-2xl transition-transform active:scale-95 text-lg shrink-0">
@@ -320,7 +537,7 @@ export default function LandingPage() {
                         </div>
                     </div>
                     <div className="pt-8 border-t border-stone-800 text-sm flex justify-between items-center">
-                        <p>© 2026 Garage Master. Coder bằng cơm, hỏng xe bằng mỏ lết.</p>
+                        <p>© 2026 Garage Master. Cung cấp dịch vụ chăm sóc ô tô toàn diện và đẳng cấp.</p>
                     </div>
                 </div>
             </footer>

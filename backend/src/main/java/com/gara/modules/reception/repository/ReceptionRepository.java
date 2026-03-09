@@ -19,6 +19,8 @@ public interface ReceptionRepository extends JpaRepository<Reception, Integer> {
 
         long countByDonHangSuaChuaIsNullAndNgayGioAfter(LocalDateTime date);
 
+        List<Reception> findByXeBienSoOrderByNgayGioDesc(String bienSo);
+
         @org.springframework.data.jpa.repository.Query("SELECT " +
                         "r.id, r.ngayGio, x.bienSo, kh.hoTen, kh.soDienThoai, x.nhanHieu, x.model, o.id, o.trangThai, r.hinhAnh "
                         +
