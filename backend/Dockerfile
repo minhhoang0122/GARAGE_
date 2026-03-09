@@ -4,12 +4,12 @@ WORKDIR /app
 
 # Copy file pom.xml trước để tận dụng cache cho dependencies
 COPY pom.xml .
-# Tải các dependencies về trước. Sử dụng resolve thay vì go-offline để tránh lỗi Mirror
-RUN mvn dependency:resolve -B
+# Tải các dependencies và plugins về trước để tận dụng cache Docker
+RUN --mount=type=cache,target=/root/.m2 mvn dependency:resolve dependency:resolve-plugins -B
 
 # Sau đó mới copy source code và build
 COPY src ./src
-RUN mvn package -DskipTests
+RUN --mount=type=cache,target=/root/.m2 mvn package -DskipTests
 
 # Sử dụng image JRE 21 nhẹ nhàng để chạy ứng dụng
 FROM eclipse-temurin:21-jre-alpine
