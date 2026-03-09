@@ -69,11 +69,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/mechanic/**")
                         .hasAnyAuthority("CLAIM_REPAIR_JOB", "CREATE_PROPOSAL", "APPROVE_QC", "ADMIN")
 
-                        // Payment & Transactions (§6.1: Thanh toán)
                         .requestMatchers("/api/payment/**")
                         .hasAnyAuthority("ISSUE_INVOICE", "FINANCIAL_REPORT", "ADMIN")
                         .requestMatchers("/api/transactions/**")
-                        .hasAnyAuthority("FINANCIAL_REPORT", "ADMIN")
+                        .hasAnyAuthority("ISSUE_INVOICE", "FINANCIAL_REPORT", "ADMIN")
 
                         // Debts (§6.2: Công nợ - Admin + Kế toán)
                         .requestMatchers("/api/debts/**").hasAnyAuthority("FINANCIAL_REPORT", "ADMIN")

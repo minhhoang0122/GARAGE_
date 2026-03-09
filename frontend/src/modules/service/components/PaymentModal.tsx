@@ -133,6 +133,7 @@ export default function PaymentModal({ orderId, grandTotal, isOpen, onClose, rem
         setLoading(true);
 
         try {
+            console.log("Submitting transaction:", { orderId, amount: finalAmount, type, method });
             const result = await createTransaction({
                 orderId,
                 amount: finalAmount,
@@ -140,6 +141,7 @@ export default function PaymentModal({ orderId, grandTotal, isOpen, onClose, rem
                 method,
                 note
             });
+            console.log("Transaction result:", result);
 
             if (result.success) {
                 showToast('success', type === 'DEPOSIT'
@@ -154,6 +156,7 @@ export default function PaymentModal({ orderId, grandTotal, isOpen, onClose, rem
                 showToast('error', result.error || "Không thể tạo giao dịch");
             }
         } catch (error: any) {
+            console.error("PaymentModal ERROR:", error);
             showToast('error', error.message || "Không thể gọi API.");
         } finally {
             setLoading(false);

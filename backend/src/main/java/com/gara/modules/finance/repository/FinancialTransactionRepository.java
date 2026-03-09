@@ -27,12 +27,12 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
                         @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
                         @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
 
-        // Optimized: Group by Date in DB (SQL Server compatible)
-        @org.springframework.data.jpa.repository.Query("SELECT new map(FUNCTION('FORMAT', t.createdAt, 'yyyy-MM-dd') as date, SUM(t.amount) as amount) "
+        // Optimized: Group by Date in DB (PostgreSQL compatible)
+        @org.springframework.data.jpa.repository.Query("SELECT new map(FUNCTION('TO_CHAR', t.createdAt, 'yyyy-MM-dd') as date, SUM(t.amount) as amount) "
                         +
                         "FROM FinancialTransaction t " +
                         "WHERE t.type != 'REFUND' AND t.createdAt BETWEEN :start AND :end " +
-                        "GROUP BY FUNCTION('FORMAT', t.createdAt, 'yyyy-MM-dd')")
+                        "GROUP BY FUNCTION('TO_CHAR', t.createdAt, 'yyyy-MM-dd')")
         List<java.util.Map<String, Object>> getDailyRevenueBreakdown(
                         @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
                         @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);

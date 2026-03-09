@@ -126,29 +126,37 @@ public class TransactionService {
 
         transactionRepository.save(trans);
 
-        // Recalculate Order Payment Status
-        recalculateOrderPayment(order);
+        // Recalculate Order Payment Status immediately
+        recalculateOrderPayment(order, amount, type);
     }
 
-    private void recalculateOrderPayment(RepairOrder order) {
-        // Optimized: Calculate Total Paid in DB
-        BigDecimal totalPaid = transactionRepository.sumTotalPaidByOrderId(order.getId());
-        if (totalPaid == null)
-            totalPaid = BigDecimal.ZERO;
+    private void recalculateOrderPayment(RepairOrder order, BigDecimal newAmount, TransactionType type) {
+        // Calculate current total paid from DB (excluding the one just created if not
+        // flushed)
+        BigDecimal totalPaidSoFar = transactionRepository.sumTotalPaidByOrderId(order.getId());
+        if (totalPaidSoFar == null)
+            totalPaidSoFar = BigDecimal.ZERO;
+
+        // Add the new amount to the total (subtract if it's a refund)
+        BigDecimal totalPaidUpdated = (type == TransactionType.REFUND)
+                ? totalPaidSoFar.subtract(newAmount)
+                : totalPaidSoFar.add(newAmount);
 
         // Update SoTienDaTra (Amount Paid)
-        order.setSoTienDaTra(totalPaid);
+        order.setSoTienDaTra(totalPaidUpdated);
 
         // Update CongNo (Debt)
         if (order.getTongCong() == null)
             order.setTongCong(BigDecimal.ZERO);
-        BigDecimal debt = order.getTongCong().subtract(totalPaid);
+        BigDecimal debt = order.getTongCong().subtract(totalPaidUpdated);
 
+        // Auto-complete order if fully paid and in CHO_THANH_TOAN
         if (debt.compareTo(BigDecimal.ZERO) <= 0 && OrderStatus.CHO_THANH_TOAN.equals(order.getTrangThai())) {
             order.setTrangThai(OrderStatus.HOAN_THANH);
+            order.setNgayThanhToan(java.time.LocalDateTime.now());
         }
 
-        order.setCongNo(debt);
+        order.setCongNo(debt.compareTo(BigDecimal.ZERO) > 0 ? debt : BigDecimal.ZERO);
         orderRepository.save(order);
     }
 }
