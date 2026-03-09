@@ -116,7 +116,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="p-4 space-y-2">
                         <QuickAction icon={<Users />} label="Quản lý nhân viên" href="/admin/users" />
-                        <QuickAction icon={<LayoutDashboard />} label="Báo cáo doanh thu" href="/admin/dashboard" />
+                        <QuickAction icon={<LayoutDashboard />} label="Báo cáo doanh thu" href="/dashboard" />
                         <QuickAction icon={<Clock />} label="Cấu hình hệ thống" href="/admin/config" />
                     </div>
                 </div>

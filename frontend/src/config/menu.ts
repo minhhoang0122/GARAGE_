@@ -23,7 +23,7 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
                 { label: 'Tài chính', href: '/admin/finance', icon: 'Wallet' },
                 { label: 'Khách hàng', href: '/sale/customers', icon: 'Users' },
                 { label: 'Nhân sự', href: '/admin/users', icon: 'UserCog' },
-                { label: 'Báo cáo', href: '/admin/dashboard', icon: 'BarChart3' },
+                { label: 'Báo cáo', href: '/dashboard', icon: 'BarChart3' },
                 { label: 'Cấu hình', href: '/admin/config', icon: 'Settings' },
                 { label: 'Nhật ký', href: '/admin/logs', icon: 'History' },
             ],

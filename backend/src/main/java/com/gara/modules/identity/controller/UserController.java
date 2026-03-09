@@ -58,6 +58,9 @@ public class UserController {
         dto.put("soDienThoai", user.getSoDienThoai());
         dto.put("tenDangNhap", user.getTenDangNhap());
         dto.put("trangThaiHoatDong", user.getTrangThaiHoatDong());
+        dto.put("vaiTro", user.getRoles() != null && !user.getRoles().isEmpty()
+                ? user.getRoles().iterator().next().getName()
+                : "N/A");
 
         if (user.getRoles() != null) {
             dto.put("roles", user.getRoles().stream().map(r -> {
