@@ -53,9 +53,10 @@ docs/
 /*.txt
 /*.ps1
 
-# Backend scratch & logs
+# Backend scratch, scripts & logs
 backend/*.log
 backend/*.txt
+backend/*.sql
 backend/debug_error.log
 backend/tmp_error_v5.txt
 backend/encoding_check.txt
