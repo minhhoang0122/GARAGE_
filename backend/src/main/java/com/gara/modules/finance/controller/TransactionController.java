@@ -58,7 +58,8 @@ public class TransactionController {
             transactionService.createTransaction(orderId, amount, type, method, refCode, note, user.getId());
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            String errorMsg = e.getMessage() != null ? e.getMessage() : e.toString();
+            return ResponseEntity.badRequest().body(Map.of("error", errorMsg));
         }
     }
 }
