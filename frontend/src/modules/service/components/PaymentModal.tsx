@@ -12,7 +12,7 @@ import {
     DialogDescription
 } from '@/modules/shared/components/ui/dialog';
 import { createTransaction } from '@/modules/finance/transaction';
-import { useToast } from '@/modules/shared/components/ui/use-toast';
+import { useToast } from '@/contexts/ToastContext';
 import { useRouter } from 'next/navigation';
 import CurrencyInput from '@/modules/shared/components/ui/CurrencyInput';
 import { Check, AlertTriangle, Package, Wrench, FileText } from 'lucide-react';
@@ -79,7 +79,7 @@ export default function PaymentModal({ orderId, grandTotal, isOpen, onClose, rem
     const [note, setNote] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const { toast } = useToast();
+    const { showToast } = useToast();
     const router = useRouter();
 
     // Calculate deposit amounts
@@ -120,11 +120,7 @@ export default function PaymentModal({ orderId, grandTotal, isOpen, onClose, rem
 
         const finalAmount = getActualAmount();
         if (finalAmount <= 0) {
-            toast({
-                title: "Lỗi",
-                description: "Số tiền phải lớn hơn 0",
-                variant: "destructive"
-            });
+            showToast('error', "Số tiền phải lớn hơn 0");
             return;
         }
 
@@ -146,30 +142,19 @@ export default function PaymentModal({ orderId, grandTotal, isOpen, onClose, rem
             });
 
             if (result.success) {
-                toast({
-                    title: "Thành công",
-                    description: type === 'DEPOSIT'
-                        ? `Đã ghi nhận đặt cọc ${depositPercent}% (${formatCurrency(finalAmount)})`
-                        : type === 'REFUND'
-                            ? `Đã hoàn lại ${formatCurrency(finalAmount)} cho khách`
-                            : `Đã ghi nhận thanh toán ${formatCurrency(finalAmount)}`,
-                    className: "bg-emerald-50 text-emerald-800 border-emerald-200"
-                });
+                showToast('success', type === 'DEPOSIT'
+                    ? `Đã ghi nhận đặt cọc ${depositPercent}% (${formatCurrency(finalAmount)})`
+                    : type === 'REFUND'
+                        ? `Đã hoàn lại ${formatCurrency(finalAmount)} cho khách`
+                        : `Đã ghi nhận thanh toán ${formatCurrency(finalAmount)}`
+                );
                 onClose();
                 router.refresh();
             } else {
-                toast({
-                    title: "Lỗi",
-                    description: result.error || "Không thể tạo giao dịch",
-                    variant: "destructive"
-                });
+                showToast('error', result.error || "Không thể tạo giao dịch");
             }
         } catch (error: any) {
-            toast({
-                title: "Lỗi hệ thống",
-                description: error.message || "Không thể gọi API.",
-                variant: "destructive"
-            });
+            showToast('error', error.message || "Không thể gọi API.");
         } finally {
             setLoading(false);
         }

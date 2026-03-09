@@ -92,6 +92,12 @@ public class TransactionService {
 
         User user = userRepository.findById(userId).orElseThrow();
 
+        // Safe null check
+        if (order.getTienCoc() == null)
+            order.setTienCoc(BigDecimal.ZERO);
+        if (order.getTongCong() == null)
+            order.setTongCong(BigDecimal.ZERO);
+
         // Validation based on Type via Modern Switch
         switch (type) {
             case DEPOSIT -> order.setTienCoc(order.getTienCoc().add(amount));
@@ -127,14 +133,16 @@ public class TransactionService {
     private void recalculateOrderPayment(RepairOrder order) {
         // Optimized: Calculate Total Paid in DB
         BigDecimal totalPaid = transactionRepository.sumTotalPaidByOrderId(order.getId());
+        if (totalPaid == null)
+            totalPaid = BigDecimal.ZERO;
 
         // Update SoTienDaTra (Amount Paid)
         order.setSoTienDaTra(totalPaid);
 
         // Update CongNo (Debt)
+        if (order.getTongCong() == null)
+            order.setTongCong(BigDecimal.ZERO);
         BigDecimal debt = order.getTongCong().subtract(totalPaid);
-        // Fix: Removed debt clamping to allow Negative Debt (Surplus)
-        // if (debt.compareTo(BigDecimal.ZERO) < 0) debt = BigDecimal.ZERO;
 
         if (debt.compareTo(BigDecimal.ZERO) <= 0 && OrderStatus.CHO_THANH_TOAN.equals(order.getTrangThai())) {
             order.setTrangThai(OrderStatus.HOAN_THANH);
