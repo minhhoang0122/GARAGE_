@@ -9,7 +9,8 @@ export async function getUsers() {
     const token = (session?.user as any)?.accessToken;
     try {
         return await api.get('/users', token);
-    } catch (error) {
+    } catch (error: any) {
+        console.error('FAILED TO FETCH USERS:', error.message);
         return [];
     }
 }

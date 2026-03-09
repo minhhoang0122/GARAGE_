@@ -46,9 +46,9 @@ public class SecurityConfig {
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
 
                         // Admin only endpoints
-                        .requestMatchers("/api/users", "/api/users/**").hasAuthority("ADMIN")
-                        .requestMatchers("/api/reports", "/api/reports/**").hasAuthority("ADMIN")
-                        .requestMatchers("/api/config", "/api/config/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/users", "/api/users/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers("/api/reports", "/api/reports/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers("/api/config", "/api/config/**").hasAnyRole("ADMIN", "MANAGER")
 
                         // Warehouse (§5: Kho)
                         .requestMatchers("/api/warehouse/**")

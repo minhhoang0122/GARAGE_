@@ -119,6 +119,10 @@ public class UserService {
             return userRepository.findByTenDangNhap((String) principal).orElse(null);
         }
 
+        if (principal instanceof Integer) {
+            return userRepository.findById((Integer) principal).orElse(null);
+        }
+
         return null;
     }
 }
