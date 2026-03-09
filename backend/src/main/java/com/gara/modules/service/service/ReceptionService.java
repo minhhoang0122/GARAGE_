@@ -89,6 +89,19 @@ public class ReceptionService {
 
     @Transactional
     public Integer createReception(ReceptionFormData data, User user) {
+        // Validation: Prevent duplicate active orders
+        List<OrderStatus> activeStatuses = java.util.Arrays.asList(
+                OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.CHO_BGS,
+                OrderStatus.DA_BGS, OrderStatus.CHO_KH_DUYET, OrderStatus.DA_DUYET,
+                OrderStatus.CHO_PHU_TUNG, OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
+                OrderStatus.CHO_KCS, OrderStatus.CHO_THANH_TOAN);
+        List<RepairOrder> activeOrders = orderRepository.findByPhieuTiepNhan_Xe_BienSoAndTrangThaiIn(data.bienSo(),
+                activeStatuses);
+        if (!activeOrders.isEmpty()) {
+            throw new RuntimeException(
+                    "Tạo thất bại: Xe " + data.bienSo() + " hiện đang có Đơn Hàng chưa hoàn tất trong xưởng.");
+        }
+
         // 1. Find or Create Vehicle & Customer
         Vehicle vehicle = vehicleRepository.findByBienSo(data.bienSo()).orElse(null);
 

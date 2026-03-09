@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useRef } from 'react';
 import { useDebounce } from '@/hooks/use-debounce';
 import { searchVehicle, createReception, VehicleSearchResult } from '@/modules/customer/vehicle';
 import { DashboardLayout } from '@/modules/common/components/layout';
@@ -104,6 +104,7 @@ export default function ReceptionPage() {
     const { data: session } = useSession();
     const [error, setError] = useState('');
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+    const isSubmittingRef = useRef(false);
 
     // Dirty check for unsaved changes
     useEffect(() => {
@@ -158,11 +159,13 @@ export default function ReceptionPage() {
     };
 
     const handleSubmit = async () => {
+        if (isSubmittingRef.current) return;
         if (!validateForm()) {
             setError('Vui lòng kiểm tra lại thông tin nhập liệu');
             return;
         }
 
+        isSubmittingRef.current = true;
         setIsSubmitting(true);
         setError('');
 
@@ -223,6 +226,7 @@ export default function ReceptionPage() {
             setError('Lỗi kết nối');
             showToast('error', 'Lỗi kết nối đến máy chủ');
         } finally {
+            isSubmittingRef.current = false;
             setIsSubmitting(false);
         }
     };
