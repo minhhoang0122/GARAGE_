@@ -91,9 +91,9 @@ public class ReceptionService {
     public Integer createReception(ReceptionFormData data, User user) {
         // Validation: Prevent duplicate active orders
         List<OrderStatus> activeStatuses = java.util.Arrays.asList(
-                OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.CHO_BGS,
-                OrderStatus.DA_BGS, OrderStatus.CHO_KH_DUYET, OrderStatus.DA_DUYET,
-                OrderStatus.CHO_PHU_TUNG, OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
+                OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.BAO_GIA,
+                OrderStatus.BAO_GIA_LAI, OrderStatus.CHO_KH_DUYET, OrderStatus.DA_DUYET,
+                OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
                 OrderStatus.CHO_KCS, OrderStatus.CHO_THANH_TOAN);
         List<RepairOrder> activeOrders = orderRepository.findByPhieuTiepNhan_Xe_BienSoAndTrangThaiIn(data.bienSo(),
                 activeStatuses);
