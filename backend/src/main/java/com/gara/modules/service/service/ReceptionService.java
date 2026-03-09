@@ -89,23 +89,40 @@ public class ReceptionService {
 
     @Transactional
     public Integer createReception(ReceptionFormData data, User user) {
-        // Validation: Prevent duplicate active orders
-        List<OrderStatus> activeStatuses = java.util.Arrays.asList(
-                OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.BAO_GIA,
-                OrderStatus.BAO_GIA_LAI, OrderStatus.CHO_KH_DUYET, OrderStatus.DA_DUYET,
-                OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
-                OrderStatus.CHO_KCS, OrderStatus.CHO_THANH_TOAN);
-        List<RepairOrder> activeOrders = orderRepository.findByPhieuTiepNhan_Xe_BienSoAndTrangThaiIn(data.bienSo(),
-                activeStatuses);
-        if (!activeOrders.isEmpty()) {
-            throw new RuntimeException(
-                    "Tạo thất bại: Xe " + data.bienSo() + " hiện đang có Đơn Hàng chưa hoàn tất trong xưởng.");
+        // 1. Find or Create Vehicle & Customer
+        // Use pessimistic lock to prevent race conditions for existing vehicles
+        Vehicle vehicle = vehicleRepository.findByBienSoWithLock(data.bienSo()).orElse(null);
+
+        // Re-check for active orders AFTER acquiring the lock (for existing vehicles)
+        if (vehicle != null) {
+            List<OrderStatus> activeStatuses = java.util.Arrays.asList(
+                    OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.BAO_GIA,
+                    OrderStatus.BAO_GIA_LAI, OrderStatus.CHO_KH_DUYET, OrderStatus.DA_DUYET,
+                    OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
+                    OrderStatus.CHO_KCS, OrderStatus.CHO_THANH_TOAN);
+            List<RepairOrder> activeOrders = orderRepository.findByPhieuTiepNhan_Xe_BienSoAndTrangThaiIn(data.bienSo(),
+                    activeStatuses);
+            if (!activeOrders.isEmpty()) {
+                throw new RuntimeException(
+                        "Tạo thất bại: Xe " + data.bienSo() + " hiện đang có Đơn Hàng chưa hoàn tất trong xưởng.");
+            }
         }
 
-        // 1. Find or Create Vehicle & Customer
-        Vehicle vehicle = vehicleRepository.findByBienSo(data.bienSo()).orElse(null);
-
         if (vehicle == null) {
+            // Validation: Even for new vehicles, check again (though unlikely to have
+            // active orders)
+            List<OrderStatus> activeStatuses = java.util.Arrays.asList(
+                    OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.BAO_GIA,
+                    OrderStatus.BAO_GIA_LAI, OrderStatus.CHO_KH_DUYET, OrderStatus.DA_DUYET,
+                    OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
+                    OrderStatus.CHO_KCS, OrderStatus.CHO_THANH_TOAN);
+            List<RepairOrder> activeOrders = orderRepository.findByPhieuTiepNhan_Xe_BienSoAndTrangThaiIn(data.bienSo(),
+                    activeStatuses);
+            if (!activeOrders.isEmpty()) {
+                throw new RuntimeException(
+                        "Tạo thất bại: Xe " + data.bienSo() + " hiện đang có Đơn Hàng chưa hoàn tất trong xưởng.");
+            }
+
             // Create Customer
             Customer customer = new Customer();
             customer.setHoTen(data.tenKhach());

@@ -24,4 +24,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
     default List<Customer> findRecentCustomers() {
         return findRecentCustomers(org.springframework.data.domain.PageRequest.of(0, 50));
     }
+
+    @Query("SELECT c FROM Customer c WHERE c.soDienThoai = :soDienThoai")
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    java.util.Optional<Customer> findBySoDienThoaiWithLock(
+            @org.springframework.data.repository.query.Param("soDienThoai") String soDienThoai);
 }
