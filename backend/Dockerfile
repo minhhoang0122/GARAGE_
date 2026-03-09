@@ -2,10 +2,15 @@
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
 WORKDIR /app
 
-# Copy toàn bộ source code và build
+# Copy file pom.xml trước để tận dụng cache cho dependencies
 COPY pom.xml .
+# Tải các dependencies về trước (go-offline)
+# Bước này sẽ được cache trừ khi file pom.xml thay đổi
+RUN mvn dependency:go-offline -B
+
+# Sau đó mới copy source code và build
 COPY src ./src
-RUN mvn clean package -DskipTests
+RUN mvn package -DskipTests
 
 # Sử dụng image JRE 21 nhẹ nhàng để chạy ứng dụng
 FROM eclipse-temurin:21-jre-alpine
