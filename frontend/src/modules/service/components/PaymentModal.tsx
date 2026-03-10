@@ -16,7 +16,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import CurrencyInput from '@/modules/shared/components/ui/CurrencyInput';
-import { Check, AlertTriangle, Package, Wrench, FileText } from 'lucide-react';
+import { Check, AlertTriangle, Package, Wrench, FileText, Wallet, CreditCard, ArrowLeftRight } from 'lucide-react';
 
 interface PaymentModalProps {
     orderId: number;
@@ -35,22 +35,28 @@ const formatCurrency = (val: number) =>
 
 // Determine which transaction types are available based on business rules
 function getAvailableTypes(orderStatus: string, amountPaid: number, remainAmount: number) {
-    const types: { value: string; label: string }[] = [];
+    const types: { value: string; label: string; icon?: JSX.Element }[] = [];
 
-    // Deposit: only before repair starts (pre-repair statuses) AND if they haven't deposited yet
-    const preRepairStatuses = ['TIEP_NHAN', 'BAO_GIA', 'CHO_KH_DUYET', 'DA_DUYET'];
-    if (preRepairStatuses.includes(orderStatus) && remainAmount > 0 && amountPaid === 0) {
-        types.push({ value: 'DEPOSIT', label: 'Đặt cọc' });
+    const isApproved = ![
+        'TIEP_NHAN',
+        'CHO_CHAN_DOAN',
+        'BAO_GIA',
+        'BAO_GIA_LAI',
+        'CHO_KH_DUYET'
+    ].includes(orderStatus);
+
+    // Chốt: Chỉ cho cọc/thanh toán khi đã DUYET báo giá
+    if (isApproved) {
+        if (remainAmount > 0) {
+            if (amountPaid === 0) {
+                types.push({ value: 'DEPOSIT', label: 'Đặt cọc', icon: <Wallet className="w-4 h-4" /> });
+            }
+            types.push({ value: 'PAYMENT', label: 'Thanh toán', icon: <CreditCard className="w-4 h-4" /> });
+        }
     }
 
-    // Payment: always available when there's remaining debt
-    if (remainAmount > 0) {
-        types.push({ value: 'PAYMENT', label: 'Thanh toán' });
-    }
-
-    // Refund: only when customer has already paid something
     if (amountPaid > 0) {
-        types.push({ value: 'REFUND', label: 'Hoàn tiền dư' });
+        types.push({ value: 'REFUND', label: 'Hoàn tiền', icon: <ArrowLeftRight className="w-4 h-4" /> });
     }
 
     return types;

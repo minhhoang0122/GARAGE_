@@ -18,11 +18,19 @@ interface PaymentButtonProps {
 export default function PaymentButton({ orderId, grandTotal, remainAmount, amountPaid, orderStatus, disabled, items }: PaymentButtonProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    const isPreApproval = [
+        'TIEP_NHAN',
+        'CHO_CHAN_DOAN',
+        'BAO_GIA',
+        'BAO_GIA_LAI',
+        'CHO_KH_DUYET'
+    ].includes(orderStatus);
+
     return (
         <>
             <Button
                 onClick={() => setIsModalOpen(true)}
-                disabled={disabled || remainAmount <= 0}
+                disabled={disabled || remainAmount <= 0 || isPreApproval}
                 className="w-full bg-slate-900 hover:bg-slate-800 text-white shadow-md shadow-slate-900/10"
             >
                 <CreditCard className="w-4 h-4 mr-2" />
