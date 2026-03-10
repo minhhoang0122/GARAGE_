@@ -23,8 +23,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
 
-    // Local cache for user active status to avoid DB hits on EVERY request (5 mins)
-    private final Cache<Integer, Boolean> userStatusCache = Caffeine.newBuilder()
+    // Local cache for User entity to avoid DB hits on EVERY request (5 mins)
+    private final Cache<Integer, User> userCache = Caffeine.newBuilder()
             .expireAfterWrite(5, TimeUnit.MINUTES)
             .maximumSize(1000)
             .build();
@@ -51,16 +51,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (jwtUtil.isTokenValid(token) && !jwtUtil.isTokenExpired(token)) {
                 Integer userId = jwtUtil.extractUserId(token);
 
-                // Optimization: Check status from cache, if missing, check DB and cache result
-                Boolean isActive = userStatusCache.get(userId, id -> {
-                    return userRepository.findById(id)
-                            .map(User::getTrangThaiHoatDong)
-                            .orElse(false);
+                // Optimization: Fetch full User from cache/DB
+                User user = userCache.get(userId, id -> {
+                    return userRepository.findById(id).orElse(null);
                 });
 
-                if (isActive != null && isActive) {
-                    // OPTIMIZATION: Extract roles and permissions directly from JWT claims
-                    // This eliminates at least 1-2 DB roundtrips per request!
+                if (user != null && user.getTrangThaiHoatDong()) {
+                    // Extract authorities from JWT as they are already there
                     java.util.List<String> roles = jwtUtil.extractRoles(token);
                     java.util.List<String> permissions = jwtUtil.extractPermissions(token);
 
@@ -79,15 +76,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         });
                     }
 
+                    // CRITICAL FIX: Set full User object as principal so @AuthenticationPrincipal
+                    // works correctly
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userId, // Storing only ID in principal to keep it lightweight, or full User if needed
+                            user,
                             null,
                             authorities);
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
         } catch (Exception e) {
-            // Silently fail auth if token is malformed but don't crash the filter
             logger.error("Authentication failed via JWT", e);
         }
 
