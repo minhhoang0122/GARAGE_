@@ -179,8 +179,8 @@ public class MechanicService {
 
     @Transactional
     public void submitProposal(Integer receptionId, List<ProposalItemDTO> items, Integer userId) {
-        if (items.isEmpty())
-            throw new RuntimeException("Empty proposal list");
+        // Rule: Thợ có quyền gửi đề xuất trống để xác nhận xe không hỏng (Chẩn đoán
+        // xong)
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));

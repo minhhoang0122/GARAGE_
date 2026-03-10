@@ -65,6 +65,7 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                             hasProposedItems={order.items.some(i => i.itemStatus === 'DE_XUAT')}
                             amountPaid={order.amountPaid ?? 0}
                             depositAmount={order.amountPaid ?? 0}
+                            thoChanDoanId={order.thoChanDoanId}
                         />
                     </div>
                 </div>

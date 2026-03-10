@@ -15,12 +15,13 @@ interface OrderActionsProps {
     hasProposedItems?: boolean;
     amountPaid?: number;
     depositAmount?: number;
+    thoChanDoanId?: number | null;
 }
 
 const formatCurrency = (val: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
-export default function OrderActions({ orderId, status, hasProposedItems = false, amountPaid = 0, depositAmount = 0 }: OrderActionsProps) {
+export default function OrderActions({ orderId, status, hasProposedItems = false, amountPaid = 0, depositAmount = 0, thoChanDoanId = null }: OrderActionsProps) {
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
     const { data: session } = useSession();
@@ -29,14 +30,18 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
 
     const isEditable = ['TIEP_NHAN', 'CHO_CHAN_DOAN', 'BAO_GIA_LAI', 'BAO_GIA'].includes(status);
     const isWaitingApproval = status === 'CHO_KH_DUYET';
-    const canClose = status === 'HOAN_THANH' || status === 'CHO_THANH_TOAN';
+    const canClose = status === 'HOAN_THANH' || status === 'DONG'; // status === 'CHO_THANH_TOAN' is usually too early for full close
     const isClosed = status === 'DONG' || status === 'HUY';
     const isRepairing = ['DANG_SUA', 'CHO_SUA_CHUA', 'DA_DUYET'].includes(status);
+
+    // Rule: Chốt chặn chẩn đoán
+    const isMissingDiagnostic = !thoChanDoanId;
 
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [cancelReason, setCancelReason] = useState("");
 
     const handleAction = async (actionFn: (id: number) => Promise<any>, title: string, message: string, type: 'warning' | 'info' = 'warning') => {
+        // ... (handleAction logic remains the same)
         const confirmed = await confirm({ title, message, type });
         if (!confirmed) return;
 
@@ -46,11 +51,9 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
             if (!result.success) {
                 await confirm({ title: 'Lỗi', message: result.error, type: 'danger', confirmText: 'Đóng', cancelText: '' });
             } else {
-                // Invalidate cache for dashboard, this order and warehouse
                 api.invalidateCache('/sale/stats');
                 api.invalidateCache(`/sale/orders/${orderId}`);
                 api.invalidateCache('/warehouse/pending');
-
                 router.refresh();
             }
         } catch (error) {
@@ -60,6 +63,7 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
         }
     };
 
+    // ... rest of the helper functions
     const handleCancelClick = () => {
         setCancelReason("");
         setShowCancelDialog(true);
@@ -73,11 +77,9 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
             if (!result.success) {
                 await confirm({ title: 'Lỗi', message: result.error, type: 'danger', confirmText: 'Đóng', cancelText: '' });
             } else {
-                // Invalidate cache for dashboard, this order and warehouse
                 api.invalidateCache('/sale/stats');
                 api.invalidateCache(`/sale/orders/${orderId}`);
                 api.invalidateCache('/warehouse/pending');
-
                 router.refresh();
             }
         } catch (error) {
@@ -87,9 +89,7 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
         }
     };
 
-    // Build warnings for cancel dialog
     const warnings: { icon: React.ReactNode; text: string; severity: 'red' | 'amber' | 'blue' }[] = [];
-
     if (isRepairing) {
         warnings.push({
             icon: <Wrench className="w-4 h-4" />,
@@ -118,14 +118,21 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
                 </button>
 
                 {isEditable && (
-                    <button
-                        onClick={() => handleAction(submitToCustomer, 'Gửi báo giá', 'Xác nhận gửi báo giá cho khách?\n\nPhụ tùng sẽ được TẠM GIỮ trong kho.', 'info')}
-                        disabled={isLoading}
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 dark:bg-white text-white dark:text-slate-900 rounded-lg text-sm font-medium hover:bg-slate-700 dark:hover:bg-slate-100 transition-colors disabled:opacity-50"
-                    >
-                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        Gửi báo giá
-                    </button>
+                    <div className="group relative">
+                        <button
+                            onClick={() => handleAction(submitToCustomer, 'Gửi báo giá', 'Xác nhận gửi báo giá cho khách?\n\nPhụ tùng sẽ được TẠM GIỮ trong kho.', 'info')}
+                            disabled={isLoading || isMissingDiagnostic}
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 dark:bg-white text-white dark:text-slate-900 rounded-lg text-sm font-medium hover:bg-slate-700 dark:hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                            Gửi báo giá
+                        </button>
+                        {isMissingDiagnostic && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 text-white text-[10px] rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 text-center">
+                                Vui lòng chờ kỹ thuật viên gửi kết quả chẩn đoán
+                            </div>
+                        )}
+                    </div>
                 )}
 
                 {hasProposedItems && !isEditable && !isClosed && (
@@ -140,14 +147,21 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
                 )}
 
                 {isWaitingApproval && (
-                    <button
-                        onClick={() => handleAction(finalizeOrder, 'Duyệt báo giá', 'Xác nhận khách hàng ĐÃ DUYỆT báo giá?\n\nLệnh sửa chữa sẽ được chuyển cho thợ.', 'info')}
-                        disabled={isLoading}
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                    >
-                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                        Duyệt báo giá
-                    </button>
+                    <div className="group relative">
+                        <button
+                            onClick={() => handleAction(finalizeOrder, 'Duyệt báo giá', 'Xác nhận khách hàng ĐÃ DUYỆT báo giá?\n\nLệnh sửa chữa sẽ được chuyển cho thợ.', 'info')}
+                            disabled={isLoading || isMissingDiagnostic}
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                            Duyệt báo giá
+                        </button>
+                        {isMissingDiagnostic && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 text-white text-[10px] rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 text-center">
+                                Vui lòng chờ kỹ thuật viên gửi kết quả chẩn đoán
+                            </div>
+                        )}
+                    </div>
                 )}
 
                 {canClose && (

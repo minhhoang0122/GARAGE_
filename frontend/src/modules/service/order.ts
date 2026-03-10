@@ -48,6 +48,7 @@ export type OrderData = {
     imageUrl?: string;
     vehicleBrand?: string;
     vehicleModel?: string;
+    thoChanDoanId?: number | null;
 };
 
 // 1. Get Order Details
@@ -112,7 +113,8 @@ export async function getOrder(orderId: number) {
             paymentDate: order.paymentDate ? new Date(order.paymentDate) : null,
             imageUrl: order.receptionImage,
             vehicleBrand: order.carBrand || order.vehicleBrand,
-            vehicleModel: order.carModel || order.vehicleModel
+            vehicleModel: order.carModel || order.vehicleModel,
+            thoChanDoanId: order.thoChanDoanId || order.thoChanDoan?.id || null
         };
     } catch (e) {
         console.error('Error fetching order:', e);

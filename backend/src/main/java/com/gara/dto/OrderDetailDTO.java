@@ -19,6 +19,7 @@ public record OrderDetailDTO(
         BigDecimal finalAmount,
         BigDecimal paidAmount,
         BigDecimal deposit,
+        Integer thoChanDoanId,
         List<OrderItemDTO> items) {
 
     public static OrderDetailDTOBuilder builder() {
@@ -40,6 +41,7 @@ public record OrderDetailDTO(
         private BigDecimal finalAmount;
         private BigDecimal paidAmount;
         private BigDecimal deposit;
+        private Integer thoChanDoanId;
         private List<OrderItemDTO> items;
 
         public OrderDetailDTOBuilder id(Integer id) {
@@ -112,6 +114,11 @@ public record OrderDetailDTO(
             return this;
         }
 
+        public OrderDetailDTOBuilder thoChanDoanId(Integer thoChanDoanId) {
+            this.thoChanDoanId = thoChanDoanId;
+            return this;
+        }
+
         public OrderDetailDTOBuilder items(List<OrderItemDTO> items) {
             this.items = items;
             return this;
@@ -119,7 +126,7 @@ public record OrderDetailDTO(
 
         public OrderDetailDTO build() {
             return new OrderDetailDTO(id, status, createdAt, customerName, customerPhone, plateNumber, carBrand,
-                    carModel, totalAmount, discount, tax, finalAmount, paidAmount, deposit, items);
+                    carModel, totalAmount, discount, tax, finalAmount, paidAmount, deposit, thoChanDoanId, items);
         }
     }
 }

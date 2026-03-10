@@ -200,6 +200,7 @@ public class SaleService {
                 .finalAmount(finalAmount)
                 .paidAmount(totalPaid)
                 .deposit(deposit)
+                .thoChanDoanId(order.getThoChanDoan() != null ? order.getThoChanDoan().getId() : null)
                 .build();
     }
 
@@ -379,6 +380,10 @@ public class SaleService {
 
         checkOwnership(order, user);
 
+        if (order.getThoChanDoan() == null) {
+            throw new RuntimeException("Chưa có kết quả chẩn đoán từ kỹ thuật viên. Sale không thể gửi báo giá.");
+        }
+
         if (user.getId() == null) {
             throw new RuntimeException("Lỗi hệ thống: User ID không tồn tại. Vui lòng đăng nhập lại.");
         }
@@ -478,6 +483,14 @@ public class SaleService {
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
         checkOwnership(order, user);
+
+        if (order.getThoChanDoan() == null) {
+            throw new RuntimeException("Chưa có kết quả chẩn đoán từ kỹ thuật viên. Không thể duyệt báo giá.");
+        }
+
+        if (order.getChiTietDonHang().isEmpty()) {
+            throw new RuntimeException("Đơn hàng không có bất kỳ hạng mục nào. Vui lòng kiểm tra lại.");
+        }
 
         if (user.getId() == null) {
             throw new RuntimeException(
