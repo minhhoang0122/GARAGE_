@@ -38,6 +38,7 @@ public class SaleService {
     private final TransactionService transactionService;
     private final com.gara.modules.support.service.AsyncAuditService asyncAuditService;
     private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
+    private final jakarta.persistence.EntityManager entityManager;
 
     public SaleService(RepairOrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
@@ -49,7 +50,8 @@ public class SaleService {
             ReceptionRepository receptionRepository,
             TransactionService transactionService,
             com.gara.modules.support.service.AsyncAuditService asyncAuditService,
-            com.gara.modules.support.service.AsyncNotificationService asyncNotificationService) {
+            com.gara.modules.support.service.AsyncNotificationService asyncNotificationService,
+            jakarta.persistence.EntityManager entityManager) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.productRepository = productRepository;
@@ -61,6 +63,7 @@ public class SaleService {
         this.transactionService = transactionService;
         this.asyncAuditService = asyncAuditService;
         this.asyncNotificationService = asyncNotificationService;
+        this.entityManager = entityManager;
     }
 
     // 7. Get Dashboard Stats
@@ -281,6 +284,11 @@ public class SaleService {
         item.setNguoiDeXuat(user);
 
         orderItemRepository.save(item);
+
+        // CRITICAL: Force refresh order from DB to synchronize collection
+        entityManager.flush();
+        entityManager.refresh(order);
+
         recalculateTotals(order);
     }
 

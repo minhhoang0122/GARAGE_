@@ -3,8 +3,11 @@ package com.gara.modules.identity.controller;
 import com.gara.dto.LoginRequest;
 import com.gara.dto.LoginResponse;
 import com.gara.entity.User;
+import com.gara.entity.Role;
 import com.gara.modules.identity.service.AuthService;
+import com.gara.modules.identity.service.UserService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
@@ -16,9 +19,11 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final UserService userService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, UserService userService) {
         this.authService = authService;
+        this.userService = userService;
     }
 
     @PostMapping("/login")
@@ -34,36 +39,21 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<?> getCurrentUser(
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return ResponseEntity.status(401).body(Map.of("error", "Chưa đăng nhập"));
-        }
-
-        String token = authHeader.substring(7);
-        User user = authService.getCurrentUser(token);
-
+    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal Object principal) {
+        User user = userService.getCurrentUser();
         if (user == null) {
-            return ResponseEntity.status(401).body(Map.of("error", "Token không hợp lệ"));
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
-
         return ResponseEntity.ok(Map.of(
                 "id", user.getId(),
                 "username", user.getTenDangNhap(),
                 "fullName", user.getHoTen(),
-                "roles",
-                user.getRoles().stream().map(com.gara.entity.Role::getName)
-                        .collect(java.util.stream.Collectors.toList()),
-                "permissions", user.getRoles().stream()
-                        .flatMap(role -> role.getPermissions().stream())
-                        .map(com.gara.entity.Permission::getCode)
-                        .distinct()
-                        .collect(java.util.stream.Collectors.toList())));
+                "roles", user.getRoles().stream().map(Role::getName).toArray(),
+                "permissions", user.getAllPermissions()));
     }
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout() {
-        // JWT is stateless, client just needs to remove token
         return ResponseEntity.ok(Map.of("message", "Đăng xuất thành công"));
     }
 

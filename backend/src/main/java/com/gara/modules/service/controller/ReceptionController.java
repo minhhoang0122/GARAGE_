@@ -2,8 +2,7 @@ package com.gara.modules.service.controller;
 
 import com.gara.dto.ReceptionFormData;
 import com.gara.entity.User;
-import com.gara.modules.service.repository.RepairOrderRepository;
-
+import com.gara.modules.identity.service.UserService;
 import com.gara.modules.service.service.ReceptionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,28 +16,16 @@ import java.util.Map;
 public class ReceptionController {
 
     private final ReceptionService receptionService;
-    private final RepairOrderRepository orderRepository;
+    private final UserService userService;
 
-    public ReceptionController(ReceptionService receptionService, RepairOrderRepository orderRepository) {
+    public ReceptionController(ReceptionService receptionService, UserService userService) {
         this.receptionService = receptionService;
-        this.orderRepository = orderRepository;
+        this.userService = userService;
     }
 
     @GetMapping
     public ResponseEntity<?> getAllReceptions() {
-        try {
-            return ResponseEntity.ok(receptionService.getAllReceptions());
-        } catch (Exception e) {
-            try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("debug_error.log", true))) {
-                pw.println("--- Error at " + java.time.LocalDateTime.now() + " ---");
-                e.printStackTrace(pw);
-                pw.println("------------------------------------------");
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-            return ResponseEntity.status(500)
-                    .body(Map.of("error", e.getMessage(), "type", e.getClass().getSimpleName()));
-        }
+        return ResponseEntity.ok(receptionService.getAllReceptions());
     }
 
     @GetMapping("/vehicle")
@@ -54,20 +41,17 @@ public class ReceptionController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createReception(@RequestBody @Valid ReceptionFormData data,
-            @AuthenticationPrincipal User user) {
+    public ResponseEntity<?> createReception(@RequestBody @Valid ReceptionFormData request,
+            @AuthenticationPrincipal Object principal) {
         try {
-            Integer receptionId = receptionService.createReception(data, user);
-
-            // Need OrderId to return? Service currently returns ReceptionID.
-            // Simplified lookup
-            Integer orderId = orderRepository.findByPhieuTiepNhanId(receptionId)
-                    .map(o -> o.getId())
-                    .orElse(null);
-
-            return ResponseEntity.ok(Map.of("success", true, "receptionId", receptionId, "orderId", orderId));
+            User user = userService.getCurrentUser();
+            if (user == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+            }
+            Integer receptionId = receptionService.createReception(request, user);
+            return ResponseEntity.ok(Map.of("success", true, "receptionId", receptionId));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 }
