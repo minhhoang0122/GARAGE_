@@ -29,6 +29,12 @@ public class OrderItem {
     @Column(name = "thanh_tien", precision = 18, scale = 2)
     private BigDecimal thanhTien;
 
+    @Column(name = "vat_phan_tram", precision = 5, scale = 2)
+    private BigDecimal vatPhanTram = new BigDecimal("10.00");
+
+    @Column(name = "tien_thue", precision = 18, scale = 2)
+    private BigDecimal tienThue = BigDecimal.ZERO;
+
     @Column(name = "uu_tien")
     private Integer uuTien = 0;
 
@@ -88,7 +94,8 @@ public class OrderItem {
     }
 
     public OrderItem(Integer id, Integer soLuong, BigDecimal donGiaGoc, BigDecimal giamGiaTien,
-            BigDecimal giamGiaPhanTram, BigDecimal thanhTien, Integer uuTien, String lyDoChinhGia, ItemStatus trangThai,
+            BigDecimal giamGiaPhanTram, BigDecimal thanhTien, BigDecimal vatPhanTram, BigDecimal tienThue,
+            Integer uuTien, String lyDoChinhGia, ItemStatus trangThai,
             Boolean laHangBaoHanh, String ghiChuBaoHanh, Boolean daHoanThanh, Integer soLuongThoToiDa,
             Integer donHangSuaChuaId, Integer hangHoaId, RepairOrder donHangSuaChua, Product hangHoa,
             Integer nguoiThucHienId, User nguoiThucHien, List<TaskAssignment> phanCongTho) {
@@ -98,6 +105,8 @@ public class OrderItem {
         this.giamGiaTien = giamGiaTien != null ? giamGiaTien : BigDecimal.ZERO;
         this.giamGiaPhanTram = giamGiaPhanTram != null ? giamGiaPhanTram : BigDecimal.ZERO;
         this.thanhTien = thanhTien;
+        this.vatPhanTram = vatPhanTram != null ? vatPhanTram : new BigDecimal("10.00");
+        this.tienThue = tienThue != null ? tienThue : BigDecimal.ZERO;
         this.uuTien = uuTien != null ? uuTien : 0;
         this.lyDoChinhGia = lyDoChinhGia;
         this.trangThai = trangThai != null ? trangThai : ItemStatus.DE_XUAT;
@@ -160,6 +169,22 @@ public class OrderItem {
 
     public void setThanhTien(BigDecimal thanhTien) {
         this.thanhTien = thanhTien;
+    }
+
+    public BigDecimal getVatPhanTram() {
+        return vatPhanTram;
+    }
+
+    public void setVatPhanTram(BigDecimal vatPhanTram) {
+        this.vatPhanTram = vatPhanTram;
+    }
+
+    public BigDecimal getTienThue() {
+        return tienThue;
+    }
+
+    public void setTienThue(BigDecimal tienThue) {
+        this.tienThue = tienThue;
     }
 
     public Integer getUuTien() {
@@ -301,6 +326,8 @@ public class OrderItem {
         private BigDecimal giamGiaTien = BigDecimal.ZERO;
         private BigDecimal giamGiaPhanTram = BigDecimal.ZERO;
         private BigDecimal thanhTien;
+        private BigDecimal vatPhanTram = new BigDecimal("10.00");
+        private BigDecimal tienThue = BigDecimal.ZERO;
         private Integer uuTien = 0;
         private String lyDoChinhGia;
         private ItemStatus trangThai = ItemStatus.DE_XUAT;
@@ -343,6 +370,16 @@ public class OrderItem {
 
         public OrderItemBuilder thanhTien(BigDecimal thanhTien) {
             this.thanhTien = thanhTien;
+            return this;
+        }
+
+        public OrderItemBuilder vatPhanTram(BigDecimal vatPhanTram) {
+            this.vatPhanTram = vatPhanTram;
+            return this;
+        }
+
+        public OrderItemBuilder tienThue(BigDecimal tienThue) {
+            this.tienThue = tienThue;
             return this;
         }
 
@@ -417,9 +454,9 @@ public class OrderItem {
         }
 
         public OrderItem build() {
-            return new OrderItem(id, soLuong, donGiaGoc, giamGiaTien, giamGiaPhanTram, thanhTien, uuTien, lyDoChinhGia,
-                    trangThai, laHangBaoHanh, ghiChuBaoHanh, daHoanThanh, soLuongThoToiDa, donHangSuaChuaId, hangHoaId,
-                    donHangSuaChua, hangHoa, nguoiThucHienId, nguoiThucHien, phanCongTho);
+            return new OrderItem(id, soLuong, donGiaGoc, giamGiaTien, giamGiaPhanTram, thanhTien, vatPhanTram, tienThue,
+                    uuTien, lyDoChinhGia, trangThai, laHangBaoHanh, ghiChuBaoHanh, daHoanThanh, soLuongThoToiDa,
+                    donHangSuaChuaId, hangHoaId, donHangSuaChua, hangHoa, nguoiThucHienId, nguoiThucHien, phanCongTho);
         }
     }
 }

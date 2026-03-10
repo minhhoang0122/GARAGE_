@@ -6,7 +6,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "SystemConfig")
+@Table(name = "system_config")
 public class SystemConfig {
     @Id
     @Column(name = "config_key", length = 50)

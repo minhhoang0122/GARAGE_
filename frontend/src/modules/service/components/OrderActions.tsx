@@ -128,7 +128,9 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
                             Gửi báo giá
                         </button>
                         {isMissingDiagnostic && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 text-white text-[10px] rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 text-center">
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 p-2 bg-slate-900 text-white text-[10px] rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 text-center">
+                                {/* Arrow indicator */}
+                                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 rotate-45"></div>
                                 Vui lòng chờ kỹ thuật viên gửi kết quả chẩn đoán
                             </div>
                         )}
@@ -157,7 +159,9 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
                             Duyệt báo giá
                         </button>
                         {isMissingDiagnostic && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 text-white text-[10px] rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 text-center">
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 p-2 bg-slate-900 text-white text-[10px] rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 text-center">
+                                {/* Arrow indicator */}
+                                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 rotate-45"></div>
                                 Vui lòng chờ kỹ thuật viên gửi kết quả chẩn đoán
                             </div>
                         )}

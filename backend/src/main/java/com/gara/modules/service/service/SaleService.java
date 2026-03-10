@@ -39,6 +39,7 @@ public class SaleService {
     private final com.gara.modules.support.service.AsyncAuditService asyncAuditService;
     private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
     private final jakarta.persistence.EntityManager entityManager;
+    private final com.gara.modules.system.repository.SystemConfigRepository systemConfigRepository;
 
     public SaleService(RepairOrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
@@ -51,7 +52,8 @@ public class SaleService {
             TransactionService transactionService,
             com.gara.modules.support.service.AsyncAuditService asyncAuditService,
             com.gara.modules.support.service.AsyncNotificationService asyncNotificationService,
-            jakarta.persistence.EntityManager entityManager) {
+            jakarta.persistence.EntityManager entityManager,
+            com.gara.modules.system.repository.SystemConfigRepository systemConfigRepository) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.productRepository = productRepository;
@@ -64,6 +66,7 @@ public class SaleService {
         this.asyncAuditService = asyncAuditService;
         this.asyncNotificationService = asyncNotificationService;
         this.entityManager = entityManager;
+        this.systemConfigRepository = systemConfigRepository;
     }
 
     // 7. Get Dashboard Stats
@@ -268,9 +271,24 @@ public class SaleService {
         if (quantity <= 0) {
             throw new RuntimeException("Số lượng phải lớn hơn 0");
         }
+
+        // Fetch Global Service VAT Rate if it's a service
+        BigDecimal vatRate = product.getLaDichVu()
+                ? systemConfigRepository.findById("SERVICE_VAT_RATE")
+                        .map(c -> new BigDecimal(c.getConfigValue()))
+                        .orElse(new BigDecimal("10.00"))
+                : (product.getThueVAT() != null ? product.getThueVAT() : BigDecimal.ZERO);
+
+        BigDecimal unitPrice = product.getGiaBanNiemYet();
+        BigDecimal rawTotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
+        BigDecimal taxAmount = rawTotal.multiply(vatRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        BigDecimal totalWithTax = rawTotal.add(taxAmount);
+
         item.setSoLuong(quantity);
-        item.setDonGiaGoc(product.getGiaBanNiemYet());
-        item.setThanhTien(product.getGiaBanNiemYet().multiply(BigDecimal.valueOf(quantity)));
+        item.setDonGiaGoc(unitPrice);
+        item.setVatPhanTram(vatRate);
+        item.setTienThue(taxAmount);
+        item.setThanhTien(totalWithTax);
 
         // Handle Arising Issues (Rule 3.3)
         OrderStatus status = order.getTrangThai();
@@ -890,6 +908,12 @@ public class SaleService {
         BigDecimal totalGoods = BigDecimal.ZERO;
         BigDecimal totalServices = BigDecimal.ZERO;
         BigDecimal totalDiscount = BigDecimal.ZERO;
+        BigDecimal totalVAT = BigDecimal.ZERO;
+
+        // Fetch Global Service VAT Rate
+        BigDecimal serviceVatRate = systemConfigRepository.findById("SERVICE_VAT_RATE")
+                .map(c -> new BigDecimal(c.getConfigValue()))
+                .orElse(new BigDecimal("10.00"));
 
         for (OrderItem item : items) {
             // Skip cancelled items (customer rejected)
@@ -907,36 +931,42 @@ public class SaleService {
             BigDecimal rawTotal = unitPrice.multiply(quantity);
             BigDecimal discountAmount = rawTotal.multiply(discountPercent)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            BigDecimal netTotal = rawTotal.subtract(discountAmount);
+            BigDecimal netBeforeTax = rawTotal.subtract(discountAmount);
 
-            // Re-update item totals just to be sure (optional, but safe)
-            // item.setThanhTien(netTotal);
-            // item.setGiamGiaTien(discountAmount);
-            // orderItemRepository.save(item); // Avoid N+1 saves if possible, assume
-            // already saved
+            // Determine VAT Rate
+            BigDecimal itemVatRate = item.getHangHoa().getLaDichVu() ? serviceVatRate : item.getHangHoa().getThueVAT();
+            if (itemVatRate == null)
+                itemVatRate = BigDecimal.ZERO;
+
+            BigDecimal itemVatAmount = netBeforeTax.multiply(itemVatRate).divide(BigDecimal.valueOf(100), 2,
+                    RoundingMode.HALF_UP);
+            BigDecimal itemTotalWithTax = netBeforeTax.add(itemVatAmount);
+
+            // Update item totals and tax info
+            item.setVatPhanTram(itemVatRate);
+            item.setTienThue(itemVatAmount);
+            item.setThanhTien(itemTotalWithTax);
+            item.setGiamGiaTien(discountAmount);
 
             // Classify
             if (item.getHangHoa().getLaDichVu()) {
-                totalServices = totalServices.add(netTotal);
+                totalServices = totalServices.add(netBeforeTax);
             } else {
-                totalGoods = totalGoods.add(netTotal);
+                totalGoods = totalGoods.add(netBeforeTax);
             }
 
             totalDiscount = totalDiscount.add(discountAmount);
+            totalVAT = totalVAT.add(itemVatAmount);
         }
 
-        // Calculate VAT (10% only for Goods)
-        BigDecimal vatRate = new BigDecimal("0.10");
-        BigDecimal vatAmount = totalGoods.multiply(vatRate).setScale(2, RoundingMode.HALF_UP);
-
         // Final Total
-        BigDecimal grandTotal = totalGoods.add(totalServices).add(vatAmount);
+        BigDecimal grandTotal = totalGoods.add(totalServices).add(totalVAT);
 
         // Update Order
         order.setTongTienHang(totalGoods);
         order.setTongTienCong(totalServices);
         order.setChietKhauTong(totalDiscount);
-        order.setThueVAT(vatAmount);
+        order.setThueVAT(totalVAT);
         order.setTongCong(grandTotal);
 
         // Update Debt (Assuming Debt = Total - Paid)
