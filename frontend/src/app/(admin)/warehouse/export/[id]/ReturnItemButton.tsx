@@ -5,6 +5,7 @@ import { RotateCcw } from 'lucide-react';
 import { returnStock } from '@/modules/inventory/warehouse';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
+import { api } from '@/lib/api';
 
 interface ReturnItemButtonProps {
     orderId: number;
@@ -28,6 +29,13 @@ export default function ReturnItemButton({ orderId, productId, productName, maxQ
         try {
             const res = await returnStock(orderId, productId, quantity, reason);
             if (res.success) {
+                // Invalidate cache for dashboards
+                api.invalidateCache('/warehouse/stats');
+                api.invalidateCache('/warehouse/pending');
+                api.invalidateCache('/warehouse/products');
+                api.invalidateCache('/sale/stats');
+                api.invalidateCache(`/sale/orders/${orderId}`);
+
                 showToast('success', 'Hoàn nhập thành công!');
                 setIsOpen(false);
                 router.refresh();
@@ -47,7 +55,7 @@ export default function ReturnItemButton({ orderId, productId, productName, maxQ
         <>
             <button
                 onClick={() => setIsOpen(true)}
-                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors title='Hoàn nhập kho'"
+                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
                 title="Hoàn nhập hàng thừa"
             >
                 <RotateCcw className="w-4 h-4" />

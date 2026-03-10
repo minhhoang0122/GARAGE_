@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Hand } from 'lucide-react';
 import { claimJob } from '@/modules/service/mechanic';
 import { useToast } from '@/contexts/ToastContext';
+import { api } from '@/lib/api';
 
 type ClaimJobButtonProps = {
     orderId: number;
@@ -40,6 +41,10 @@ export default function ClaimJobButton({ orderId, claimedByName, isClaimedByMe }
         setLoading(true);
         const result = await claimJob(orderId);
         if (result.success) {
+            // Invalidate mechanic dashboard and stats
+            api.invalidateCache('/mechanic/jobs');
+            api.invalidateCache('/mechanic/stats');
+
             showToast('success', 'Nhận việc thành công!');
             router.refresh();
         } else {

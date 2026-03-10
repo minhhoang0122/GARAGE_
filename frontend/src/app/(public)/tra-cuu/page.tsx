@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Search, CarFront, FileText, Wrench, Settings, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { API_URL } from '@/lib/api';
+import { api } from '@/lib/api';
 
 export default function TraCuuPage() {
     const [trackingPlate, setTrackingPlate] = useState('');
@@ -18,12 +18,13 @@ export default function TraCuuPage() {
         setIsTracking(true);
         setTrackError('');
         try {
-            const res = await fetch(`${API_URL}/public/tracking?bienSo=${trackingPlate}`);
-            const data = await res.json();
-            if (data.success) {
+            // Use SWR for public tracking
+            const data = await api.getCached(`/public/tracking?bienSo=${trackingPlate}`);
+
+            if (data && data.success) {
                 setTrackingResult(data);
             } else {
-                setTrackError(data.message || 'Không tìm thấy dữ liệu.');
+                setTrackError(data?.message || 'Không tìm thấy dữ liệu.');
                 setTrackingResult(null);
             }
         } catch (error) {

@@ -5,6 +5,7 @@ import { CheckCircle, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 import { completeJob, qcPass, qcFail } from '@/modules/service/mechanic';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
+import { api } from '@/lib/api';
 
 interface CompleteJobButtonProps {
     orderId: number;
@@ -43,6 +44,12 @@ export default function CompleteJobButton({
             }
 
             if (result.success) {
+                // Invalidate multiple modules
+                api.invalidateCache('/mechanic/jobs');
+                api.invalidateCache('/mechanic/stats');
+                api.invalidateCache('/sale/stats');
+                api.invalidateCache('/finance');
+
                 showToast('success', isQC ? (qcAction === 'pass' ? 'Đã duyệt nghiệm thu!' : 'Đã từ chối nghiệm thu!') : 'Đã hoàn thành công việc!');
                 setShowConfirm(false);
                 router.replace('/mechanic/jobs');

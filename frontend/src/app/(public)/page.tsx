@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, MapPin, PhoneCall, Clock, ShieldCheck, Wrench, Settings, Search, CheckCircle2, Menu, User, CarFront } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { API_URL } from '@/lib/api';
+import { api } from '@/lib/api';
 
 export default function LandingPage() {
     const [trackingPlate, setTrackingPlate] = useState('');
@@ -18,12 +18,12 @@ export default function LandingPage() {
         setIsTracking(true);
         setTrackError('');
         try {
-            const res = await fetch(`${API_URL}/public/tracking?bienSo=${trackingPlate}`);
-            const data = await res.json();
-            if (data.success) {
+            // Use getCached with SWR support
+            const data = await api.getCached(`/public/tracking?bienSo=${trackingPlate}`, undefined);
+            if (data && data.success) {
                 setTrackingResult(data);
             } else {
-                setTrackError(data.message || 'Không tìm thấy dữ liệu.');
+                setTrackError((data as any)?.message || 'Không tìm thấy dữ liệu.');
                 setTrackingResult(null);
             }
         } catch (error) {

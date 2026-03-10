@@ -14,6 +14,7 @@ import {
 import { createTransaction } from '@/modules/finance/transaction';
 import { useToast } from '@/contexts/ToastContext';
 import { useRouter } from 'next/navigation';
+import { api } from '@/lib/api';
 import CurrencyInput from '@/modules/shared/components/ui/CurrencyInput';
 import { Check, AlertTriangle, Package, Wrench, FileText } from 'lucide-react';
 
@@ -142,7 +143,6 @@ export default function PaymentModal({ orderId, grandTotal, isOpen, onClose, rem
                 note
             });
             console.log("Transaction result:", result);
-
             if (result.success) {
                 showToast('success', type === 'DEPOSIT'
                     ? `Đã ghi nhận đặt cọc ${depositPercent}% (${formatCurrency(finalAmount)})`
@@ -150,6 +150,14 @@ export default function PaymentModal({ orderId, grandTotal, isOpen, onClose, rem
                         ? `Đã hoàn lại ${formatCurrency(finalAmount)} cho khách`
                         : `Đã ghi nhận thanh toán ${formatCurrency(finalAmount)}`
                 );
+
+                // Invalidate cache for dashboard, this order and finance stats
+                api.invalidateCache('/sale/stats');
+                api.invalidateCache(`/sale/orders/${orderId}`);
+                api.invalidateCache('/finance'); // Broad invalidate for finance
+                api.invalidateCache('/warehouse/stats');
+                api.invalidateCache('/reports'); // Invalidate any report stats if cached
+
                 onClose();
                 router.refresh();
             } else {

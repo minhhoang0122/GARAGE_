@@ -130,6 +130,10 @@ export default function InspectPage() {
             // Invalidate cache so Dashboard updates
             api.invalidateCache('/mechanic/inspect');
             api.invalidateCache('/mechanic/inspect/history');
+            api.invalidateCache('/sale/stats');
+            api.invalidateCache(`/sale/orders/${id}`);
+            api.invalidateCache('/warehouse/pending');
+            api.invalidateCache('/warehouse/stats');
 
             await confirm({ title: 'Thành công', message: 'Đã gửi đề xuất thành công!', type: 'info', confirmText: 'OK', cancelText: '' });
             router.replace('/mechanic');

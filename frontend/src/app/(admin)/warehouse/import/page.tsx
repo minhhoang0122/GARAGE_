@@ -120,6 +120,10 @@ export default function ImportStockPage() {
             if (res.success) {
                 toast({ title: "Thành công", description: "Đã tạo sản phẩm mới", variant: "default" });
                 setIsCreateOpen(false);
+
+                // Invalidate cache
+                api.invalidateCache('/warehouse/products');
+
                 // Refresh list and select new product
                 const all = await getAllProducts();
                 // @ts-ignore
@@ -276,6 +280,11 @@ export default function ImportStockPage() {
                 } else {
                     toast({ title: "Thành công", description: 'Đã gửi yêu cầu nhập kho. Vui lòng chờ duyệt.', variant: "default" });
                 }
+
+                // Invalidate cache
+                api.invalidateCache('/warehouse/stats');
+                api.invalidateCache('/warehouse/products');
+                api.invalidateCache('/warehouse/history'); // If it exists
 
                 // Fetch print data
                 try {

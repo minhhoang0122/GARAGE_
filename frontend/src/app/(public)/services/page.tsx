@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Info, Tag, Clock, ArrowRight, Wrench, FileText, CheckCircle2, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { API_URL } from '@/lib/api';
+import { api } from '@/lib/api';
 
 export default function ServicesPage() {
     const [services, setServices] = useState<any[]>([]);
@@ -13,8 +13,7 @@ export default function ServicesPage() {
 
     useEffect(() => {
         setIsLoading(true);
-        fetch(`${API_URL}/public/services`)
-            .then(res => res.json())
+        api.getCached('/public/services')
             .then(data => {
                 setServices(data || []);
             })

@@ -5,6 +5,7 @@ import { FileCheck, Printer, Loader2, Send, XCircle, CheckCircle, PlusCircle, Al
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { api } from '@/lib/api';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/modules/shared/components/ui/dialog";
 
@@ -45,6 +46,11 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
             if (!result.success) {
                 await confirm({ title: 'Lỗi', message: result.error, type: 'danger', confirmText: 'Đóng', cancelText: '' });
             } else {
+                // Invalidate cache for dashboard, this order and warehouse
+                api.invalidateCache('/sale/stats');
+                api.invalidateCache(`/sale/orders/${orderId}`);
+                api.invalidateCache('/warehouse/pending');
+
                 router.refresh();
             }
         } catch (error) {
@@ -67,6 +73,11 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
             if (!result.success) {
                 await confirm({ title: 'Lỗi', message: result.error, type: 'danger', confirmText: 'Đóng', cancelText: '' });
             } else {
+                // Invalidate cache for dashboard, this order and warehouse
+                api.invalidateCache('/sale/stats');
+                api.invalidateCache(`/sale/orders/${orderId}`);
+                api.invalidateCache('/warehouse/pending');
+
                 router.refresh();
             }
         } catch (error) {
@@ -178,10 +189,10 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
                         <div className="space-y-2 my-2">
                             {warnings.map((w, i) => (
                                 <div key={i} className={`flex items-start gap-3 p-3 rounded-lg text-sm ${w.severity === 'red'
-                                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                        : w.severity === 'amber'
-                                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                            : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    : w.severity === 'amber'
+                                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                        : 'bg-blue-50 text-blue-700 border border-blue-200'
                                     }`}>
                                     <span className="mt-0.5 flex-shrink-0">{w.icon}</span>
                                     <span>{w.text}</span>

@@ -5,6 +5,7 @@ import { UserMinus, Loader2, AlertTriangle } from 'lucide-react';
 import { unclaimJob } from '@/modules/service/mechanic';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
+import { api } from '@/lib/api';
 
 interface UnclaimJobButtonProps {
     orderId: number;
@@ -22,6 +23,10 @@ export default function UnclaimJobButton({ orderId, completedItems }: UnclaimJob
         try {
             const result = await unclaimJob(orderId);
             if (result.success) {
+                // Invalidate mechanic cache
+                api.invalidateCache('/mechanic/jobs');
+                api.invalidateCache('/mechanic/stats');
+
                 showToast('success', 'Đã hủy nhận việc thành công!');
                 setShowConfirm(false);
                 router.refresh(); // Refresh page data

@@ -5,6 +5,7 @@ import { PackageCheck, Loader2 } from 'lucide-react';
 import { confirmExport } from '@/modules/inventory/warehouse';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
+import { api } from '@/lib/api';
 
 interface ExportConfirmButtonProps {
     orderId: number;
@@ -22,6 +23,12 @@ export default function ExportConfirmButton({ orderId, disabled = false }: Expor
         try {
             const result = await confirmExport(orderId);
             if (result.success) {
+                // Invalidate cache for dashboards
+                api.invalidateCache('/warehouse/stats');
+                api.invalidateCache('/warehouse/pending');
+                api.invalidateCache('/sale/stats');
+                api.invalidateCache(`/sale/orders/${orderId}`);
+
                 showToast('success', 'Đã xác nhận xuất kho thành công!');
                 setShowConfirm(false);
                 router.refresh();

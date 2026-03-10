@@ -71,7 +71,7 @@ export const api = {
      * Get data with instant cache return + background revalidation
      * Always returns immediately if cached (even if stale)
      */
-    async getCached(path: string, token: string, onUpdate?: (data: any) => void): Promise<any> {
+    async getCached(path: string, token?: string, onUpdate?: (data: any) => void): Promise<any> {
         const cached = getCache(path);
         const now = Date.now();
 
@@ -103,7 +103,7 @@ export const api = {
     /**
      * Prefetch data in background (use for anticipated navigation)
      */
-    prefetch(paths: string[], token: string) {
+    prefetch(paths: string[], token?: string) {
         paths.forEach(path => {
             const cached = getCache(path);
             if (!cached || cached.isStale) {
@@ -117,7 +117,7 @@ export const api = {
     /**
      * Deduplicated GET - prevents duplicate requests for same path
      */
-    async _dedupedGet(path: string, token: string): Promise<any> {
+    async _dedupedGet(path: string, token?: string): Promise<any> {
         // If there's already a pending request for this path, wait for it
         if (pendingRequests.has(path)) {
             return pendingRequests.get(path);
@@ -139,20 +139,37 @@ export const api = {
         return request;
     },
 
-    // Invalidate cache for a path (call after mutations)
-    invalidateCache(path?: string) {
-        if (path) {
-            memoryCache.delete(path);
+    // Invalidate cache for a path or prefix (call after mutations)
+    invalidateCache(pathOrPrefix?: string) {
+        if (pathOrPrefix) {
+            // 1. Clear from memoryCache (using startsWith for prefix matching)
+            for (const key of memoryCache.keys()) {
+                if (key.startsWith(pathOrPrefix)) {
+                    memoryCache.delete(key);
+                }
+            }
+
+            // 2. Clear from sessionStorage
             if (typeof window !== 'undefined') {
-                sessionStorage.removeItem(`api_cache:${path}`);
+                try {
+                    Object.keys(sessionStorage).forEach(key => {
+                        if (key.startsWith(`api_cache:${pathOrPrefix}`)) {
+                            sessionStorage.removeItem(key);
+                        }
+                    });
+                } catch (e) {
+                    console.error('Error invalidating sessionStorage:', e);
+                }
             }
         } else {
             // Clear all
             memoryCache.clear();
             if (typeof window !== 'undefined') {
-                Object.keys(sessionStorage)
-                    .filter(k => k.startsWith('api_cache:'))
-                    .forEach(k => sessionStorage.removeItem(k));
+                try {
+                    Object.keys(sessionStorage)
+                        .filter(k => k.startsWith('api_cache:'))
+                        .forEach(k => sessionStorage.removeItem(k));
+                } catch (e) { }
             }
         }
     },
@@ -183,13 +200,17 @@ export const api = {
         return res.json();
     },
 
-    async get(path: string, token: string) {
+    async get(path: string, token?: string) {
+        const headers: any = {
+            'Content-Type': 'application/json',
+            'Accept-Encoding': 'gzip, deflate'
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const res = await fetch(`${API_URL}${path}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                'Accept-Encoding': 'gzip, deflate'
-            },
+            headers,
         });
 
         if (!res.ok) {

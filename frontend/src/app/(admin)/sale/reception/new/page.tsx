@@ -215,6 +215,13 @@ export default function ReceptionPage() {
             });
 
             if (result.success) {
+                // Invalidate cache for dashboards
+                api.invalidateCache('/sale/stats');
+                api.invalidateCache('/reception');
+                api.invalidateCache('/mechanic/inspect');
+                api.invalidateCache('/warehouse/stats');
+                api.invalidateCache('/warehouse/pending');
+
                 showToast('success', 'Đã tiếp nhận xe thành công!');
                 router.replace('/sale');
                 router.refresh();
