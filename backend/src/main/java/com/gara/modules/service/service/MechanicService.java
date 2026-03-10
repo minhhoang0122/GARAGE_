@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -798,11 +799,45 @@ public class MechanicService {
     }
 
     private void recalculateTotals(RepairOrder order) {
-        // Optimized: Calculate Total in DB
-        BigDecimal total = orderItemRepository.sumTotalForOrder(order.getId());
+        List<OrderItem> items = order.getChiTietDonHang();
+        BigDecimal totalParts = BigDecimal.ZERO;
+        BigDecimal totalLabor = BigDecimal.ZERO;
+        BigDecimal totalDiscount = BigDecimal.ZERO;
 
-        order.setTongTienHang(total);
-        order.setTongCong(total);
+        if (items != null) {
+            for (OrderItem item : items) {
+                if (item.getTrangThai() == ItemStatus.KHACH_TU_CHOI)
+                    continue;
+
+                BigDecimal itemTotal = item.getDonGiaGoc().multiply(new BigDecimal(item.getSoLuong()));
+                BigDecimal discount = itemTotal.multiply(item.getGiamGiaPhanTram())
+                        .divide(new BigDecimal(100), 2, RoundingMode.HALF_UP);
+                totalDiscount = totalDiscount.add(discount);
+
+                if (item.getHangHoa().getLaDichVu()) {
+                    totalLabor = totalLabor.add(item.getThanhTien());
+                } else {
+                    totalParts = totalParts.add(item.getThanhTien());
+                }
+            }
+        }
+
+        order.setTongTienHang(totalParts);
+        order.setTongTienCong(totalLabor);
+        order.setChietKhauTong(totalDiscount);
+
+        BigDecimal netTotal = totalParts.add(totalLabor);
+        // Default VAT 10%
+        BigDecimal vat = netTotal.multiply(new BigDecimal("0.1")).setScale(0, RoundingMode.HALF_UP);
+        order.setThueVAT(vat);
+
+        BigDecimal grandTotal = netTotal.add(vat);
+        order.setTongCong(grandTotal);
+
+        // Update Debt
+        BigDecimal daTra = order.getSoTienDaTra() != null ? order.getSoTienDaTra() : BigDecimal.ZERO;
+        order.setCongNo(grandTotal.subtract(daTra));
+
         orderRepository.save(order);
     }
 }

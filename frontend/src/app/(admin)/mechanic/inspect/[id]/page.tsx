@@ -112,12 +112,14 @@ export default function InspectPage() {
 
     const handleSubmit = async () => {
         if (isReadOnly) return;
-        if (proposalItems.length === 0) return;
+        // Allow empty proposal items (Diagnostic only mode)
         const confirmed = await confirm({
             title: 'Gửi đề xuất',
-            message: 'Xác nhận gửi đề xuất sửa chữa?',
+            message: proposalItems.length === 0
+                ? 'Xác nhận hoàn tất chẩn đoán? (Không có hạng mục sửa chữa nào)'
+                : 'Xác nhận gửi đề xuất sửa chữa?',
             type: 'info',
-            confirmText: 'Gửi'
+            confirmText: 'Xác nhận'
         });
         if (!confirmed) return;
 
@@ -125,7 +127,14 @@ export default function InspectPage() {
         try {
             // @ts-ignore
             const token = session?.user?.accessToken;
-            await api.post(`/mechanic/inspect/${id}/proposal`, proposalItems, token);
+
+            // Clean payload to send only what Backend expects (ProposalItemDTO: productId, quantity)
+            const cleanedPayload = proposalItems.map(item => ({
+                productId: item.productId,
+                quantity: item.quantity
+            }));
+
+            await api.post(`/mechanic/inspect/${id}/proposal`, cleanedPayload, token);
 
             // Invalidate cache so Dashboard updates
             api.invalidateCache('/mechanic/inspect');
@@ -135,11 +144,11 @@ export default function InspectPage() {
             api.invalidateCache('/warehouse/pending');
             api.invalidateCache('/warehouse/stats');
 
-            await confirm({ title: 'Thành công', message: 'Đã gửi đề xuất thành công!', type: 'info', confirmText: 'OK', cancelText: '' });
+            await confirm({ title: 'Thành công', message: 'Đã hoàn tất quy trình chẩn đoán!', type: 'info', confirmText: 'OK', cancelText: '' });
             router.replace('/mechanic');
         } catch (error) {
             console.error(error);
-            await confirm({ title: 'Lỗi', message: 'Lỗi khi gửi đề xuất', type: 'danger', confirmText: 'Đóng', cancelText: '' });
+            await confirm({ title: 'Lỗi', message: 'Lỗi khi gửi kết quả chẩn đoán', type: 'danger', confirmText: 'Đóng', cancelText: '' });
         } finally {
             setSubmitting(false);
         }

@@ -211,6 +211,7 @@ export const api = {
 
         const res = await fetch(`${API_URL}${path}`, {
             headers,
+            cache: 'no-store', // Disable Next.js fetch caching
         });
 
         if (!res.ok) {

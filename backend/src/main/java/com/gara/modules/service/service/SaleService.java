@@ -877,7 +877,7 @@ public class SaleService {
     }
 
     private void recalculateTotals(RepairOrder order) {
-        List<OrderItem> items = orderItemRepository.findByDonHangSuaChuaId(order.getId());
+        List<OrderItem> items = order.getChiTietDonHang();
 
         BigDecimal totalGoods = BigDecimal.ZERO;
         BigDecimal totalServices = BigDecimal.ZERO;

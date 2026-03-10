@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Package, Wrench, Loader2 } from 'lucide-react';
 import { searchProducts, addItemToOrder, getAllProducts } from '@/modules/service/order';
+import { api } from '@/lib/api';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
@@ -99,13 +100,25 @@ export default function ProductSearch({ orderId, readOnly = false, onProductSele
 
         setIsAdding(true);
         try {
-            await addItemToOrder(orderId, product.ID, 1);
-            setSearchTerm('');
-            setIsOpen(false);
-            showToast('success', 'Đã thêm vào báo giá');
-            router.refresh();
+            const res = await addItemToOrder(orderId, product.ID, 1);
+            if (res.success) {
+                setSearchTerm('');
+                setIsOpen(false);
+                showToast('success', 'Đã thêm vào báo giá');
+
+                // Invalidate any client-side cache for this order
+                api.invalidateCache(`/sale/orders/${orderId}`);
+
+                // Give the server a moment to complete the transaction and revalidate
+                // Then refresh the current page's data
+                setTimeout(() => {
+                    router.refresh();
+                }, 500);
+            } else {
+                showToast('error', res.error || 'Lỗi thêm sản phẩm');
+            }
         } catch (error) {
-            showToast('error', 'Lỗi thêm sản phẩm');
+            showToast('error', 'Lỗi kết nối máy chủ');
         } finally {
             setIsAdding(false);
         }
