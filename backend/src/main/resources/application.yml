@@ -21,8 +21,9 @@ spring:
       maximum-pool-size: 15
       idle-timeout: 30000 # 30 seconds - release idle connections quickly
       pool-name: GaraHikariPool
-      max-lifetime: 600000 # 10 minutes - recycle connections faster
+      max-lifetime: 45000 # 45 seconds - avoid stale connections from cloud DB
       connection-timeout: 20000
+      keepalive-time: 30000 # 30 seconds - keep connections warm
       leak-detection-threshold: 60000
 
   # Cloudinary Configuration
