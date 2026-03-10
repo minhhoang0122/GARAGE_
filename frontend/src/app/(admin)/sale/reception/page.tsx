@@ -151,9 +151,7 @@ export default function ReceptionListPage() {
                                                     {r.DonHangSuaChua ? (
                                                         getStatusBadge(r.DonHangSuaChua.TrangThai)
                                                     ) : (
-                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                                                            Đang tiếp nhận
-                                                        </span>
+                                                        getStatusBadge('TIEP_NHAN')
                                                     )}
                                                 </div>
                                             </td>
@@ -209,9 +207,7 @@ export default function ReceptionListPage() {
                                                     {getStatusBadge(r.DonHangSuaChua.TrangThai)}
                                                 </div>
                                             ) : (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 whitespace-nowrap border border-slate-200 dark:border-slate-700">
-                                                    Tiếp nhận
-                                                </span>
+                                                getStatusBadge('TIEP_NHAN')
                                             )}
                                         </div>
 

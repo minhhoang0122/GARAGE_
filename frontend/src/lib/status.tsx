@@ -4,23 +4,28 @@ export const STATUS_MAPPING: Record<string, { label: string; color: string; vari
     // Sales / Reception Flow
     'TIEP_NHAN': { label: 'Đang Tiếp Nhận', color: 'bg-blue-100 text-blue-800' },
     'CHO_CHAN_DOAN': { label: 'Chờ Chẩn Đoán', color: 'bg-yellow-100 text-yellow-800' },
-    'CHO_KH_DUYET': { label: 'Chờ KH Duyệt', color: 'bg-orange-100 text-orange-800' },
-    'DA_DUYET': { label: 'Đã Duyệt', color: 'bg-green-100 text-green-800' },
+    'BAO_GIA': { label: 'Đang Báo Giá', color: 'bg-amber-100 text-amber-800' },
     'BAO_GIA_LAI': { label: 'Báo Giá Lại', color: 'bg-orange-100 text-orange-800' },
+    'CHO_KH_DUYET': { label: 'Chờ KH Duyệt', color: 'bg-orange-100 text-orange-800' },
+    'KHACH_TU_CHOI': { label: 'Khách Từ Chối', color: 'bg-red-100 text-red-800' },
+    'DA_DUYET': { label: 'Đã Duyệt', color: 'bg-green-100 text-green-800' },
 
     // Mechanic Flow
     'CHO_SUA_CHUA': { label: 'Chờ Sửa Chữa', color: 'bg-indigo-100 text-indigo-800' },
     'DANG_SUA': { label: 'Đang Sửa', color: 'bg-purple-100 text-purple-800' },
+    'CHO_KCS': { label: 'Chờ Nghiệm Thu', color: 'bg-teal-100 text-teal-800' },
     'CHO_NGHIEM_THU': { label: 'Chờ Nghiệm Thu', color: 'bg-teal-100 text-teal-800' },
 
-    // Payment Flow
-    'CHO_THANH_TOAN': { label: 'Chờ Thanh Toán', color: 'bg-pink-100 text-pink-800' },
+    // Payment / Closing Flow
+    'CHO_THAN_TOAN': { label: 'Chờ Thanh Toán', color: 'bg-pink-100 text-pink-800' },
     'HOAN_THANH': { label: 'Hoàn Thành', color: 'bg-emerald-100 text-emerald-800' },
+    'DONG': { label: 'Đã Đóng', color: 'bg-slate-100 text-slate-800' },
     'HUY': { label: 'Đã Hủy', color: 'bg-red-100 text-red-800' },
 
     // Warehouse Flow
     'KHO_DUYET': { label: 'Kho Đã Duyệt', color: 'bg-cyan-100 text-cyan-800' },
     'XUAT_KHO': { label: 'Đã Xuất Kho', color: 'bg-blue-100 text-blue-800' },
+    'CHO_XUAT': { label: 'Chờ Xuất Kho', color: 'bg-yellow-100 text-yellow-800' },
 
     // General
     'ACTIVE': { label: 'Hoạt Động', color: 'bg-green-100 text-green-800' },
@@ -28,7 +33,6 @@ export const STATUS_MAPPING: Record<string, { label: string; color: string; vari
     'EXPIRED': { label: 'Đã Hết Hạn', color: 'bg-red-50 text-red-600' },
     'RELEASED': { label: 'Đã Nhả', color: 'bg-gray-100 text-gray-600' },
     'CONVERTED': { label: 'Đã Chuyển Đổi', color: 'bg-indigo-50 text-indigo-600' },
-    'CHO_XUAT': { label: 'Chờ Xuất Kho', color: 'bg-yellow-100 text-yellow-800' },
 };
 
 export function getStatusBadge(status: string) {

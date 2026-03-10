@@ -6,6 +6,7 @@ import { Car, FileText, CheckCircle, Shield, ArrowRight, Plus, Clock, User } fro
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
+import { getStatusBadge } from '@/lib/status';
 import IndustrialStatCard from '@/modules/shared/components/common/IndustrialStatCard';
 import { Card } from '@/modules/shared/components/ui/card';
 import { EmptyState } from '@/modules/shared/components/ui/empty-state';
@@ -13,7 +14,7 @@ import { useRouter } from 'next/navigation';
 
 // Vehicle Row Component - Artisanal Technical Redesign
 function VehicleRow({ id, plate, customer, time, status, user, odo }: {
-    id: number; plate: string; customer: string; time: string; status: 'waiting' | 'processing'; user?: string; odo?: number;
+    id: number; plate: string; customer: string; time: string; status: string; user?: string; odo?: number;
 }) {
     return (
         <Link href={`/sale/reception/${id}`} className="px-4 py-3.5 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-all border-l-4 border-transparent hover:border-slate-900 dark:hover:border-white group cursor-pointer block">
@@ -48,12 +49,7 @@ function VehicleRow({ id, plate, customer, time, status, user, odo }: {
                 <div className="flex items-center gap-2 text-[10px] font-black px-2.5 py-1 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                     <Clock className="w-3 h-3" /> {time}
                 </div>
-                <span className={`text-[10px] font-semibold uppercase tracking-wider px-3 py-1 rounded-full border ${status === 'waiting'
-                    ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20'
-                    : 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20'
-                    }`}>
-                    {status === 'waiting' ? 'Đang Chờ' : 'Đang Xử Lý'}
-                </span>
+                {getStatusBadge(status)}
             </div>
         </Link>
     );
@@ -62,20 +58,8 @@ function VehicleRow({ id, plate, customer, time, status, user, odo }: {
 // Order Row Component - Modernized
 function OrderRow({ id, plate, amount, status }: {
     id: string; plate: string; amount: string;
-    status: 'quoting' | 'waiting-repair' | 'payment-pending' | 'completed' | 'in-progress' | 'cancelled' | 'closed';
+    status: string;
 }) {
-    const statusMap = {
-        'quoting': { label: 'Đang báo giá', class: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30' },
-        'waiting-repair': { label: 'Chờ sửa chữa', class: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-900/30' },
-        'in-progress': { label: 'Đang sửa', class: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/30' },
-        'payment-pending': { label: 'Chờ thanh toán', class: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-900/30' },
-        'completed': { label: 'Hoàn thành', class: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/30' },
-        'cancelled': { label: 'Đã hủy', class: 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-800/20 dark:text-slate-500 dark:border-slate-700' },
-        'closed': { label: 'Đã đóng', class: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/20 dark:text-slate-400 dark:border-slate-700' },
-    };
-
-    const config = statusMap[status] || statusMap['in-progress'];
-
     return (
         <Link href={`/sale/orders/${id.replace('DH', '')}?source=dashboard`} className="px-4 py-3.5 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-all border-l-4 border-transparent hover:border-slate-900 group cursor-pointer block">
             <div className="flex flex-col gap-1">
@@ -84,9 +68,7 @@ function OrderRow({ id, plate, amount, status }: {
             </div>
             <div className="flex flex-col items-end gap-1">
                 <p className="text-base font-bold text-slate-900 dark:text-white tabular-nums">{amount}</p>
-                <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-md border ${config.class}`}>
-                    {config.label}
-                </span>
+                {getStatusBadge(status)}
             </div>
         </Link>
     );
@@ -171,7 +153,7 @@ export default function SaleDashboard() {
                                     plate={v.XeBienSo}
                                     customer={v.KhachHangName || v.KhachHang}
                                     time={new Date(v.ThoiGian || v.NgayGio).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                    status="waiting"
+                                    status={v.TrangThai || "TIEP_NHAN"}
                                     odo={v.ODO}
                                     user={v.NguoiTiepNhanName}
                                 />
@@ -205,15 +187,7 @@ export default function SaleDashboard() {
                                     id={`DH${order.ID}`}
                                     plate={order.XeBienSo}
                                     amount={new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(order.TongCong))}
-                                    status={
-                                        ['BAO_GIA', 'CHO_KH_DUYET', 'TIEP_NHAN', 'CHO_CHAN_DOAN', 'BAO_GIA_LAI'].includes(order.TrangThai) ? 'quoting' :
-                                            ['DA_DUYET', 'CHO_SUA_CHUA'].includes(order.TrangThai) ? 'waiting-repair' :
-                                                order.TrangThai === 'CHO_THANH_TOAN' ? 'payment-pending' :
-                                                    order.TrangThai === 'HOAN_THANH' ? 'completed' :
-                                                        order.TrangThai === 'HUY' ? 'cancelled' :
-                                                            order.TrangThai === 'DONG' ? 'closed' :
-                                                                'in-progress'
-                                    }
+                                    status={order.TrangThai}
                                 />
                             ))
                         )}
