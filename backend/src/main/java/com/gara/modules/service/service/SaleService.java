@@ -394,7 +394,9 @@ public class SaleService {
                 .nguoiThucHienId(user.getId())
                 .build());
 
+        order.getChiTietDonHang().remove(item);
         orderItemRepository.delete(item);
+
         recalculateTotals(order);
     }
 

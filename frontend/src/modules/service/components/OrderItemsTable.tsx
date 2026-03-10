@@ -35,7 +35,7 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
                         <th className="px-4 py-4 w-24 text-center">Giảm (%)</th>
                         <th className="px-4 py-4 w-24 text-center">VAT (%)</th>
                         <th className="px-4 py-4 w-36 text-right">Thành tiền</th>
-                        {!readOnly && <th className="px-4 py-4 w-24 text-right"></th>}
+                        <th className="px-4 py-4 w-24 text-right"></th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -239,8 +239,9 @@ function EditableRow({ item, readOnly }: { item: OrderDetailItem, readOnly: bool
             </td>
 
             {/* Actions */}
-            {!readOnly && (
-                <td className="px-4 py-4 text-right">
+            <td className="px-4 py-4 text-right">
+                {/* Sale can only edit/remove if (not readOnly) OR (item is proposed - arising item) */}
+                {(!readOnly || isProposed) && (
                     <div className="flex items-center justify-end gap-1">
                         {isEditing ? (
                             <>
@@ -280,8 +281,8 @@ function EditableRow({ item, readOnly }: { item: OrderDetailItem, readOnly: bool
                             </>
                         )}
                     </div>
-                </td>
-            )}
+                )}
+            </td>
         </tr>
     );
 }
