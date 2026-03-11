@@ -19,11 +19,16 @@ public class DataSeeder implements CommandLineRunner {
 
         private final ProductRepository productRepository;
         private final AuthService authService;
+        private final com.gara.modules.auth.repository.RoleRepository roleRepository;
         private final JdbcTemplate jdbcTemplate;
 
-        public DataSeeder(ProductRepository productRepository, AuthService authService, JdbcTemplate jdbcTemplate) {
+        public DataSeeder(ProductRepository productRepository,
+                        AuthService authService,
+                        com.gara.modules.auth.repository.RoleRepository roleRepository,
+                        JdbcTemplate jdbcTemplate) {
                 this.productRepository = productRepository;
                 this.authService = authService;
+                this.roleRepository = roleRepository;
                 this.jdbcTemplate = jdbcTemplate;
         }
 
@@ -34,7 +39,7 @@ public class DataSeeder implements CommandLineRunner {
                         cleanupLegacyColumns();
 
                         log.info("Seeding default users...");
-                        authService.seedDefaultUsers();
+                        authService.seedDefaultUsers(roleRepository);
 
                         if (productRepository.count() > 0) {
                                 log.info("Products already exist, skipping seed.");

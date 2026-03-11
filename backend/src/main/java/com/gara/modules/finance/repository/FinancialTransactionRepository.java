@@ -37,8 +37,9 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
                         @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
                         @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
 
-        // Optimized: Calculate Total Paid for Order in DB (handling Refunds)
         @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(CASE WHEN t.type = 'REFUND' THEN -t.amount ELSE t.amount END), 0) FROM FinancialTransaction t WHERE t.order.id = :orderId")
         java.math.BigDecimal sumTotalPaidByOrderId(
                         @org.springframework.data.repository.query.Param("orderId") Integer orderId);
+
+        boolean existsByReferenceCode(String referenceCode);
 }

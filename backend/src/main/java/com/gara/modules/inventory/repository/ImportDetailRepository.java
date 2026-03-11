@@ -19,5 +19,8 @@ public interface ImportDetailRepository extends JpaRepository<ImportDetail, Inte
     @Query("SELECT d FROM ImportDetail d JOIN d.phieuNhap n WHERE d.hangHoa.id = :productId AND d.soLuongConLai > 0 ORDER BY n.ngayNhap ASC")
     List<ImportDetail> findAvailableBatches(Integer productId);
 
+    @Query("SELECT d FROM ImportDetail d JOIN d.phieuNhap n WHERE d.hangHoa.id = :productId ORDER BY n.ngayNhap DESC")
+    List<ImportDetail> findAllByHangHoaIdOrderByNgayNhapDesc(Integer productId);
+
     List<ImportDetail> findAllByHangHoaId(Integer productId);
 }

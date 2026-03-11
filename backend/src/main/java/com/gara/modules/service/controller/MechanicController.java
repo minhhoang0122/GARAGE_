@@ -41,9 +41,9 @@ public class MechanicController {
     }
 
     @PostMapping("/jobs/{id}/unclaim")
-    public ResponseEntity<?> unclaimJob(@PathVariable Integer id) {
+    public ResponseEntity<?> unclaimJob(@PathVariable Integer id, @AuthenticationPrincipal com.gara.entity.User user) {
         try {
-            mechanicService.unclaimJob(id);
+            mechanicService.unclaimJob(id, user.getId());
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));

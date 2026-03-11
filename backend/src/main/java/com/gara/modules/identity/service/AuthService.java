@@ -6,29 +6,24 @@ import com.gara.entity.User;
 import com.gara.entity.Role;
 import com.gara.entity.Permission;
 import com.gara.modules.auth.repository.UserRepository;
-import com.gara.modules.auth.repository.RoleRepository;
 import com.gara.modules.identity.security.JwtUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.HashSet;
 
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final com.gara.modules.support.service.LoginAttemptService loginAttemptService;
 
-    public AuthService(UserRepository userRepository, RoleRepository roleRepository,
+    public AuthService(UserRepository userRepository,
             PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
             com.gara.modules.support.service.LoginAttemptService loginAttemptService) {
         this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.loginAttemptService = loginAttemptService;
@@ -87,44 +82,17 @@ public class AuthService {
         return userRepository.findById(userId).orElse(null);
     }
 
-    public LoginResponse resetAdminPassword() {
-        User user = userRepository.findByTenDangNhap("admin")
-                .orElseThrow(() -> new RuntimeException("User admin not found"));
-
-        user.setMatKhauHash(passwordEncoder.encode("123456"));
-        userRepository.save(user);
-
-        List<String> roles = user.getRoles().stream()
-                .map(Role::getName)
-                .collect(Collectors.toList());
-
-        List<String> permissions = user.getRoles().stream()
-                .flatMap(role -> role.getPermissions().stream())
-                .map(Permission::getCode)
-                .distinct()
-                .collect(Collectors.toList());
-
-        String token = jwtUtil.generateToken(user.getId(), user.getTenDangNhap(), roles, permissions);
-
-        return LoginResponse.builder()
-                .token(token)
-                .userId(user.getId())
-                .username(user.getTenDangNhap())
-                .fullName(user.getHoTen())
-                .roles(roles)
-                .permissions(permissions)
-                .build();
+    // INTERNAL USE ONLY - Not exposed to API
+    public void seedDefaultUsers(com.gara.modules.auth.repository.RoleRepository roleRepository) {
+        seedUser(roleRepository, "admin", "Quản Trị Viên", "ADMIN");
+        seedUser(roleRepository, "sale1", "Nhân Viên Sale", "SALE");
+        seedUser(roleRepository, "tho1", "Thợ Chẩn Đoán", "THO_CHAN_DOAN");
+        seedUser(roleRepository, "tho2", "Thợ Sửa Chữa", "THO_SUA_CHUA");
+        seedUser(roleRepository, "kho1", "Thủ Kho", "KHO");
     }
 
-    public void seedDefaultUsers() {
-        seedUser("admin", "Quản Trị Viên", "ADMIN");
-        seedUser("sale1", "Nhân Viên Sale", "SALE");
-        seedUser("tho1", "Thợ Chẩn Đoán", "THO_CHAN_DOAN");
-        seedUser("tho2", "Thợ Sửa Chữa", "THO_SUA_CHUA");
-        seedUser("kho1", "Thủ Kho", "KHO");
-    }
-
-    private void seedUser(String username, String fullName, String roleName) {
+    private void seedUser(com.gara.modules.auth.repository.RoleRepository roleRepository,
+            String username, String fullName, String roleName) {
         Role role = roleRepository.findByName(roleName)
                 .orElseGet(() -> {
                     Role newRole = new Role();
@@ -137,19 +105,19 @@ public class AuthService {
             User user = new User();
             user.setTenDangNhap(username);
             user.setHoTen(fullName);
-            user.setRoles(new HashSet<>(Set.of(role)));
+            user.setRoles(new java.util.HashSet<>(java.util.Set.of(role)));
+            // Bug 133 Fix: Only set default password for NEW seeded users
             user.setMatKhauHash(passwordEncoder.encode("123456"));
             user.setTrangThaiHoatDong(true);
             user.setSoDienThoai("0900000000");
             userRepository.save(user);
         } else {
             User user = userOptional.get();
-            // Force reset password to ensure login works with '123456'
-            user.setMatKhauHash(passwordEncoder.encode("123456"));
+            // Bug 133 Fix: NEVER overwrite existing password during seeding
             if (user.getRoles().stream().noneMatch(r -> r.getName().equals(roleName))) {
                 user.getRoles().add(role);
+                userRepository.save(user);
             }
-            userRepository.save(user);
         }
     }
 }

@@ -52,14 +52,20 @@ public class BookingService {
                     return customerRepository.save(newCust);
                 });
 
-        // 2. Tìm hoặc tạo xe theo biển số
+        // 2. Tìm hoặc tạo xe theo biển số (Bug 24 Fix: Prevents hijacking)
         Vehicle vehicle = vehicleRepository.findByBienSo(dto.bienSoXe())
+                .map(v -> {
+                    // Verification: Plate must match requester Phone
+                    if (!v.getKhachHang().getSoDienThoai().equals(dto.soDienThoai())) {
+                        throw new RuntimeException("Biển số xe này đã tồn tại dưới tên khách hàng khác. " +
+                                "Vui lòng kiểm tra lại biển số hoặc liên hệ hỗ trợ.");
+                    }
+                    return v;
+                })
                 .orElseGet(() -> {
                     Vehicle newVehicle = new Vehicle();
                     newVehicle.setBienSo(dto.bienSoXe());
                     newVehicle.setModel(dto.modelXe());
-                    // Nếu không có nhanHieu từ form, tạm lấy model làm nhanHieu để thoả mãn
-                    // nullable = false
                     newVehicle.setNhanHieu(dto.modelXe() != null ? dto.modelXe() : "Unknown");
                     newVehicle.setKhachHang(customer);
                     return vehicleRepository.save(newVehicle);

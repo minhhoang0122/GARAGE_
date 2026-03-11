@@ -51,6 +51,9 @@ public class OrderItem {
     @Column(name = "ghi_chu_bao_hanh", length = 500)
     private String ghiChuBaoHanh;
 
+    @Column(name = "da_bao_hanh")
+    private Boolean daBaoHanh = false;
+
     @Column(name = "da_hoan_thanh")
     private Boolean daHoanThanh = false;
 
@@ -225,6 +228,14 @@ public class OrderItem {
 
     public void setGhiChuBaoHanh(String ghiChuBaoHanh) {
         this.ghiChuBaoHanh = ghiChuBaoHanh;
+    }
+
+    public Boolean getDaBaoHanh() {
+        return daBaoHanh != null ? daBaoHanh : false;
+    }
+
+    public void setDaBaoHanh(Boolean daBaoHanh) {
+        this.daBaoHanh = daBaoHanh;
     }
 
     public Boolean getDaHoanThanh() {

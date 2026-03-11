@@ -5,6 +5,8 @@ import com.gara.modules.inventory.service.ProductService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api/products")
 public class ProductController {
@@ -21,16 +23,19 @@ public class ProductController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyAuthority('MANAGE_INVENTORY', 'ADMIN')")
     public ResponseEntity<?> createProduct(@RequestBody Product product) {
         return ResponseEntity.ok(productService.createProduct(product));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('MANAGE_INVENTORY', 'ADMIN')")
     public ResponseEntity<?> updateProduct(@PathVariable Integer id, @RequestBody Product product) {
         return ResponseEntity.ok(productService.updateProduct(id, product));
     }
 
     @PostMapping("/batch-update")
+    @PreAuthorize("hasAnyAuthority('MANAGE_INVENTORY', 'ADMIN')")
     public ResponseEntity<?> batchUpdate(@RequestBody java.util.List<java.util.Map<String, Object>> items) {
         try {
             productService.batchUpdatePrices(items);

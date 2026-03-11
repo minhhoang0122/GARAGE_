@@ -6,7 +6,7 @@ import com.gara.entity.*;
 import com.gara.modules.reception.repository.*;
 import com.gara.modules.service.repository.*;
 import com.gara.modules.customer.repository.*;
-import com.gara.modules.notification.repository.*;
+import com.gara.modules.support.service.AsyncAuditService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,18 +25,21 @@ public class ReceptionService {
     private final CustomerRepository customerRepository;
     private final ReceptionRepository receptionRepository;
     private final RepairOrderRepository orderRepository;
-    private final NotificationRepository notificationRepository;
+    private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
+    private final AsyncAuditService asyncAuditService;
 
     public ReceptionService(VehicleRepository vehicleRepository,
             CustomerRepository customerRepository,
             ReceptionRepository receptionRepository,
             RepairOrderRepository orderRepository,
-            NotificationRepository notificationRepository) {
+            com.gara.modules.support.service.AsyncNotificationService asyncNotificationService,
+            AsyncAuditService asyncAuditService) {
         this.vehicleRepository = vehicleRepository;
         this.customerRepository = customerRepository;
         this.receptionRepository = receptionRepository;
         this.orderRepository = orderRepository;
-        this.notificationRepository = notificationRepository;
+        this.asyncNotificationService = asyncNotificationService;
+        this.asyncAuditService = asyncAuditService;
     }
 
     private long countActiveWarranties(String plate) {
@@ -76,7 +79,7 @@ public class ReceptionService {
                 .plate(vehicle.getBienSo())
                 .customerName(vehicle.getKhachHang().getHoTen())
                 .customerPhone(vehicle.getKhachHang().getSoDienThoai())
-                .customer(vehicle.getKhachHang())
+                .customer(null) // Bug 101 Fix: Don't leak full customer entity
                 .brand(vehicle.getNhanHieu())
                 .model(vehicle.getModel())
                 .soKhung(vehicle.getSoKhung())
@@ -87,113 +90,149 @@ public class ReceptionService {
                 .build();
     }
 
+
     @Transactional
     public Integer createReception(ReceptionFormData data, User user) {
-        // 1. Find or Create Vehicle & Customer
-        // Use pessimistic lock to prevent race conditions for existing vehicles
-        Vehicle vehicle = vehicleRepository.findByBienSoWithLock(data.bienSo()).orElse(null);
+        try {
+            // 1. Find or Create Vehicle & Customer
+            // Use pessimistic lock to prevent race conditions for existing vehicles
+            Vehicle vehicle = vehicleRepository.findByBienSoWithLock(data.bienSo()).orElse(null);
 
-        // Re-check for active orders AFTER acquiring the lock (for existing vehicles)
-        if (vehicle != null) {
-            List<OrderStatus> activeStatuses = java.util.Arrays.asList(
-                    OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.BAO_GIA,
-                    OrderStatus.BAO_GIA_LAI, OrderStatus.CHO_KH_DUYET, OrderStatus.DA_DUYET,
-                    OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
-                    OrderStatus.CHO_KCS, OrderStatus.CHO_THANH_TOAN);
-            List<RepairOrder> activeOrders = orderRepository.findByPhieuTiepNhan_Xe_BienSoAndTrangThaiIn(data.bienSo(),
-                    activeStatuses);
-            if (!activeOrders.isEmpty()) {
-                throw new RuntimeException(
-                        "Tạo thất bại: Xe " + data.bienSo() + " hiện đang có Đơn Hàng chưa hoàn tất trong xưởng.");
-            }
-        }
+            // Check for active orders to prevent double reception
+            if (vehicle != null) {
+                List<OrderStatus> activeStatuses = java.util.Arrays.asList(
+                        OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.BAO_GIA,
+                        OrderStatus.BAO_GIA_LAI, OrderStatus.CHO_KH_DUYET, OrderStatus.DA_DUYET,
+                        OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
+                        OrderStatus.CHO_KCS, OrderStatus.CHO_THANH_TOAN);
+                List<RepairOrder> activeOrders = orderRepository.findByPhieuTiepNhan_Xe_BienSoAndTrangThaiIn(data.bienSo(),
+                        activeStatuses);
+                if (!activeOrders.isEmpty()) {
+                    throw new RuntimeException(
+                            "Tạo thất bại: Xe " + data.bienSo() + " hiện đang có Đơn Hàng chưa hoàn tất trong xưởng.");
+                }
 
-        if (vehicle == null) {
-            // Validation: Even for new vehicles, check again (though unlikely to have
-            // active orders)
-            List<OrderStatus> activeStatuses = java.util.Arrays.asList(
-                    OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.BAO_GIA,
-                    OrderStatus.BAO_GIA_LAI, OrderStatus.CHO_KH_DUYET, OrderStatus.DA_DUYET,
-                    OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
-                    OrderStatus.CHO_KCS, OrderStatus.CHO_THANH_TOAN);
-            List<RepairOrder> activeOrders = orderRepository.findByPhieuTiepNhan_Xe_BienSoAndTrangThaiIn(data.bienSo(),
-                    activeStatuses);
-            if (!activeOrders.isEmpty()) {
-                throw new RuntimeException(
-                        "Tạo thất bại: Xe " + data.bienSo() + " hiện đang có Đơn Hàng chưa hoàn tất trong xưởng.");
-            }
+                // Bug 103 Fix: Verify ownership (Phone match)
+                if (!vehicle.getKhachHang().getSoDienThoai().equals(data.sdtKhach())) {
+                    throw new RuntimeException("Lỗi xác minh: Số điện thoại không khớp với chủ sở hữu hệ thống của xe " + data.bienSo());
+                }
 
-            // Create Customer
-            Customer customer = new Customer();
-            customer.setHoTen(data.tenKhach());
-            customer.setSoDienThoai(data.sdtKhach());
-            customer.setDiaChi(data.diaChiKhach());
-            customer.setEmail(data.emailKhach());
-            customer = customerRepository.save(customer);
+                // Bug 72 Fix: ODO Consistency Check
+                if (data.odo() < vehicle.getOdoHienTai()) {
+                    throw new RuntimeException("Lỗi: Số ODO mới (" + data.odo() +
+                            " km) nhỏ hơn số ODO ghi nhận lần trước (" + vehicle.getOdoHienTai() + " km).");
+                }
 
-            // Create Vehicle
-            vehicle = new Vehicle();
-            vehicle.setBienSo(data.bienSo());
-            vehicle.setKhachHang(customer);
-            vehicle.setNhanHieu(data.nhanHieu());
-            vehicle.setModel(data.model());
-            vehicle.setSoKhung(data.soKhung());
-            vehicle.setSoMay(data.soMay());
-            vehicle.setOdoHienTai(data.odo());
-            vehicleRepository.save(vehicle);
-        } else {
-            if (data.odo() > vehicle.getOdoHienTai()) {
+                if (data.odo() > vehicle.getOdoHienTai()) {
+                    vehicle.setOdoHienTai(data.odo());
+                    vehicleRepository.save(vehicle);
+                }
+
+                // Bug 102 Fix: Update Customer info if provided
+                Customer cust = vehicle.getKhachHang();
+                if (data.tenKhach() != null && !data.tenKhach().isBlank()) {
+                    cust.setHoTen(data.tenKhach());
+                }
+                if (data.diaChiKhach() != null && !data.diaChiKhach().isBlank()) {
+                    cust.setDiaChi(data.diaChiKhach());
+                }
+                if (data.emailKhach() != null && !data.emailKhach().isBlank()) {
+                    cust.setEmail(data.emailKhach());
+                }
+                customerRepository.save(cust);
+
+            } else {
+                // Check if existing Customer by phone to prevent fragmentation (Bug 80)
+                Customer customer = customerRepository.findBySoDienThoai(data.sdtKhach()).orElse(null);
+
+                if (customer == null) {
+                    customer = new Customer();
+                    customer.setHoTen(data.tenKhach());
+                    customer.setSoDienThoai(data.sdtKhach());
+                    customer.setDiaChi(data.diaChiKhach());
+                    customer.setEmail(data.emailKhach());
+                    customer = customerRepository.save(customer);
+                } else {
+                    if (customer.getEmail() == null || customer.getEmail().isEmpty()) {
+                        customer.setEmail(data.emailKhach());
+                        customerRepository.save(customer);
+                    }
+                }
+
+                vehicle = new Vehicle();
+                vehicle.setBienSo(data.bienSo());
+                vehicle.setKhachHang(customer);
+                vehicle.setNhanHieu(data.nhanHieu());
+                vehicle.setModel(data.model());
+                vehicle.setSoKhung(data.soKhung());
+                vehicle.setSoMay(data.soMay());
                 vehicle.setOdoHienTai(data.odo());
                 vehicleRepository.save(vehicle);
             }
-            // Update Email if provided and currently empty
-            if (data.emailKhach() != null && !data.emailKhach().isEmpty()) {
-                Customer cust = vehicle.getKhachHang();
-                if (cust.getEmail() == null || cust.getEmail().isEmpty()) {
-                    cust.setEmail(data.emailKhach());
-                    customerRepository.save(cust);
-                }
-            }
+
+            // 2. Create Reception (PhieuTiepNhan)
+            Reception reception = new Reception();
+            reception.setXe(vehicle);
+            reception.setNguoiTiepNhan(user);
+            reception.setMucXang(BigDecimal.valueOf(data.mucXang()));
+            // Bug 104 Fix: Basic XSS Sanitation
+            reception.setTinhTrangVoXe(sanitizeHtml(data.tinhTrangVo()));
+            reception.setYeuCauSoBo(sanitizeHtml(data.yeuCauKhach()));
+            reception.setHinhAnh(data.hinhAnh());
+            reception.setOdo(data.odo());
+            reception.setNgayGio(LocalDateTime.now());
+            receptionRepository.save(reception);
+
+            // 3. Create RepairOrder (DonHangSuaChua)
+            RepairOrder order = new RepairOrder();
+            order.setPhieuTiepNhan(reception);
+            order.setNguoiPhuTrach(user);
+            order.setTrangThai(OrderStatus.TIEP_NHAN);
+            order.setTongTienHang(BigDecimal.ZERO);
+            order.setTongTienCong(BigDecimal.ZERO);
+            order.setTongCong(BigDecimal.ZERO);
+            order.setChietKhauTong(BigDecimal.ZERO);
+            order.setThueVAT(BigDecimal.ZERO);
+            order.setTienCoc(BigDecimal.ZERO);
+            orderRepository.save(order);
+
+            // Bug 117 Fix: Audit order creation
+            asyncAuditService.logAsync(AuditLog.builder()
+                    .bang("DonHangSuaChua")
+                    .banGhiId(order.getId())
+                    .hanhDong("CREATE")
+                    .duLieuMoi(OrderStatus.TIEP_NHAN.name())
+                    .lyDo("Tiếp nhận xe: " + vehicle.getBienSo())
+                    .nguoiThucHienId(user.getId())
+                    .build());
+
+            // Notify
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
+                    .role("SALE")
+                    .title("Xe mới tiếp nhận: " + vehicle.getBienSo())
+                    .content("Đã tạo phiếu tiếp nhận cho xe " + vehicle.getBienSo() + ". Vui lòng lập báo giá.")
+                    .type("INFO")
+                    .link("/sale/orders/" + order.getId())
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
+                    .role("THO_CHAN_DOAN")
+                    .title("Xe chờ chẩn đoán: " + vehicle.getBienSo())
+                    .content("Xe " + vehicle.getBienSo() + " đã tiếp nhận. Vui lòng tiến hành chẩn đoán.")
+                    .type("INFO")
+                    .link("/mechanic/jobs")
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+
+            return reception.getId();
+
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // Bug 105 Fix: Handle race condition for duplicate license plate
+            throw new RuntimeException("Lỗi: Xe với biển số " + data.bienSo() + " đã được tạo bởi một yêu cầu khác. Vui lòng thử lại.");
         }
-
-        // 2. Create Reception (PhieuTiepNhan)
-        Reception reception = new Reception();
-        reception.setXe(vehicle);
-        reception.setNguoiTiepNhan(user);
-        reception.setMucXang(BigDecimal.valueOf(data.mucXang()));
-        reception.setTinhTrangVoXe(data.tinhTrangVo());
-        reception.setYeuCauSoBo(data.yeuCauKhach());
-        reception.setHinhAnh(data.hinhAnh());
-        reception.setOdo(data.odo());
-        reception.setNgayGio(LocalDateTime.now());
-        receptionRepository.save(reception);
-
-        // 3. Create RepairOrder (DonHangSuaChua) - Status: TIEP_NHAN
-        RepairOrder order = new RepairOrder();
-        order.setPhieuTiepNhan(reception);
-        order.setNguoiPhuTrach(user); // Sale Owner
-        order.setTrangThai(OrderStatus.TIEP_NHAN);
-        order.setTongTienHang(BigDecimal.ZERO);
-        order.setTongTienCong(BigDecimal.ZERO);
-        order.setTongCong(BigDecimal.ZERO);
-        order.setChietKhauTong(BigDecimal.ZERO);
-        order.setThueVAT(BigDecimal.ZERO);
-        order.setTienCoc(BigDecimal.ZERO);
-        orderRepository.save(order);
-
-        // 4. Notify Diagnosis Mechanic
-        Notification notif = Notification.builder()
-                .role("THO_CHAN_DOAN")
-                .title("Xe mới tiếp nhận: " + vehicle.getBienSo())
-                .content("Xe " + vehicle.getBienSo() + " đã được tiếp nhận. Yêu cầu chẩn đoán.")
-                .type("INFO")
-                .link("/mechanic/inspect/" + reception.getId())
-                .createdAt(LocalDateTime.now())
-                .isRead(false)
-                .build();
-        notificationRepository.save(notif);
-
-        return reception.getId(); // Or return OrderID? FE expects receptionId & orderId
     }
 
     @Transactional(readOnly = true)
@@ -235,5 +274,12 @@ public class ReceptionService {
     @Transactional(readOnly = true)
     public Optional<Reception> getReceptionById(Integer id) {
         return receptionRepository.findByIdWithDetails(id);
+    }
+
+    private String sanitizeHtml(String input) {
+        if (input == null) return null;
+        // Basic escaping to prevent script injection in common fields
+        return input.replace("<", "&lt;").replace(">", "&gt;")
+                    .replace("\"", "&quot;").replace("'", "&#39;");
     }
 }

@@ -65,6 +65,9 @@ public class RepairOrder {
     @Column(name = "ghi_chu", length = 500)
     private String ghiChu;
 
+    @Column(name = "ghi_chu_huy", length = 500)
+    private String ghiChuHuy;
+
     @Column(name = "parent_order_id", insertable = false, updatable = false)
     private Integer parentOrderId;
 
@@ -281,6 +284,14 @@ public class RepairOrder {
 
     public void setGhiChu(String ghiChu) {
         this.ghiChu = ghiChu;
+    }
+
+    public String getGhiChuHuy() {
+        return ghiChuHuy;
+    }
+
+    public void setGhiChuHuy(String ghiChuHuy) {
+        this.ghiChuHuy = ghiChuHuy;
     }
 
     public Integer getParentOrderId() {

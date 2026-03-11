@@ -2,10 +2,10 @@ package com.gara.modules.inventory.service;
 
 import com.gara.entity.*;
 import com.gara.modules.inventory.repository.*;
-import com.gara.modules.notification.repository.*;
 import com.gara.modules.auth.repository.*;
 import com.gara.modules.system.repository.*;
 import com.gara.modules.service.repository.*;
+import com.gara.entity.enums.ItemStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,24 +24,24 @@ public class InventoryReservationService {
     private final ProductRepository productRepository;
     private final OrderItemRepository orderItemRepository;
     private final AuditLogRepository auditLogRepository;
-    private final NotificationRepository notificationRepository;
     private final RepairOrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
 
     public InventoryReservationService(InventoryReservationRepository reservationRepository,
             ProductRepository productRepository,
             OrderItemRepository orderItemRepository,
             AuditLogRepository auditLogRepository,
-            NotificationRepository notificationRepository,
             RepairOrderRepository orderRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            com.gara.modules.support.service.AsyncNotificationService asyncNotificationService) {
         this.reservationRepository = reservationRepository;
         this.productRepository = productRepository;
         this.orderItemRepository = orderItemRepository;
         this.auditLogRepository = auditLogRepository;
-        this.notificationRepository = notificationRepository;
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
+        this.asyncNotificationService = asyncNotificationService;
     }
 
     // Helper: Calculate Available Stock
@@ -73,8 +73,11 @@ public class InventoryReservationService {
             reservationRepository.save(res);
         }
 
-        // 3. Process each item
+        // 3. Process each item (Skip items already exported/completed)
         for (OrderItem item : items) {
+            if (List.of(ItemStatus.DANG_SUA, ItemStatus.HOAN_THANH).contains(item.getTrangThai())) {
+                continue; // Bug 97 Fix: Don't reserve items that are already out of the warehouse
+            }
             // STRICT LOCK: Lock Product row to prevent race condition
             Product product = productRepository.findByIdWithLock(item.getHangHoa().getId())
                     .orElseThrow(() -> new RuntimeException("Product not found: " + item.getHangHoa().getId()));
@@ -96,7 +99,8 @@ public class InventoryReservationService {
                     .hangHoa(product)
                     .soLuong(item.getSoLuong())
                     .trangThai("ACTIVE")
-                    .ngayHetHan(LocalDateTime.now().plusHours(24))
+                    // Bug 118 Fix: Support 7 days TTL for complex repairs
+                    .ngayHetHan(LocalDateTime.now().plusDays(7)) 
                     .nguoiTao(userRepository.getReferenceById(userId))
                     .build();
 
@@ -118,18 +122,23 @@ public class InventoryReservationService {
     /**
      * Convert Reservation (Export Stock)
      * Trigger: Warehouse confirms export
+     * Bug 119 Fix: Only convert specific products that were actually exported
      */
     @Transactional
-    public boolean convertReservation(Integer orderId) {
+    public List<InventoryReservation> convertReservation(Integer orderId, java.util.Collection<Integer> productIds) {
         List<InventoryReservation> reservations = reservationRepository.findActiveByOrderId(orderId);
         if (reservations.isEmpty())
-            return false;
+            return java.util.Collections.emptyList();
 
+        List<InventoryReservation> converted = new java.util.ArrayList<>();
         for (InventoryReservation res : reservations) {
-            res.setTrangThai("CONVERTED"); // Mark as used
-            reservationRepository.save(res);
+            if (productIds.contains(res.getHangHoa().getId())) {
+                res.setTrangThai("CONVERTED"); // Mark as used
+                reservationRepository.save(res);
+                converted.add(res);
+            }
         }
-        return true;
+        return converted;
     }
 
     /**
@@ -174,7 +183,7 @@ public class InventoryReservationService {
                     res.getHangHoaId());
 
             // Notification to Sale
-            notificationRepository.save(Notification.builder()
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .role("SALE")
                     .title("Hàng giữ hết hạn: Order #" + res.getDonHangSuaChuaId())
                     .content("Hàng giữ cho sản phẩm '" + res.getHangHoa().getTenHang() + "' đã hết hạn và tự động nhả.")

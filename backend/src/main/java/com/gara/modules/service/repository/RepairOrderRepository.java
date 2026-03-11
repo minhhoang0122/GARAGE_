@@ -81,9 +81,14 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
         @Query("SELECT new com.gara.dto.DebtDTO(c.id, c.hoTen, c.soDienThoai, SUM(r.congNo), COUNT(r)) " +
                         "FROM RepairOrder r " +
                         "JOIN r.phieuTiepNhan.xe.khachHang c " +
-                        "WHERE r.congNo > 0 " +
+                        "WHERE r.congNo > 0 AND r.trangThai NOT IN (com.gara.entity.enums.OrderStatus.HUY, com.gara.entity.enums.OrderStatus.DONG) "
+                        +
                         "GROUP BY c.id, c.hoTen, c.soDienThoai")
         List<com.gara.dto.DebtDTO> findCustomersWithDebt();
+
+        // Bug 34 Remediation: Find orders where Debt > 0 but Status is HUY
+        @Query("SELECT r FROM RepairOrder r WHERE r.congNo > 0 AND r.trangThai = com.gara.entity.enums.OrderStatus.HUY")
+        List<RepairOrder> findZombiedDebt();
 
         // Get all orders for a customer with optimized fetching
         @Query("SELECT r FROM RepairOrder r " +
@@ -238,7 +243,6 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
         java.util.Optional<RepairOrder> findByPhieuTiepNhanIdWithDetails(
                         @org.springframework.data.repository.query.Param("receptionId") Integer receptionId);
 
-        @Query("SELECT r FROM RepairOrder r WHERE r.id = :id")
         @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
         java.util.Optional<RepairOrder> findByIdWithLock(
                         @org.springframework.data.repository.query.Param("id") Integer id);

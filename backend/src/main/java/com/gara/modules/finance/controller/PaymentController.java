@@ -12,9 +12,11 @@ import java.util.Map;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final com.gara.modules.identity.service.UserService userService;
 
-    public PaymentController(PaymentService paymentService) {
+    public PaymentController(PaymentService paymentService, com.gara.modules.identity.service.UserService userService) {
         this.paymentService = paymentService;
+        this.userService = userService;
     }
 
     @GetMapping("/{orderId}")
@@ -32,8 +34,9 @@ public class PaymentController {
         try {
             BigDecimal amount = new BigDecimal(body.get("amount").toString());
             String method = body.get("method").toString();
+            Integer userId = userService.getCurrentUser().getId();
 
-            paymentService.processPayment(orderId, amount, method);
+            paymentService.processPayment(orderId, amount, method, userId);
 
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {

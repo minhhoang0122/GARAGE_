@@ -22,7 +22,7 @@ public class Customer {
     @Column(name = "so_dien_thoai", nullable = false, length = 20)
     private String soDienThoai;
 
-    @Column(name = "loai_khach_hang", length = 50)
+    @Column(name = "dia_chi", length = 255)
     private String diaChi;
 
     @Column(name = "email", length = 100)

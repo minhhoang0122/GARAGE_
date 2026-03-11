@@ -5,6 +5,7 @@ import com.gara.entity.SystemConfig;
 import com.gara.modules.system.repository.SystemConfigRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -32,6 +33,7 @@ public class SystemConfigService {
     }
 
     @CacheEvict(value = "systemConfig", allEntries = true)
+    @PreAuthorize("hasRole('ADMIN')")
     public void updateConfigs(Map<String, String> configs) {
         StringBuilder changes = new StringBuilder();
 

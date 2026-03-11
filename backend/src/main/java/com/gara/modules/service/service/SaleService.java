@@ -39,7 +39,10 @@ public class SaleService {
     private final com.gara.modules.support.service.AsyncAuditService asyncAuditService;
     private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
     private final jakarta.persistence.EntityManager entityManager;
+    private final OrderCalculationService orderCalculationService;
     private final com.gara.modules.system.repository.SystemConfigRepository systemConfigRepository;
+
+    private final com.gara.modules.inventory.service.WarehouseService warehouseService;
 
     public SaleService(RepairOrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
@@ -53,7 +56,9 @@ public class SaleService {
             com.gara.modules.support.service.AsyncAuditService asyncAuditService,
             com.gara.modules.support.service.AsyncNotificationService asyncNotificationService,
             jakarta.persistence.EntityManager entityManager,
-            com.gara.modules.system.repository.SystemConfigRepository systemConfigRepository) {
+            OrderCalculationService orderCalculationService,
+            com.gara.modules.system.repository.SystemConfigRepository systemConfigRepository,
+            com.gara.modules.inventory.service.WarehouseService warehouseService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.productRepository = productRepository;
@@ -66,6 +71,8 @@ public class SaleService {
         this.asyncAuditService = asyncAuditService;
         this.asyncNotificationService = asyncNotificationService;
         this.entityManager = entityManager;
+        this.warehouseService = warehouseService;
+        this.orderCalculationService = orderCalculationService;
         this.systemConfigRepository = systemConfigRepository;
     }
 
@@ -76,7 +83,7 @@ public class SaleService {
         long countWaiting = orderRepository.countByTrangThaiIn(
                 List.of(OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.BAO_GIA, OrderStatus.BAO_GIA_LAI,
                         OrderStatus.CHO_KH_DUYET, OrderStatus.DA_DUYET, OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
-                        OrderStatus.CHO_THANH_TOAN, OrderStatus.HOAN_THANH));
+                        OrderStatus.CHO_KCS, OrderStatus.CHO_THANH_TOAN));
         long countPendingQuotes = orderRepository.countByTrangThai(OrderStatus.CHO_KH_DUYET);
         long countPendingPayment = orderRepository.countByTrangThai(OrderStatus.CHO_THANH_TOAN);
 
@@ -140,7 +147,7 @@ public class SaleService {
                 .countWaiting(countWaiting)
                 .countPendingQuotes(countPendingQuotes)
                 .countPendingPayment(countPendingPayment)
-                .countWarranty(0L)
+                .countWarranty(orderItemRepository.countWarrantyItems())
                 .waitingVehicles(waitingVehicles)
                 .recentOrders(recentOrders)
                 .build();
@@ -307,7 +314,7 @@ public class SaleService {
         entityManager.flush();
         entityManager.refresh(order);
 
-        recalculateTotals(order);
+        orderCalculationService.recalculateTotals(order);
     }
 
     // 4. Update Item
@@ -338,18 +345,29 @@ public class SaleService {
             item.setGiamGiaPhanTram(BigDecimal.valueOf(discountPercent));
         }
 
-        // Recalculate Total
+        // Bug 112 Fix: Centralize calculation using OrderCalculationService for consistency
+        // or at least ensure VAT is recalculated here if we don't want to wait for recalculateTotals
         BigDecimal quantityVal = BigDecimal.valueOf(item.getSoLuong());
-        BigDecimal discountFactor = BigDecimal.ONE
-                .subtract(item.getGiamGiaPhanTram().divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
-        BigDecimal finalPrice = item.getDonGiaGoc().multiply(quantityVal).multiply(discountFactor);
-
-        // Rounding
-        item.setThanhTien(finalPrice.setScale(2, RoundingMode.HALF_UP));
-        item.setGiamGiaTien(item.getDonGiaGoc().multiply(quantityVal).subtract(item.getThanhTien()));
+        BigDecimal unitPrice = item.getDonGiaGoc();
+        BigDecimal vatRate = item.getVatPhanTram() != null ? item.getVatPhanTram() : BigDecimal.ZERO;
+        
+        BigDecimal lineSubtotal = unitPrice.multiply(quantityVal);
+        BigDecimal discount = lineSubtotal.multiply(item.getGiamGiaPhanTram())
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        
+        item.setGiamGiaTien(discount);
+        BigDecimal lineAfterDiscount = lineSubtotal.subtract(discount);
+        
+        // Use central logic for VAT (exclusive/inclusive) - here we assume exclusive for simplicity 
+        // but OrderCalculationService will fix it anyway. However, item needs consistent state.
+        BigDecimal taxAmount = lineAfterDiscount.multiply(vatRate)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        
+        item.setTienThue(taxAmount);
+        item.setThanhTien(lineAfterDiscount.add(taxAmount));
 
         orderItemRepository.save(item);
-        recalculateTotals(item.getDonHangSuaChua());
+        orderCalculationService.recalculateTotals(item.getDonHangSuaChua());
     }
 
     // 4b. Update Item Status (Approve/Reject)
@@ -363,7 +381,7 @@ public class SaleService {
 
         item.setTrangThai(status);
         orderItemRepository.save(item);
-        recalculateTotals(item.getDonHangSuaChua());
+        orderCalculationService.recalculateTotals(item.getDonHangSuaChua());
     }
 
     // 5. Remove Item
@@ -397,7 +415,7 @@ public class SaleService {
         order.getChiTietDonHang().remove(item);
         orderItemRepository.delete(item);
 
-        recalculateTotals(order);
+        orderCalculationService.recalculateTotals(order);
     }
 
     // 6. Send Quote to Customer
@@ -417,6 +435,9 @@ public class SaleService {
         }
 
         OrderStatus oldStatus = order.getTrangThai();
+        // Bug 71 Fix: Strict State Machine Transition
+        validateTransition(oldStatus, OrderStatus.CHO_KH_DUYET);
+
         order.setTrangThai(OrderStatus.CHO_KH_DUYET);
         orderRepository.save(order);
 
@@ -437,7 +458,7 @@ public class SaleService {
         // Notify Customer (Rule 9.3.1)
         Customer customer = order.getPhieuTiepNhan().getXe().getKhachHang();
         if (customer.getUserId() != null) {
-            asyncNotificationService.pushAsync(Notification.builder()
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .userId(customer.getUserId())
                     .role("CUSTOMER")
                     .title("Báo giá mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
@@ -459,12 +480,12 @@ public class SaleService {
 
         checkOwnership(order, user);
 
-        // Rule: Only allow replenishment during repair
-        OrderStatus status = order.getTrangThai();
-        if (OrderStatus.CHO_THANH_TOAN.equals(status) || OrderStatus.HOAN_THANH.equals(status) ||
-                OrderStatus.DONG.equals(status) || OrderStatus.HUY.equals(status)) {
-            throw new RuntimeException("Không thể báo giá phát sinh khi đơn hàng đã hoàn thành hoặc chờ thanh toán.");
-        }
+        OrderStatus oldStatus = order.getTrangThai();
+        // Bug 71 Fix: Strict State Machine Transition
+        // Replenishment only allowed from DANG_SUA (mid-repair)
+        validateTransition(oldStatus, OrderStatus.BAO_GIA_LAI);
+
+        order.setTrangThai(OrderStatus.BAO_GIA_LAI);
 
         // Filter items that are in 'DE_XUAT' status (Proposed by mechanic or sale)
         List<OrderItem> proposedItems = order.getChiTietDonHang().stream()
@@ -489,7 +510,7 @@ public class SaleService {
 
         // Notify customer about replenishment quote
         Customer repCustomer = order.getPhieuTiepNhan().getXe().getKhachHang();
-        asyncNotificationService.pushAsync(Notification.builder()
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
                 .userId(repCustomer.getUserId())
                 .role("CUSTOMER")
                 .title("Báo giá bổ sung: " + order.getPhieuTiepNhan().getXe().getBienSo())
@@ -520,6 +541,15 @@ public class SaleService {
             throw new RuntimeException("Đơn hàng không có bất kỳ hạng mục nào. Vui lòng kiểm tra lại.");
         }
 
+        // Bug 98 Fix: Ensure at least one item is approved/active
+        boolean hasApprovedItems = order.getChiTietDonHang().stream()
+                .anyMatch(i -> List.of(ItemStatus.KHACH_DONG_Y, ItemStatus.CHO_SUA_CHUA, ItemStatus.DANG_SUA, ItemStatus.HOAN_THANH)
+                        .contains(i.getTrangThai()));
+
+        if (!hasApprovedItems) {
+            throw new RuntimeException("Đơn hàng phải có ít nhất một hạng mục được duyệt để tiếp tục.");
+        }
+
         if (user.getId() == null) {
             throw new RuntimeException(
                     "Lỗi hệ thống: User ID không tồn tại trong phiên đăng nhập. Vui lòng đăng xuất và đăng nhập lại.");
@@ -527,10 +557,13 @@ public class SaleService {
 
         OrderStatus oldStatus = order.getTrangThai();
 
-        // Idempotency Check: Prevent double approval
+        // Bug 71 Fix: Idempotency & Strict Transition
         if (OrderStatus.DA_DUYET.equals(oldStatus)) {
             return; // Already approved, do nothing
         }
+
+        // Force transition from CHO_KH_DUYET or BAO_GIA_LAI
+        validateTransition(oldStatus, OrderStatus.DA_DUYET);
 
         // Rule: Only move to DA_DUYET if approved by customer
         order.setTrangThai(OrderStatus.DA_DUYET);
@@ -549,7 +582,7 @@ public class SaleService {
                 .build());
 
         // Notify Repair Mechanic
-        asyncNotificationService.pushAsync(Notification.builder()
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
                 .role("THO_SUA_CHUA")
                 .title("Lệnh sửa chữa mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
                 .content("Báo giá đã được duyệt. Vui lòng nhận việc.")
@@ -562,7 +595,7 @@ public class SaleService {
         // Notify Warehouse to prepare parts
         boolean hasParts = order.getChiTietDonHang().stream().anyMatch(i -> !i.getHangHoa().getLaDichVu());
         if (hasParts) {
-            asyncNotificationService.pushAsync(Notification.builder()
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .role("KHO")
                     .title("Phiếu xuất kho mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
                     .content("Đơn hàng đã được duyệt. Vui lòng chuẩn bị vật tư.")
@@ -631,22 +664,62 @@ public class SaleService {
         checkOwnership(order, user);
 
         OrderStatus oldStatus = order.getTrangThai();
+        BigDecimal oldTongCong = order.getTongCong();
+        BigDecimal oldTienDaTra = order.getSoTienDaTra();
+
         order.setTrangThai(OrderStatus.HUY);
+        order.setGhiChuHuy(reason);
+
+        order.setTongCong(oldTienDaTra != null ? oldTienDaTra : BigDecimal.ZERO);
+        order.setCongNo(BigDecimal.ZERO);
+
         orderRepository.save(order);
 
+        // Bug 126 Fix: Handle Refund/Credit if order was partially/fully paid
+        if (oldTienDaTra != null && oldTienDaTra.compareTo(BigDecimal.ZERO) > 0) {
+            transactionService.createTransaction(
+                orderId, 
+                oldTienDaTra, 
+                FinancialTransaction.TransactionType.REFUND, 
+                FinancialTransaction.PaymentMethod.CASH, // Default to cash for reconciliation
+                null, 
+                "Hoàn tiền do hủy đơn hàng #" + orderId + ". Lý do: " + reason, 
+                user.getId()
+            );
+        }
+
+        // Rule 8.4: Notification
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
+                .role("SALE")
+                .title("Đơn hàng đã hủy: " + order.getPhieuTiepNhan().getXe().getBienSo())
+                .content("Lý do: " + reason)
+                .type("WARNING")
+                .link("/sale/orders/" + orderId)
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
+                .build());
+
+        // RELEASE and RETURN stock (Bug 73: Zombie Inventory)
+        reservationService.releaseReservation(orderId, reason, user.getId());
+
+        // Explicitly return stock for items already exported (CONVERTED state in
+        // reservation)
+        warehouseService.returnStockFromCancelledOrder(orderId, user.getId());
+
         // Log transition
+        String riskPrefix = (oldTienDaTra != null && oldTienDaTra.compareTo(BigDecimal.ZERO) > 0)
+                ? "⚠️ CANCELED WITH PAYMENT: "
+                : "";
+
         asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
-                .duLieuCu(oldStatus.name())
-                .duLieuMoi(OrderStatus.HUY.name())
-                .lyDo("Hủy đơn hàng: " + reason)
+                .duLieuCu(oldStatus.name() + " (Amount: " + oldTongCong + ")")
+                .duLieuMoi(OrderStatus.HUY.name() + " (Amount: " + order.getTongCong() + ")")
+                .lyDo(riskPrefix + "Hủy đơn hàng: " + reason)
                 .nguoiThucHienId(user.getId())
                 .build());
-
-        // Release reservations
-        reservationService.releaseReservation(orderId, reason, user.getId());
     }
 
     // 8b. Update Deposit (Rule 10.4) -> Update to use Transaction
@@ -761,6 +834,11 @@ public class SaleService {
                 throw new RuntimeException("Hạng mục '" + product.getTenHang() + "' đã hết hạn bảo hành: " + reason);
             }
 
+            // Bug 128 Fix: Prevent duplicate warranty claims
+            if (originalItem.getDaBaoHanh()) {
+                throw new RuntimeException("Hạng mục '" + product.getTenHang() + "' đã được bảo hành trước đó.");
+            }
+
             OrderItem newItem = OrderItem.builder()
                     .donHangSuaChua(warrantyOrder)
                     .hangHoa(originalItem.getHangHoa())
@@ -768,9 +846,14 @@ public class SaleService {
                     .donGiaGoc(BigDecimal.ZERO)
                     .thanhTien(BigDecimal.ZERO)
                     .trangThai(ItemStatus.CHO_SUA_CHUA)
+                    .laHangBaoHanh(true) // Mark this as a warranty replacement
                     .build();
 
             warrantyItems.add(newItem);
+            
+            // Mark original item as warrantied
+            originalItem.setDaBaoHanh(true);
+            orderItemRepository.save(originalItem);
         }
 
         if (warrantyItems.isEmpty()) {
@@ -779,6 +862,9 @@ public class SaleService {
 
         warrantyOrder.setChiTietDonHang(warrantyItems);
         orderRepository.save(warrantyOrder);
+
+        // Bug 129 Fix: Reserve stock for warranty items immediately
+        reservationService.createReservation(warrantyOrder.getId(), user.getId());
 
         asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
@@ -815,6 +901,9 @@ public class SaleService {
         checkOwnership(order, user);
 
         OrderStatus oldStatus = order.getTrangThai();
+        // Bug 71 Fix: Strict State Machine Transition
+        validateTransition(oldStatus, OrderStatus.DONG);
+
         order.setTrangThai(OrderStatus.DONG);
         orderRepository.save(order);
 
@@ -904,79 +993,38 @@ public class SaleService {
         }
     }
 
-    private void recalculateTotals(RepairOrder order) {
-        List<OrderItem> items = order.getChiTietDonHang();
-
-        BigDecimal totalGoods = BigDecimal.ZERO;
-        BigDecimal totalServices = BigDecimal.ZERO;
-        BigDecimal totalDiscount = BigDecimal.ZERO;
-        BigDecimal totalVAT = BigDecimal.ZERO;
-
-        // Fetch Global Service VAT Rate
-        BigDecimal serviceVatRate = systemConfigRepository.findById("SERVICE_VAT_RATE")
-                .map(c -> new BigDecimal(c.getConfigValue()))
-                .orElse(new BigDecimal("10.00"));
-
-        for (OrderItem item : items) {
-            // Skip cancelled items (customer rejected)
-            if (ItemStatus.KHACH_TU_CHOI.equals(item.getTrangThai())) {
-                continue;
+    // Bug 71 Fix: Strict State Machine Transition Helper
+    private void validateTransition(OrderStatus current, OrderStatus next) {
+        // Allow transition to HUY (Cancel) from almost any state except finished ones
+        if (next == OrderStatus.HUY) {
+            if (current == OrderStatus.DONG || current == OrderStatus.HOAN_THANH) {
+                throw new RuntimeException("Không thể hủy đơn hàng đã hoàn thành hoặc đã đóng.");
             }
-
-            // Calculate Item Net Total (After Discount)
-            BigDecimal quantity = BigDecimal.valueOf(item.getSoLuong());
-            BigDecimal unitPrice = item.getDonGiaGoc();
-            BigDecimal discountPercent = item.getGiamGiaPhanTram() != null
-                    ? item.getGiamGiaPhanTram()
-                    : BigDecimal.ZERO;
-
-            BigDecimal rawTotal = unitPrice.multiply(quantity);
-            BigDecimal discountAmount = rawTotal.multiply(discountPercent)
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            BigDecimal netBeforeTax = rawTotal.subtract(discountAmount);
-
-            // Determine VAT Rate
-            BigDecimal itemVatRate = item.getHangHoa().getLaDichVu() ? serviceVatRate : item.getHangHoa().getThueVAT();
-            if (itemVatRate == null)
-                itemVatRate = BigDecimal.ZERO;
-
-            BigDecimal itemVatAmount = netBeforeTax.multiply(itemVatRate).divide(BigDecimal.valueOf(100), 2,
-                    RoundingMode.HALF_UP);
-            BigDecimal itemTotalWithTax = netBeforeTax.add(itemVatAmount);
-
-            // Update item totals and tax info
-            item.setVatPhanTram(itemVatRate);
-            item.setTienThue(itemVatAmount);
-            item.setThanhTien(itemTotalWithTax);
-            item.setGiamGiaTien(discountAmount);
-
-            // Classify
-            if (item.getHangHoa().getLaDichVu()) {
-                totalServices = totalServices.add(netBeforeTax);
-            } else {
-                totalGoods = totalGoods.add(netBeforeTax);
-            }
-
-            totalDiscount = totalDiscount.add(discountAmount);
-            totalVAT = totalVAT.add(itemVatAmount);
+            return;
         }
 
-        // Final Total
-        BigDecimal grandTotal = totalGoods.add(totalServices).add(totalVAT);
+        boolean isValid = switch (next) {
+            case TIEP_NHAN -> current == null;
+            case CHO_CHAN_DOAN -> current == OrderStatus.TIEP_NHAN;
+            case BAO_GIA -> current == OrderStatus.CHO_CHAN_DOAN || current == OrderStatus.BAO_GIA_LAI;
+            case CHO_KH_DUYET -> current == OrderStatus.BAO_GIA || current == OrderStatus.CHO_CHAN_DOAN;
+            case DA_DUYET -> current == OrderStatus.CHO_KH_DUYET || current == OrderStatus.BAO_GIA_LAI;
+            case CHO_SUA_CHUA -> current == OrderStatus.DA_DUYET;
+            case DANG_SUA -> current == OrderStatus.CHO_SUA_CHUA || current == OrderStatus.DANG_SUA;
+            case CHO_KCS -> current == OrderStatus.DANG_SUA;
+            case CHO_THANH_TOAN -> current == OrderStatus.CHO_KCS || current == OrderStatus.DA_DUYET;
+            case HOAN_THANH -> current == OrderStatus.CHO_THANH_TOAN;
+            case DONG -> current == OrderStatus.HOAN_THANH || current == OrderStatus.CHO_THANH_TOAN;
+            case BAO_GIA_LAI -> current == OrderStatus.DANG_SUA || current == OrderStatus.CHO_KH_DUYET
+                    || current == OrderStatus.CHO_CHAN_DOAN;
+            default -> false;
+        };
 
-        // Update Order
-        order.setTongTienHang(totalGoods);
-        order.setTongTienCong(totalServices);
-        order.setChietKhauTong(totalDiscount);
-        order.setThueVAT(totalVAT);
-        order.setTongCong(grandTotal);
-
-        // Update Debt (Assuming Debt = Total - Paid)
-        BigDecimal paid = order.getSoTienDaTra() != null ? order.getSoTienDaTra() : BigDecimal.ZERO;
-        BigDecimal debt = grandTotal.subtract(paid);
-        order.setCongNo(debt.max(BigDecimal.ZERO));
-
-        orderRepository.save(order);
+        if (!isValid) {
+            throw new RuntimeException(
+                    "Không thể chuyển trạng thái từ '" + (current != null ? current.getDescription() : "NULL") +
+                            "' sang '" + next.getDescription() + "'. Quy trình yêu cầu thực hiện theo đúng thứ tự.");
+        }
     }
 
     // =================================================================================================
@@ -1101,11 +1149,11 @@ public class SaleService {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        if (!OrderStatus.CHO_KH_DUYET.equals(order.getTrangThai())) {
-            throw new RuntimeException("Chỉ có thể yêu cầu chỉnh sửa khi đang chờ duyệt");
-        }
-
         OrderStatus oldStatus = order.getTrangThai();
+        // Bug 71 Fix: Strict State Machine Transition
+        // Replenishment (bổ sung báo giá) only allowed during repair
+        validateTransition(oldStatus, OrderStatus.BAO_GIA_LAI);
+
         order.setTrangThai(OrderStatus.BAO_GIA_LAI);
         order.setGhiChu(note);
         orderRepository.save(order);

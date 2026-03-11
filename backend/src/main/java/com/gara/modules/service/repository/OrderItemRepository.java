@@ -20,4 +20,8 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
 
     // Standard JPA Method for fetching items by Order ID
     List<OrderItem> findByDonHangSuaChuaId(Integer orderId);
+
+    // Bug 136 Fix: Count Warranty Items
+    @Query("SELECT COUNT(i) FROM OrderItem i WHERE i.trangThai LIKE '%WARRANTY%'")
+    long countWarrantyItems();
 }

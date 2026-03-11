@@ -19,6 +19,7 @@ public class User {
     @Column(name = "ten_dang_nhap", unique = true, nullable = false)
     private String tenDangNhap;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name = "mat_khau_hash", nullable = false)
     private String matKhauHash;
 

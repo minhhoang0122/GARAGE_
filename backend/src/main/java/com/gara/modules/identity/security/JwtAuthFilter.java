@@ -20,9 +20,11 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
 
     public JwtAuthFilter(JwtUtil jwtUtil, UserRepository userRepository) {
         this.jwtUtil = jwtUtil;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -43,6 +45,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 Integer userId = jwtUtil.extractUserId(token);
 
                 if (userId != null) {
+                    // Bug 11 Fix: Verify user is still active in Database
+                    // Prevents "Stale Session" where blocked users stay logged in via old JWT
+                    com.gara.entity.User user = userRepository.findById(userId).orElse(null);
+                    if (user == null || !user.getTrangThaiHoatDong()) {
+                        SecurityContextHolder.clearContext();
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+
                     // Extract authorities from JWT
                     List<String> roles = jwtUtil.extractRoles(token);
                     List<String> permissions = jwtUtil.extractPermissions(token);

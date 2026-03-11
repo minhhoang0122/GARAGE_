@@ -4,7 +4,6 @@ import com.gara.modules.support.service.EmailService;
 import com.gara.dto.PaymentSummaryDTO;
 import com.gara.entity.*;
 import com.gara.modules.service.repository.*;
-import com.gara.modules.notification.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,15 +17,18 @@ import com.gara.entity.enums.ItemStatus;
 public class PaymentService {
 
     private final RepairOrderRepository orderRepository;
-    private final NotificationRepository notificationRepository;
     private final EmailService emailService;
+    private final TransactionService transactionService;
+    private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
 
     public PaymentService(RepairOrderRepository orderRepository,
-            NotificationRepository notificationRepository,
-            EmailService emailService) {
+            EmailService emailService,
+            TransactionService transactionService,
+            com.gara.modules.support.service.AsyncNotificationService asyncNotificationService) {
         this.orderRepository = orderRepository;
-        this.notificationRepository = notificationRepository;
         this.emailService = emailService;
+        this.transactionService = transactionService;
+        this.asyncNotificationService = asyncNotificationService;
     }
 
     @Transactional(readOnly = true)
@@ -72,55 +74,52 @@ public class PaymentService {
     }
 
     @Transactional
-    public void processPayment(Integer orderId, BigDecimal amount, String method) {
-        RepairOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+    public void processPayment(Integer orderId, BigDecimal amount, String method, Integer userId) {
+        // USE LOCK: Prevent race condition (Bug 82)
+        RepairOrder order = orderRepository.findByIdWithLock(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found or busy"));
 
         if (!OrderStatus.CHO_THANH_TOAN.equals(order.getTrangThai())) {
-            // throw new RuntimeException("Order not in Payment state");
-            // For safety, maybe allow if HOAN_THANH for debt payment?
-            // TS Logic: Strict CHO_THANH_TOAN check.
             if (!OrderStatus.HOAN_THANH.equals(order.getTrangThai())) {
                 throw new RuntimeException("Đơn hàng chưa ở trạng thái chờ thanh toán");
             }
         }
 
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Số tiền phải lớn hơn 0");
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Số tiền thanh toán không hợp lệ.");
         }
 
-        BigDecimal grandTotal = order.getTongCong();
-        BigDecimal currentPaid = order.getSoTienDaTra() != null ? order.getSoTienDaTra() : BigDecimal.ZERO;
-        BigDecimal newPaid = currentPaid.add(amount);
-
-        if (newPaid.compareTo(grandTotal) > 0) {
-            throw new RuntimeException("Số tiền vượt quá tổng cộng");
+        // Bug 99: Validate Payment Method
+        FinancialTransaction.PaymentMethod paymentMethod;
+        try {
+            paymentMethod = FinancialTransaction.PaymentMethod.valueOf(method.toUpperCase().trim());
+        } catch (Exception e) {
+            throw new RuntimeException("Phương thức thanh toán không hợp lệ: " + method);
         }
 
-        BigDecimal newDebt = grandTotal.subtract(newPaid);
+        // UNIFY Logic (Bug 64): Delegate to TransactionService to create traceable
+        // records
+        transactionService.createTransaction(
+                orderId,
+                amount,
+                FinancialTransaction.TransactionType.PAYMENT,
+                paymentMethod,
+                null,
+                "Thanh toán đơn hàng #" + orderId,
+                userId);
 
-        order.setSoTienDaTra(newPaid);
-        order.setCongNo(newDebt.compareTo(BigDecimal.ZERO) > 0 ? newDebt : BigDecimal.ZERO);
-        order.setPhuongThuc(method);
+        // Fetch again to get updated state after TransactionService finishes
+        RepairOrder updatedOrder = orderRepository.findById(orderId).orElseThrow();
 
-        boolean completed = newDebt.compareTo(BigDecimal.ZERO) == 0;
-
-        if (completed) {
-            order.setNgayThanhToan(LocalDateTime.now());
-            order.setTrangThai(OrderStatus.HOAN_THANH);
-        }
-
-        orderRepository.save(order);
-
-        if (completed) {
-            // Rule 9.4.2: Notify Sale Owner (Not just Admin)
-            Integer saleId = order.getNguoiPhuTrach() != null ? order.getNguoiPhuTrach().getId() : null;
+        if (OrderStatus.HOAN_THANH.equals(updatedOrder.getTrangThai())) {
+            // Rule 9.4.2: Notify Sale Owner
+            Integer saleId = updatedOrder.getNguoiPhuTrach() != null ? updatedOrder.getNguoiPhuTrach().getId() : null;
             if (saleId != null) {
-                notificationRepository.save(Notification.builder()
-                        .userId(saleId) // Targeted
+                asyncNotificationService.pushUniqueAsync(Notification.builder()
+                        .userId(saleId)
                         .role("SALE")
-                        .title("Thanh toán đủ: " + order.getPhieuTiepNhan().getXe().getBienSo())
-                        .content("Đã thanh toán đủ " + grandTotal + ". Đơn hàng đã hoàn thành.")
+                        .title("Thanh toán đủ: " + updatedOrder.getPhieuTiepNhan().getXe().getBienSo())
+                        .content("Đã thanh toán đủ " + updatedOrder.getTongCong() + ". Đơn hàng đã hoàn thành.")
                         .type("SUCCESS")
                         .link("/sale/orders/" + orderId)
                         .createdAt(LocalDateTime.now())
@@ -128,12 +127,18 @@ public class PaymentService {
                         .build());
             }
 
-            // Send Invoice Email
+            // Bug 100: Safe email check
             try {
-                String customerEmail = order.getPhieuTiepNhan().getXe().getKhachHang().getEmail();
-                emailService.sendInvoiceEmail(order, customerEmail);
+                if (updatedOrder.getPhieuTiepNhan() != null && 
+                    updatedOrder.getPhieuTiepNhan().getXe() != null && 
+                    updatedOrder.getPhieuTiepNhan().getXe().getKhachHang() != null) {
+                    
+                    String customerEmail = updatedOrder.getPhieuTiepNhan().getXe().getKhachHang().getEmail();
+                    if (customerEmail != null && !customerEmail.isBlank()) {
+                        emailService.sendInvoiceEmail(updatedOrder, customerEmail);
+                    }
+                }
             } catch (Exception e) {
-                // Log error but don't fail transaction
                 System.err.println("Failed to send email: " + e.getMessage());
             }
         }

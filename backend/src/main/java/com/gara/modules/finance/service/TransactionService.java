@@ -9,6 +9,8 @@ import com.gara.entity.User;
 import com.gara.modules.finance.repository.FinancialTransactionRepository;
 import com.gara.modules.service.repository.RepairOrderRepository;
 import com.gara.modules.auth.repository.UserRepository;
+import com.gara.modules.support.service.AsyncAuditService;
+import com.gara.entity.AuditLog;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,13 +24,16 @@ public class TransactionService {
     private final FinancialTransactionRepository transactionRepository;
     private final RepairOrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final AsyncAuditService asyncAuditService;
 
     public TransactionService(FinancialTransactionRepository transactionRepository,
             RepairOrderRepository orderRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            AsyncAuditService asyncAuditService) {
         this.transactionRepository = transactionRepository;
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
+        this.asyncAuditService = asyncAuditService;
     }
 
     @Transactional(readOnly = true)
@@ -113,6 +118,13 @@ public class TransactionService {
             }
         }
 
+        // Bug 120 Fix: Check for duplicate reference code to prevent accounting errors
+        if (referenceCode != null && !referenceCode.isBlank()) {
+            if (transactionRepository.existsByReferenceCode(referenceCode)) {
+                throw new RuntimeException("Mã tham chiếu " + referenceCode + " đã tồn tại trong hệ thống.");
+            }
+        }
+
         // Save Transaction
         FinancialTransaction trans = FinancialTransaction.builder()
                 .order(order)
@@ -125,22 +137,32 @@ public class TransactionService {
                 .build();
 
         transactionRepository.save(trans);
+        
+        // Bug 130 Fix: Detailed Audit Log for all financial transactions
+        asyncAuditService.logAsync(AuditLog.builder()
+                .bang("FinancialTransaction")
+                .banGhiId(trans.getId())
+                .hanhDong("INSERT")
+                .duLieuMoi("Type: " + type + ", Amount: " + amount + ", Method: " + method + ", Ref: " + referenceCode)
+                .lyDo("Ghi nhận giao dịch tài chính cho đơn hàng #" + orderId + (note != null ? ": " + note : ""))
+                .nguoiThucHienId(userId)
+                .build());
 
         // Recalculate Order Payment Status immediately
         recalculateOrderPayment(order, amount, type);
     }
 
     private void recalculateOrderPayment(RepairOrder order, BigDecimal newAmount, TransactionType type) {
-        // Calculate current total paid from DB (excluding the one just created if not
-        // flushed)
-        BigDecimal totalPaidSoFar = transactionRepository.sumTotalPaidByOrderId(order.getId());
-        if (totalPaidSoFar == null)
-            totalPaidSoFar = BigDecimal.ZERO;
-
-        // Add the new amount to the total (subtract if it's a refund)
-        BigDecimal totalPaidUpdated = (type == TransactionType.REFUND)
-                ? totalPaidSoFar.subtract(newAmount)
-                : totalPaidSoFar.add(newAmount);
+        // Bug 111 Fix: The trans just saved is ALREADY in the DB but may not be included in sumTotalPaidByOrderId
+        // if the persistence context hasn't flushed.
+        // To be safe and deterministic:
+        // 1. Get total paid EXCLUDING the current transaction
+        // 2. OR simply use the provided newAmount and add it to the DB sum if we are sure sum doesn't include it.
+        // A better way is to flush the current transaction first to ensure it's in the DB sum.
+        transactionRepository.flush(); 
+        BigDecimal totalPaidUpdated = transactionRepository.sumTotalPaidByOrderId(order.getId());
+        
+        if (totalPaidUpdated == null) totalPaidUpdated = BigDecimal.ZERO;
 
         // Update SoTienDaTra (Amount Paid)
         order.setSoTienDaTra(totalPaidUpdated);
@@ -154,6 +176,23 @@ public class TransactionService {
         if (debt.compareTo(BigDecimal.ZERO) <= 0 && OrderStatus.CHO_THANH_TOAN.equals(order.getTrangThai())) {
             order.setTrangThai(OrderStatus.HOAN_THANH);
             order.setNgayThanhToan(java.time.LocalDateTime.now());
+        }
+        
+        // Bug 116 Fix: Status Reversion on Refund
+        // If a refund makes Debt > 0 and the order was HOAN_THANH, move it back to CHO_THANH_TOAN
+        if (debt.compareTo(BigDecimal.ZERO) > 0 && OrderStatus.HOAN_THANH.equals(order.getTrangThai())) {
+             order.setTrangThai(OrderStatus.CHO_THANH_TOAN);
+             order.setNgayThanhToan(null); // Clear payment date as it's no longer fully paid
+
+             // Bug 117 Fix: Audit status reversion
+             asyncAuditService.logAsync(AuditLog.builder()
+                     .bang("DonHangSuaChua")
+                     .banGhiId(order.getId())
+                     .hanhDong("UPDATE")
+                     .duLieuCu(OrderStatus.HOAN_THANH.name())
+                     .duLieuMoi(OrderStatus.CHO_THANH_TOAN.name())
+                     .lyDo("Thu hồi trạng thái do hoàn tiền (Refund). Nợ mới: " + debt)
+                     .build());
         }
 
         order.setCongNo(debt.compareTo(BigDecimal.ZERO) > 0 ? debt : BigDecimal.ZERO);

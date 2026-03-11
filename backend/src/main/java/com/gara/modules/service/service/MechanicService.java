@@ -8,12 +8,11 @@ import com.gara.modules.service.repository.*;
 import com.gara.modules.auth.repository.*;
 import com.gara.modules.inventory.repository.*;
 import com.gara.modules.reception.repository.*;
-import com.gara.modules.notification.repository.*;
+import com.gara.modules.support.service.AsyncAuditService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,27 +28,42 @@ public class MechanicService {
     private final OrderItemRepository orderItemRepository;
     private final ProductRepository productRepository;
     private final ReceptionRepository receptionRepository;
-    private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final WarehouseService warehouseService;
     private final TaskAssignmentRepository taskAssignmentRepository;
+    private final OrderCalculationService orderCalculationService;
+    private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
+    private final AsyncAuditService asyncAuditService;
 
     public MechanicService(RepairOrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             ProductRepository productRepository,
             ReceptionRepository receptionRepository,
-            NotificationRepository notificationRepository,
             UserRepository userRepository,
             WarehouseService warehouseService,
-            TaskAssignmentRepository taskAssignmentRepository) {
+            TaskAssignmentRepository taskAssignmentRepository,
+            OrderCalculationService orderCalculationService,
+            com.gara.modules.support.service.AsyncNotificationService asyncNotificationService,
+            AsyncAuditService asyncAuditService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.productRepository = productRepository;
         this.receptionRepository = receptionRepository;
-        this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.warehouseService = warehouseService;
         this.taskAssignmentRepository = taskAssignmentRepository;
+        this.orderCalculationService = orderCalculationService;
+        this.asyncNotificationService = asyncNotificationService;
+        this.asyncAuditService = asyncAuditService;
+    }
+
+    // Helper: Mask PII for Mechanics (Bug 94)
+    private String maskPhone(String fullPhone) {
+        if (fullPhone == null || fullPhone.equals("N/A")) return "N/A";
+        if (fullPhone.length() > 6) {
+            return fullPhone.substring(0, 3) + "****" + fullPhone.substring(fullPhone.length() - 3);
+        }
+        return fullPhone;
     }
 
     // 1. Get Assigned Jobs
@@ -103,22 +117,53 @@ public class MechanicService {
             }
         }
 
+        OrderStatus oldStatus = order.getTrangThai();
         order.setThoPhanCong(mechanic);
         if (OrderStatus.DA_DUYET.equals(order.getTrangThai())) {
             order.setTrangThai(OrderStatus.DANG_SUA);
         }
         orderRepository.save(order);
+
+        // Bug 117 Fix: Add Audit Log
+        asyncAuditService.logAsync(AuditLog.builder()
+                .bang("DonHangSuaChua")
+                .banGhiId(orderId)
+                .hanhDong("UPDATE")
+                .duLieuCu(oldStatus.name())
+                .duLieuMoi(order.getTrangThai().name())
+                .lyDo("Thợ nhận việc: " + mechanic.getHoTen())
+                .nguoiThucHienId(userId)
+                .build());
     }
 
-    // 3. Unclaim Job
+    // 3. Unclaim Job (Secured)
     @Transactional
-    public void unclaimJob(Integer orderId) {
+    public void unclaimJob(Integer orderId, Integer userId) {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
+        User user = userRepository.findById(userId).orElseThrow();
+
+        // Ownership Check: Only the assigned mechanic or Admin can unclaim
+        if (order.getThoPhanCong() != null && !order.getThoPhanCong().getId().equals(userId) && !user.isAdmin()) {
+            throw new RuntimeException("Bạn không có quyền hủy nhận việc trên đơn của người khác.");
+        }
+
+        OrderStatus oldStatus = order.getTrangThai();
         order.setThoPhanCong(null);
         order.setTrangThai(OrderStatus.DA_DUYET);
         orderRepository.save(order);
+
+        // Bug 117 Fix: Add Audit Log
+        asyncAuditService.logAsync(AuditLog.builder()
+                .bang("DonHangSuaChua")
+                .banGhiId(orderId)
+                .hanhDong("UPDATE")
+                .duLieuCu(oldStatus.name())
+                .duLieuMoi(order.getTrangThai().name())
+                .lyDo("Thợ hủy nhận việc")
+                .nguoiThucHienId(userId)
+                .build());
     }
 
     // 4. Get Receptions for Inspection
@@ -193,7 +238,15 @@ public class MechanicService {
         RepairOrder order = orderRepository.findByPhieuTiepNhanId(receptionId)
                 .orElseThrow(() -> new RuntimeException("Order not found for reception"));
 
-        // Assign Diagnostic Mechanic
+        // Bug 91 Guard: Only allow proposal in initial stages
+        if (!List.of(OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN).contains(order.getTrangThai())) {
+            throw new RuntimeException("Đơn hàng đã qua giai đoạn lập đề xuất chẩn đoán.");
+        }
+
+        // Assign/Verify Diagnostic Mechanic (Bug 10 Guard)
+        if (order.getThoChanDoan() != null && !order.getThoChanDoan().getId().equals(userId) && !user.isAdmin()) {
+            throw new RuntimeException("Xe này đã được tiếp nhận chẩn đoán bởi: " + order.getThoChanDoan().getHoTen());
+        }
         order.setThoChanDoan(user);
 
         for (ProposalItemDTO pItem : items) {
@@ -218,14 +271,26 @@ public class MechanicService {
         }
 
         // Update order status to CHO_KH_DUYET
+        OrderStatus oldStatus = order.getTrangThai();
         order.setTrangThai(OrderStatus.CHO_KH_DUYET);
         orderRepository.save(order);
 
+        // Bug 117 Fix: Audit status transition
+        asyncAuditService.logAsync(AuditLog.builder()
+                .bang("DonHangSuaChua")
+                .banGhiId(order.getId())
+                .hanhDong("UPDATE")
+                .duLieuCu(oldStatus.name())
+                .duLieuMoi(order.getTrangThai().name())
+                .lyDo("Thợ hoàn tất chẩn đoán & gửi đề xuất")
+                .nguoiThucHienId(userId)
+                .build());
+
         // Recalculate totals
-        recalculateTotals(order);
+        orderCalculationService.recalculateTotals(order);
 
         // Notification
-        notificationRepository.save(Notification.builder()
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
                 .role("SALE")
                 .title("Đề xuất mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
                 .content("Thợ đã gửi đề xuất sửa chữa. Vui lòng báo giá cho khách.")
@@ -241,6 +306,11 @@ public class MechanicService {
     public void reportTechnicalIssue(Integer orderId, List<ProposalItemDTO> items, Integer userId) {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        // Bug 92 Guard: Only allow technical issues during active repair/diag
+        if (!List.of(OrderStatus.DANG_SUA, OrderStatus.DA_DUYET, OrderStatus.CHO_CHAN_DOAN).contains(order.getTrangThai())) {
+            throw new RuntimeException("Không thể báo phát sinh kỹ thuật trong trạng thái hiện tại.");
+        }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -275,12 +345,32 @@ public class MechanicService {
             orderItemRepository.save(item);
         }
 
-        // Recalculate totals (includes DE_XUAT but they might be filtered in
+        // Bug 92: Move back to Pending Quote if new items are added
+        OrderStatus oldStatus = order.getTrangThai();
+        order.setTrangThai(OrderStatus.CHO_KH_DUYET);
+        
+        // Bug 127 Fix: Recalculate totals immediately to avoid stale prices
+        orderCalculationService.recalculateTotals(order);
+        
+        orderRepository.save(order);
+
+        // Bug 117 Fix: Audit status transition
+        asyncAuditService.logAsync(AuditLog.builder()
+                .bang("DonHangSuaChua")
+                .banGhiId(order.getId())
+                .hanhDong("UPDATE")
+                .duLieuCu(oldStatus.name())
+                .duLieuMoi(order.getTrangThai().name())
+                .lyDo("Thợ báo phát sinh kỹ thuật mới")
+                .nguoiThucHienId(userId)
+                .build());
+
+        // Recalculate totals
         // payment/invoice)
-        recalculateTotals(order);
+        orderCalculationService.recalculateTotals(order);
 
         // Notify Sale about development
-        notificationRepository.save(Notification.builder()
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
                 .role("SALE")
                 .title("Phát sinh kỹ thuật: " + order.getPhieuTiepNhan().getXe().getBienSo())
                 .content("Thợ sửa chữa báo phát sinh phụ tùng/dịch vụ mới. Vui lòng kiểm tra.")
@@ -307,7 +397,7 @@ public class MechanicService {
 
         // Notify Lead/Diagnostician
         if (order.getThoChanDoan() != null) {
-            notificationRepository.save(Notification.builder()
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .userId(order.getThoChanDoan().getId())
                     .role("THO_CHAN_DOAN")
                     .title("Yêu cầu nghiệm thu: " + order.getPhieuTiepNhan().getXe().getBienSo())
@@ -344,14 +434,12 @@ public class MechanicService {
         order.setTrangThai(OrderStatus.CHO_THANH_TOAN);
         orderRepository.save(order);
 
-        // Auto-export if not done yet
-        if (order.getPhieuXuatKho().isEmpty()) {
-            warehouseService.exportOrder(orderId,
-                    order.getThoPhanCong() != null ? order.getThoPhanCong().getId() : userId);
-        }
+        // Bug 93: Export all approved items to Warehouse
+        warehouseService.exportOrder(orderId,
+                order.getThoPhanCong() != null ? order.getThoPhanCong().getId() : userId);
 
         // Notify Sale
-        notificationRepository.save(Notification.builder()
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
                 .role("SALE")
                 .title("Sửa chữa hoàn tất: " + order.getPhieuTiepNhan().getXe().getBienSo())
                 .content("Xe đã qua kiểm tra chất lượng (QC). Vui lòng thu tiền.")
@@ -364,7 +452,7 @@ public class MechanicService {
         // Notify Customer
         Customer customer = order.getPhieuTiepNhan().getXe().getKhachHang();
         if (customer.getUserId() != null) {
-            notificationRepository.save(Notification.builder()
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .userId(customer.getUserId())
                     .role("CUSTOMER")
                     .title("Xe đã sửa xong: " + order.getPhieuTiepNhan().getXe().getBienSo())
@@ -403,7 +491,7 @@ public class MechanicService {
 
         // Notify Repair Lead
         if (order.getThoPhanCong() != null) {
-            notificationRepository.save(Notification.builder()
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .userId(order.getThoPhanCong().getId())
                     .role("THO_SUA_CHUA")
                     .title("QC Từ chối: " + order.getPhieuTiepNhan().getXe().getBienSo())
@@ -420,11 +508,12 @@ public class MechanicService {
         long completed = o.getChiTietDonHang().stream()
                 .filter(i -> ItemStatus.HOAN_THANH.equals(i.getTrangThai()))
                 .count();
-        String phone = null;
+        String fullPhone = "N/A";
         try {
-            phone = o.getPhieuTiepNhan().getXe().getKhachHang().getSoDienThoai();
+            fullPhone = o.getPhieuTiepNhan().getXe().getKhachHang().getSoDienThoai();
         } catch (Exception ignored) {
         }
+        String phone = maskPhone(fullPhone);
 
         return JobSummaryDTO.builder()
                 .id(o.getId())
@@ -571,7 +660,7 @@ public class MechanicService {
         if ("PENDING".equals(status)) {
             User lead = order.getThoPhanCong();
             if (lead != null && !lead.getId().equals(userId)) {
-                notificationRepository.save(Notification.builder()
+                asyncNotificationService.pushUniqueAsync(Notification.builder()
                         .userId(lead.getId())
                         .role("THO_SUA_CHUA")
                         .title("Yêu cầu tham gia: " + mechanic.getHoTen())
@@ -705,7 +794,7 @@ public class MechanicService {
         result.put("id", order.getId());
         result.put("plate", order.getPhieuTiepNhan().getXe().getBienSo());
         result.put("customerName", order.getPhieuTiepNhan().getXe().getKhachHang().getHoTen());
-        result.put("customerPhone", order.getPhieuTiepNhan().getXe().getKhachHang().getSoDienThoai());
+        result.put("customerPhone", maskPhone(order.getPhieuTiepNhan().getXe().getKhachHang().getSoDienThoai()));
         result.put("vehicleBrand", order.getPhieuTiepNhan().getXe().getNhanHieu());
         result.put("vehicleModel", order.getPhieuTiepNhan().getXe().getModel());
         result.put("imageUrl", order.getPhieuTiepNhan().getHinhAnh());
@@ -752,7 +841,7 @@ public class MechanicService {
         result.put("id", reception.getId());
         result.put("plate", reception.getXe().getBienSo());
         result.put("customerName", reception.getXe().getKhachHang().getHoTen());
-        result.put("customerPhone", reception.getXe().getKhachHang().getSoDienThoai());
+        result.put("customerPhone", maskPhone(reception.getXe().getKhachHang().getSoDienThoai()));
         result.put("vehicleBrand", reception.getXe().getNhanHieu());
         result.put("vehicleModel", reception.getXe().getModel());
         result.put("odo", reception.getXe().getOdoHienTai());
@@ -779,15 +868,22 @@ public class MechanicService {
         }
 
         RepairOrder order = item.getDonHangSuaChua();
+
+        // Bug 87 Guard: Disable deletion if finalized
+        if (List.of(OrderStatus.HOAN_THANH, OrderStatus.DONG, OrderStatus.HUY, OrderStatus.CHO_THANH_TOAN)
+                .contains(order.getTrangThai())) {
+            throw new RuntimeException("Không thể xóa hạng mục khi đơn hàng đã chốt/hoàn thành.");
+        }
         String plate = order.getPhieuTiepNhan().getXe().getBienSo();
         String productName = item.getHangHoa().getTenHang();
 
+        order.getChiTietDonHang().remove(item);
         orderItemRepository.delete(item);
 
-        recalculateTotals(order);
+        orderCalculationService.recalculateTotals(order);
 
         // Notify Sale
-        notificationRepository.save(Notification.builder()
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
                 .role("SALE")
                 .title("Thợ xóa đề xuất: " + plate)
                 .content("Thợ đã xóa hạng mục '" + productName + "' khỏi xe " + plate)
@@ -798,46 +894,4 @@ public class MechanicService {
                 .build());
     }
 
-    private void recalculateTotals(RepairOrder order) {
-        List<OrderItem> items = order.getChiTietDonHang();
-        BigDecimal totalParts = BigDecimal.ZERO;
-        BigDecimal totalLabor = BigDecimal.ZERO;
-        BigDecimal totalDiscount = BigDecimal.ZERO;
-
-        if (items != null) {
-            for (OrderItem item : items) {
-                if (item.getTrangThai() == ItemStatus.KHACH_TU_CHOI)
-                    continue;
-
-                BigDecimal itemTotal = item.getDonGiaGoc().multiply(new BigDecimal(item.getSoLuong()));
-                BigDecimal discount = itemTotal.multiply(item.getGiamGiaPhanTram())
-                        .divide(new BigDecimal(100), 2, RoundingMode.HALF_UP);
-                totalDiscount = totalDiscount.add(discount);
-
-                if (item.getHangHoa().getLaDichVu()) {
-                    totalLabor = totalLabor.add(item.getThanhTien());
-                } else {
-                    totalParts = totalParts.add(item.getThanhTien());
-                }
-            }
-        }
-
-        order.setTongTienHang(totalParts);
-        order.setTongTienCong(totalLabor);
-        order.setChietKhauTong(totalDiscount);
-
-        BigDecimal netTotal = totalParts.add(totalLabor);
-        // Default VAT 10%
-        BigDecimal vat = netTotal.multiply(new BigDecimal("0.1")).setScale(0, RoundingMode.HALF_UP);
-        order.setThueVAT(vat);
-
-        BigDecimal grandTotal = netTotal.add(vat);
-        order.setTongCong(grandTotal);
-
-        // Update Debt
-        BigDecimal daTra = order.getSoTienDaTra() != null ? order.getSoTienDaTra() : BigDecimal.ZERO;
-        order.setCongNo(grandTotal.subtract(daTra));
-
-        orderRepository.save(order);
-    }
 }

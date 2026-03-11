@@ -13,7 +13,7 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/GaraManagement}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:talama123}
+    password: ${SPRING_DATASOURCE_PASSWORD} # Bug 133 Fix: Remove hardcoded default password
     driver-class-name: org.postgresql.Driver
     # HikariCP Connection Pool Optimization
     hikari:
@@ -64,11 +64,9 @@ spring:
           cache:
             missing_cache_strategy: create
 
-  # Disable default security login page
-  security:
-    user:
-      name: admin
-      password: admin
+
+  # Disable default security login page handled by JwtAuthFilter
+  # No spring.security.user needed
 
   # Enable caching
   cache:

@@ -45,7 +45,7 @@ public class ReportService {
                         for (Map<String, Object> row : dailyData) {
                                 try {
                                         String dateStr = (String) row.get("date");
-                                        BigDecimal amount = (BigDecimal) row.get("amount");
+                                        BigDecimal amount = Optional.ofNullable((BigDecimal) row.get("amount")).orElse(BigDecimal.ZERO);
                                         dailyRevenue.put(LocalDate.parse(dateStr), amount);
                                 } catch (Exception e) {
                                         // Ignore parse errors
@@ -101,19 +101,24 @@ public class ReportService {
                 LocalDateTime todayStart = LocalDate.now().atStartOfDay();
 
                 long waitingVehicles = orderRepository.countByTrangThaiIn(
-                                Arrays.asList(OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.BAO_GIA,
-                                                OrderStatus.CHO_KH_DUYET));
+                                Arrays.asList(OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN));
+
+                long pendingQuotes = orderRepository.countByTrangThai(OrderStatus.CHO_KH_DUYET);
+
                 long inProgressJobs = orderRepository.countByTrangThaiIn(
-                                Arrays.asList(OrderStatus.DA_DUYET, OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA));
+                                Arrays.asList(OrderStatus.DA_DUYET, OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
+                                                OrderStatus.CHO_KCS));
 
                 BigDecimal todayRevenue = transactionRepository.sumRevenueBetween(todayStart, LocalDateTime.now());
+                BigDecimal todayRefund = transactionRepository.sumRefundBetween(todayStart, LocalDateTime.now());
 
                 long lowStockCount = productRepository.countLowStockProducts();
 
                 return Map.of(
                                 "waitingVehicles", waitingVehicles,
+                                "pendingQuotes", pendingQuotes,
                                 "inProgressJobs", inProgressJobs,
-                                "todayRevenue", todayRevenue,
+                                "todayNetRevenue", todayRevenue.subtract(todayRefund),
                                 "lowStockCount", lowStockCount);
         }
 }

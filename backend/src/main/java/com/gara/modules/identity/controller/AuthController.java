@@ -56,16 +56,4 @@ public class AuthController {
     public ResponseEntity<?> logout() {
         return ResponseEntity.ok(Map.of("message", "Đăng xuất thành công"));
     }
-
-    @GetMapping("/reset-admin")
-    public LoginResponse resetAdminPassword() {
-        return authService.resetAdminPassword();
-    }
-
-    @GetMapping("/seed-users")
-    public ResponseEntity<?> seedUsers() {
-        authService.seedDefaultUsers();
-        return ResponseEntity
-                .ok(Map.of("message", "Đã khởi tạo các user mẫu: admin, sale1, tho1, tho2, kho1 (Pass: 123456)"));
-    }
 }
