@@ -24,7 +24,7 @@ spring:
       max-lifetime: 45000 # 45 seconds - avoid stale connections from cloud DB
       connection-timeout: 20000
       keepalive-time: 30000 # 30 seconds - keep connections warm
-      leak-detection-threshold: 60000
+      leak-detection-threshold: 30000 # 30 seconds - enable connection leak detection
 
   # Cloudinary Configuration
   cloudinary:
