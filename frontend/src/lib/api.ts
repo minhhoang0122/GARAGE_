@@ -65,13 +65,15 @@ async function handleResponseError(res: Response) {
         throw new Error(res.status === 401 ? 'Phiên đăng nhập hết hạn' : 'Tài khoản đã bị khóa');
     }
     if (res.status === 404) throw new Error('Không tìm thấy dữ liệu');
+
+    const errorData = await res.json().catch(() => ({}));
+    const errorMessage = errorData.message || errorData.error || `Lỗi API (${res.status})`;
+
     if (res.status === 500) {
-        const errorData = await res.json().catch(() => ({}));
         console.error('SERVER 500 ERROR:', errorData);
-        throw new Error(errorData.error || 'Lỗi máy chủ (500)');
     }
-    const errorData = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(errorData.error || `Lỗi API (${res.status})`);
+
+    throw new Error(errorMessage);
 }
 
 export const api = {
@@ -201,8 +203,8 @@ export const api = {
         });
 
         if (!res.ok) {
-            const error = await res.json().catch(() => ({ error: 'Login failed' }));
-            throw new Error(error.error || 'Đăng nhập thất bại');
+            const error = await res.json().catch(() => ({}));
+            throw new Error(error.message || error.error || 'Đăng nhập thất bại');
         }
 
         return res.json();
