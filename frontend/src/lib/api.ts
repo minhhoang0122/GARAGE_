@@ -1,8 +1,13 @@
 
 const getApiUrl = () => {
     const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+    const isProduction = process.env.NODE_ENV === 'production';
+    
     if (typeof window === 'undefined') {
         console.log(`[Server] API_URL initialized to: ${url}/api`);
+        if (isProduction && url.includes('localhost')) {
+            console.warn('WARNING: Running in PRODUCTION but API_URL is pointing to LOCALHOST. Authentication will fail.');
+        }
     }
     return `${url}/api`;
 };
