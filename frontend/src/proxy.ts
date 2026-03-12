@@ -8,7 +8,7 @@ import { ROUTE_PERMISSIONS, ROLE_ROUTES, VaiTroType } from '@/lib/auth';
 // Routes không cần đăng nhập
 const publicRoutes = ['/login', '/api/auth', '/', '/services', '/tra-cuu', '/booking'];
 
-export default auth((req) => {
+export default auth((req: any) => {
     const { nextUrl, auth: session } = req;
     const pathname = nextUrl.pathname;
 
@@ -23,7 +23,8 @@ export default auth((req) => {
         if (pathname === '/login' && session?.user) {
             const roles = (session.user as any).roles || [];
             // Simple priority for login redirect
-            const redirectUrl = roles.includes('ADMIN') ? '/admin' : (ROLE_ROUTES[roles[0]] || '/');
+            const firstRole = (roles[0] as string) || '';
+            const redirectUrl = roles.includes('ADMIN') ? '/admin' : (ROLE_ROUTES[firstRole] || '/');
             return NextResponse.redirect(new URL(redirectUrl, nextUrl));
         }
         return NextResponse.next();
@@ -36,15 +37,17 @@ export default auth((req) => {
         return NextResponse.redirect(loginUrl);
     }
 
-    const userRoles = (session.user as any).roles || [];
+    const roles = (session.user as any).roles || [];
 
     // Kiểm tra quyền truy cập cho từng route prefix
-    for (const [routePrefix, allowedRoles] of Object.entries(ROUTE_PERMISSIONS)) {
+    for (const [routePrefix, allowedRolesArray] of Object.entries(ROUTE_PERMISSIONS)) {
+        const allowedRoles = allowedRolesArray as string[];
         if (pathname.startsWith(routePrefix)) {
-            const hasAccess = allowedRoles.some(r => userRoles.includes(r));
+            const hasAccess = allowedRoles.some((r: string) => (roles as string[]).includes(r));
             if (!hasAccess) {
                 // Không có quyền -> redirect về dashboard mặc định của user
-                const redirectUrl = ROLE_ROUTES[userRoles[0]] || '/';
+                const firstRole = (roles[0] as string) || '';
+                const redirectUrl = ROLE_ROUTES[firstRole] || '/';
                 return NextResponse.redirect(new URL(redirectUrl, nextUrl));
             }
             break;
