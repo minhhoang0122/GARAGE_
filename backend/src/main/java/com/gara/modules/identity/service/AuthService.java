@@ -118,11 +118,16 @@ public class AuthService {
             userRepository.save(user);
         } else {
             User user = userOptional.get();
-            // Bug 133 Correction: Only sync password if it doesn't match the default standard
-            // and the user belongs to the default seed list.
             if (!passwordEncoder.matches("123456", user.getMatKhauHash())) {
                 log.info("Syncing/Resetting password for seeded user: {}", username);
                 user.setMatKhauHash(passwordEncoder.encode("123456"));
+                userRepository.save(user);
+            }
+            
+            // Ensure seeded users are ALWAYS active
+            if (!user.getTrangThaiHoatDong()) {
+                log.info("Activating locked seeded user: {}", username);
+                user.setTrangThaiHoatDong(true);
                 userRepository.save(user);
             }
             
