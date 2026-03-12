@@ -135,8 +135,8 @@ export default function WarehouseInventoryPage() {
                 ) : (
                     <>
                         {/* Desktop Table View - Industrial Style */}
-                        <div className="hidden md:block bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
-                            <table className="w-full">
+                        <div className="hidden md:block bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-x-auto transition-colors">
+                            <table className="w-full min-w-[800px]">
                                 <thead className="bg-slate-50 dark:bg-slate-950 border-b-2 border-slate-200 dark:border-slate-800">
                                     <tr>
                                         <th className="text-left p-4 font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-xs">Mã PT</th>

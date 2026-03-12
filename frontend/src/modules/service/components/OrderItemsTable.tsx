@@ -24,8 +24,8 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
     }
 
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <table className="w-full text-left border-collapse">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[800px]">
                 <thead>
                     <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                         {!readOnly && <th className="px-4 py-4 w-12 text-center">Duyệt</th>}

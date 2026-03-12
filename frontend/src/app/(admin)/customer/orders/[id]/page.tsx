@@ -183,8 +183,8 @@ export default function CustomerOrderDetailPage() {
                             Chi tiết dịch vụ & phụ tùng
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <table className="w-full text-sm">
+                    <CardContent className="overflow-x-auto">
+                        <table className="w-full text-sm min-w-[600px]">
                             <thead className="bg-slate-100">
                                 <tr>
                                     <th className="text-left p-3">Tên</th>

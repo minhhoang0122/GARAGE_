@@ -155,42 +155,44 @@ export default function ProposalList({ receptionId, initialItems }: ProposalList
                             Đã đề xuất ({savedItems.length})
                         </h3>
                     </div>
-                    <table className="w-full">
-                        <tbody className="divide-y divide-slate-100">
-                            {savedItems.map((item) => (
-                                <tr key={item.id} className="hover:bg-slate-50">
-                                    <td className="px-6 py-4">
-                                        <p className="font-medium text-slate-800">{item.productName}</p>
-                                        <p className="text-sm text-slate-500">{item.productCode}</p>
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${item.isService ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                                            }`}>
-                                            {item.isService ? <Wrench className="w-3 h-3" /> : <Package className="w-3 h-3" />}
-                                            {item.isService ? 'Dịch vụ' : 'Phụ tùng'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-center font-medium">
-                                        SL: {item.quantity}
-                                    </td>
-                                    <td className="px-6 py-4 text-center w-20">
-                                        <button
-                                            onClick={() => handleRemoveSavedItem(item.id)}
-                                            disabled={isDeleting === item.id}
-                                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                                            title="Xóa"
-                                        >
-                                            {isDeleting === item.id ? (
-                                                <Loader2 className="w-4 h-4 animate-spin text-red-500" />
-                                            ) : (
-                                                <Trash2 className="w-4 h-4" />
-                                            )}
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm min-w-[700px]">
+                            <tbody className="divide-y divide-slate-100">
+                                {savedItems.map((item) => (
+                                    <tr key={item.id} className="hover:bg-slate-50">
+                                        <td className="px-6 py-4">
+                                            <p className="font-medium text-slate-800">{item.productName}</p>
+                                            <p className="text-sm text-slate-500">{item.productCode}</p>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${item.isService ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                                }`}>
+                                                {item.isService ? <Wrench className="w-3 h-3" /> : <Package className="w-3 h-3" />}
+                                                {item.isService ? 'Dịch vụ' : 'Phụ tùng'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center font-medium">
+                                            SL: {item.quantity}
+                                        </td>
+                                        <td className="px-6 py-4 text-center w-20">
+                                            <button
+                                                onClick={() => handleRemoveSavedItem(item.id)}
+                                                disabled={isDeleting === item.id}
+                                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                                title="Xóa"
+                                            >
+                                                {isDeleting === item.id ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+                                                ) : (
+                                                    <Trash2 className="w-4 h-4" />
+                                                )}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 
@@ -229,7 +231,7 @@ export default function ProposalList({ receptionId, initialItems }: ProposalList
                             <p className="text-sm">Chọn phụ tùng/dịch vụ ở trên để thêm vào danh sách này</p>
                         </div>
                     ) : (
-                        <table className="w-full">
+                        <table className="w-full min-w-[800px]">
                             <tbody className="divide-y divide-slate-100">
                                 {items.map((item, index) => (
                                     <tr key={item.product.id} className="hover:bg-slate-50">

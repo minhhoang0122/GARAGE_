@@ -14,7 +14,7 @@ export default async function ExportListPage() {
             <div className="max-w-5xl mx-auto">
 
 
-                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-x-auto transition-colors">
                     <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
                         <h2 className="font-semibold text-slate-800 dark:text-slate-100">Đơn hàng chờ xuất kho</h2>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -28,7 +28,7 @@ export default async function ExportListPage() {
                             <p>Không có đơn hàng nào cần xuất kho</p>
                         </div>
                     ) : (
-                        <table className="w-full">
+                        <table className="w-full text-left border-collapse min-w-[900px]">
                             <thead>
                                 <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
                                     <th className="px-6 py-3 text-left">Mã đơn</th>

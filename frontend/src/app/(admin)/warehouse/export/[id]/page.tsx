@@ -81,7 +81,7 @@ export default async function ExportDetailPage({ params }: { params: Promise<{ i
                 </div>
 
                 {/* Bảng vật tư cần xuất */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto transition-colors">
                     <div className="px-6 py-4 border-b border-slate-100">
                         <h2 className="font-semibold text-slate-800">Danh sách vật tư cần xuất</h2>
                         <p className="text-sm text-slate-500 mt-1">
@@ -96,7 +96,7 @@ export default async function ExportDetailPage({ params }: { params: Promise<{ i
                             <p className="text-sm">(Đơn hàng chỉ có dịch vụ)</p>
                         </div>
                     ) : (
-                        <table className="w-full">
+                        <table className="w-full min-w-[900px]">
                             <thead>
                                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
                                     <th className="px-6 py-3 text-left">STT</th>
