@@ -1,5 +1,13 @@
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api` : 'http://localhost:8081/api';
+const getApiUrl = () => {
+    const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+    if (typeof window === 'undefined') {
+        console.log(`[Server] API_URL initialized to: ${url}/api`);
+    }
+    return `${url}/api`;
+};
+
+export const API_URL = getApiUrl();
 
 // In-memory cache for instant access (faster than sessionStorage)
 const memoryCache = new Map<string, { data: any; timestamp: number }>();

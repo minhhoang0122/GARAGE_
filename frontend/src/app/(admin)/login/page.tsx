@@ -39,22 +39,28 @@ function LoginForm() {
         redirect: false,
       });
 
-      // NextAuth v5 beta quirk: result.error can be "CredentialsSignin" 
-      // even on success. Use result.ok as the reliable indicator.
+      console.log('Login result:', result);
+
       if (result?.ok) {
-        if (callbackUrl === '/' || !callbackUrl) {
-          // Ép load lại trang /login. Middleware proxy.ts sẽ tự động bắt vòng lặp này
-          // và chuyển hướng người dùng dến đúng Dashboard (Admin, Sale, Mechanic...) dựa trên Role.
-          window.location.href = '/login';
-        } else {
-          router.refresh();
-          router.push(callbackUrl);
-        }
+        // Sau khi đăng nhập thành công, chuyển hướng đến trang đích hoặc mặc định là /admin
+        // Middleware (giờ đã tên là middleware.ts) sẽ lo việc bảo vệ và redirect tiếp theo.
+        const target = callbackUrl && callbackUrl !== '/login' ? callbackUrl : '/admin';
+        router.push(target);
+        router.refresh();
       } else {
-        setError('Tên đăng nhập hoặc mật khẩu không đúng');
+        // Nếu có lỗi, ưu tiên lấy mã lỗi từ NextAuth
+        const errorCode = result?.error === 'CredentialsSignin' ? 'CredentialsSignin' : result?.error;
+        if (errorCode === 'CredentialsSignin') {
+          setError('Tên đăng nhập hoặc mật khẩu không đúng');
+        } else if (errorCode) {
+          setError(`Lỗi xác thực: ${errorCode}`);
+        } else {
+          setError('Tên đăng nhập hoặc mật khẩu không đúng');
+        }
       }
-    } catch {
-      setError('Đã xảy ra lỗi. Vui lòng thử lại.');
+    } catch (err: any) {
+      console.error('Login handle error:', err);
+      setError('Đã xảy ra lỗi kết nối. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
