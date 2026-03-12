@@ -22,6 +22,8 @@ function LoginForm() {
       setError('Tài khoản của bạn đã bị khóa từ hệ thống. Nếu có sai sót, vui lòng liên hệ Admin.');
     } else if (errorParam === 'SessionExpired') {
       setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+    } else if (errorParam === 'CredentialsSignin') {
+      setError('Tên đăng nhập hoặc mật khẩu không đúng');
     }
   }, [searchParams]);
 
@@ -79,6 +81,8 @@ function LoginForm() {
               Tên đăng nhập
             </label>
             <input
+              id="username"
+              name="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -87,6 +91,7 @@ function LoginForm() {
               required
               disabled={loading}
               autoFocus
+              autoComplete="username"
             />
           </div>
 
@@ -95,6 +100,8 @@ function LoginForm() {
               Mật khẩu
             </label>
             <input
+              id="password"
+              name="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -102,6 +109,7 @@ function LoginForm() {
               placeholder="••••••••"
               required
               disabled={loading}
+              autoComplete="current-password"
             />
           </div>
         </div>

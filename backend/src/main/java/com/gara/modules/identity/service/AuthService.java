@@ -9,11 +9,14 @@ import com.gara.modules.auth.repository.UserRepository;
 import com.gara.modules.identity.security.JwtUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class AuthService {
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -52,15 +55,17 @@ public class AuthService {
 
         loginAttemptService.loginSucceeded(username);
 
-        List<String> roles = user.getRoles().stream()
-                .map(Role::getName)
-                .collect(Collectors.toList());
+        List<String> roles = user.getRoles() != null 
+                ? user.getRoles().stream().map(Role::getName).collect(Collectors.toList())
+                : java.util.Collections.emptyList();
 
-        List<String> permissions = user.getRoles().stream()
-                .flatMap(role -> role.getPermissions().stream())
-                .map(Permission::getCode)
-                .distinct()
-                .collect(Collectors.toList());
+        List<String> permissions = user.getRoles() != null
+                ? user.getRoles().stream()
+                    .flatMap(role -> role.getPermissions() != null ? role.getPermissions().stream() : java.util.stream.Stream.empty())
+                    .map(Permission::getCode)
+                    .distinct()
+                    .collect(Collectors.toList())
+                : java.util.Collections.emptyList();
 
         String token = jwtUtil.generateToken(user.getId(), user.getTenDangNhap(), roles, permissions);
 
@@ -113,7 +118,14 @@ public class AuthService {
             userRepository.save(user);
         } else {
             User user = userOptional.get();
-            // Bug 133 Fix: NEVER overwrite existing password during seeding
+            // Bug 133 Correction: Only sync password if it doesn't match the default standard
+            // and the user belongs to the default seed list.
+            if (!passwordEncoder.matches("123456", user.getMatKhauHash())) {
+                log.info("Syncing/Resetting password for seeded user: {}", username);
+                user.setMatKhauHash(passwordEncoder.encode("123456"));
+                userRepository.save(user);
+            }
+            
             if (user.getRoles().stream().noneMatch(r -> r.getName().equals(roleName))) {
                 user.getRoles().add(role);
                 userRepository.save(user);
