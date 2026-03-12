@@ -50,13 +50,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 }
 
                 try {
-                    console.log('Attempting login for:', credentials.username);
+                    const publicApiUrl = process.env.NEXT_PUBLIC_API_URL;
+                    console.log('DEBUG [auth.ts]: Attempting login for:', credentials.username);
+                    console.log('DEBUG [auth.ts]: process.env.NEXT_PUBLIC_API_URL is:', publicApiUrl);
+                    console.log('DEBUG [auth.ts]: API_URL from api.ts is:', API_URL);
+
                     const data = await api.login(
                         credentials.username as string,
                         credentials.password as string
                     );
                     
-                    console.log('Login successful for:', credentials.username, 'Data:', JSON.stringify(data));
+                    console.log('DEBUG [auth.ts]: Login successful for:', credentials.username);
 
                     return {
                         id: data.userId.toString(),
@@ -67,7 +71,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     } as any;
                 } catch (error: any) {
                     console.error('NextAuth Authorize Error:', error.message || error);
-                    // Bắn lại lỗi để NextAuth có thể nhận diện chi tiết hơn nếu cần
+                    console.error('DEBUG [auth.ts] Error occured while calling API:', API_URL);
+                    console.error('DEBUG [auth.ts] NEXT_PUBLIC_API_URL ENV:', process.env.NEXT_PUBLIC_API_URL);
                     return null;
                 }
             },
