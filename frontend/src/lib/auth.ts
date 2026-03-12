@@ -3,7 +3,7 @@
 
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import { api } from './api';
+import { api, API_URL } from './api';
 
 // Định nghĩa các vai trò
 export const VaiTro = {
