@@ -41,22 +41,22 @@ function LoginForm() {
 
       console.log('Login result:', result);
 
-      if (result?.ok) {
-        // Sau khi đăng nhập thành công, chuyển hướng đến trang đích hoặc mặc định là /admin
-        // Middleware (giờ đã tên là middleware.ts) sẽ lo việc bảo vệ và redirect tiếp theo.
+      if (result?.error) {
+        // Ưu tiên xử lý khi có lỗi trả về
+        const errorCode = result.error === 'CredentialsSignin' ? 'CredentialsSignin' : result.error;
+        if (errorCode === 'CredentialsSignin') {
+          setError('Tên đăng nhập hoặc mật khẩu không đúng');
+        } else {
+          setError(`Lỗi xác thực: ${errorCode}`);
+        }
+      } else if (result?.ok) {
+        // Đăng nhập thành công
         const target = callbackUrl && callbackUrl !== '/login' ? callbackUrl : '/admin';
         router.push(target);
         router.refresh();
       } else {
-        // Nếu có lỗi, ưu tiên lấy mã lỗi từ NextAuth
-        const errorCode = result?.error === 'CredentialsSignin' ? 'CredentialsSignin' : result?.error;
-        if (errorCode === 'CredentialsSignin') {
-          setError('Tên đăng nhập hoặc mật khẩu không đúng');
-        } else if (errorCode) {
-          setError(`Lỗi xác thực: ${errorCode}`);
-        } else {
-          setError('Tên đăng nhập hoặc mật khẩu không đúng');
-        }
+        // Trường hợp không xác định
+        setError('Tên đăng nhập hoặc mật khẩu không đúng');
       }
     } catch (err: any) {
       console.error('Login handle error:', err);

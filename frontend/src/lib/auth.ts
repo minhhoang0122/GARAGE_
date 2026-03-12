@@ -49,10 +49,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 }
 
                 try {
+                    console.log('Attempting login for:', credentials.username);
                     const data = await api.login(
                         credentials.username as string,
                         credentials.password as string
                     );
+                    
+                    console.log('Login successful for:', credentials.username, 'Data:', JSON.stringify(data));
 
                     return {
                         id: data.userId.toString(),
@@ -61,8 +64,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         permissions: data.permissions || [],
                         accessToken: data.token
                     } as any;
-                } catch (error) {
-                    console.error('Login error:', error);
+                } catch (error: any) {
+                    console.error('NextAuth Authorize Error:', error.message || error);
+                    // Bắn lại lỗi để NextAuth có thể nhận diện chi tiết hơn nếu cần
                     return null;
                 }
             },
