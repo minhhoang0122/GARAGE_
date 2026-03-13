@@ -98,6 +98,12 @@ export default function ProductSearch({ orderId, readOnly = false, onProductSele
             return;
         }
 
+        const isOutOfStock = !product.LaDichVu && product.SoLuongTon <= 0;
+        if (isOutOfStock) {
+            showToast('error', 'Sản phẩm này đã hết hàng trong kho');
+            return;
+        }
+
         setIsAdding(true);
         try {
             const res = await addItemToOrder(orderId, product.ID, 1);
@@ -185,34 +191,44 @@ export default function ProductSearch({ orderId, readOnly = false, onProductSele
                                 Không tìm thấy sản phẩm nào
                             </div>
                         ) : (
-                            results.map((product) => (
-                                <button
-                                    key={product.ID}
-                                    onClick={() => handleSelectProduct(product)}
-                                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0 text-left"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg ${product.LaDichVu ? 'bg-purple-50 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
-                                            {product.LaDichVu ? <Wrench className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                            results.map((product) => {
+                                const isOutOfStock = !product.LaDichVu && product.SoLuongTon <= 0;
+                                return (
+                                    <button
+                                        key={product.ID}
+                                        onClick={() => !isOutOfStock && handleSelectProduct(product)}
+                                        disabled={isOutOfStock}
+                                        className={`w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0 text-left ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-lg ${product.LaDichVu ? 'bg-purple-50 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                                                {product.LaDichVu ? <Wrench className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-slate-800 dark:text-slate-100">{product.TenHang}</p>
+                                                <p className="text-sm text-slate-500 dark:text-slate-400 flex gap-2">
+                                                    <span>{product.MaHang}</span>
+                                                    {!product.LaDichVu && (
+                                                        <span className={isOutOfStock ? 'text-red-500 font-bold' : 'text-slate-400'}>
+                                                            | Tồn: {product.SoLuongTon}
+                                                        </span>
+                                                    )}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="font-medium text-slate-800 dark:text-slate-100">{product.TenHang}</p>
-                                            <p className="text-sm text-slate-500 dark:text-slate-400 flex gap-2">
-                                                <span>{product.MaHang}</span>
-                                                {!product.LaDichVu && (
-                                                    <span className="text-slate-400">| Tồn: {product.SoLuongTon}</span>
-                                                )}
+                                        <div className="text-right">
+                                            <p className="font-semibold text-slate-800 dark:text-slate-100">
+                                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(product.GiaBanNiemYet))}
                                             </p>
+                                            {isOutOfStock ? (
+                                                <span className="text-xs text-red-500 font-bold uppercase tracking-tighter">Hết hàng</span>
+                                            ) : (
+                                                <span className="text-xs text-indigo-600 font-medium">+ Thêm</span>
+                                            )}
                                         </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="font-semibold text-slate-800 dark:text-slate-100">
-                                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(product.GiaBanNiemYet))}
-                                        </p>
-                                        <span className="text-xs text-indigo-600 font-medium">+ Thêm</span>
-                                    </div>
-                                </button>
-                            ))
+                                    </button>
+                                );
+                            })
                         )}
                     </div>
                 </div>

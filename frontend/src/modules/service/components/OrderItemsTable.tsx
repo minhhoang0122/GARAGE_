@@ -1,9 +1,8 @@
 'use client';
 
-import { OrderDetailItem } from '@/modules/service/order';
-import { updateOrderItem, removeOrderItem, toggleItemStatus } from '@/modules/service/order';
-import { Trash2, Edit2, Check, X, AlertTriangle } from 'lucide-react';
-import { useState } from 'react';
+import { OrderDetailItem, updateOrderItem, removeOrderItem, toggleItemStatus } from '@/modules/service/order';
+import { Trash2, Check, X, ChevronRight, Save, Loader2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { useToast } from '@/contexts/ToastContext';
@@ -13,274 +12,317 @@ interface OrderItemsTableProps {
     readOnly?: boolean;
 }
 
+/**
+ * OrderItemsTable Ver 3.0 - Pixel Perfect & Global Edit
+ * - Giao diện rộng rãi (min-w-1200px) đảm bảo không bị "nuốt" cột.
+ * - Chế độ chỉnh sửa tập trung (Global Edit) giúp quản lý báo giá chuyên nghiệp.
+ * - Cột Xóa Sticky với hiệu ứng Glassmorphism tinh tế.
+ */
 export default function OrderItemsTable({ items, readOnly = false }: OrderItemsTableProps) {
+    const router = useRouter();
+    const confirm = useConfirm();
+    const { showToast } = useToast();
+    const [isGlobalEditing, setIsGlobalEditing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Chứa dữ liệu thay đổi tạm thời: { [itemId]: { quantity, discountPercent } }
+    const [editData, setEditData] = useState<Record<string, { quantity: number; discountPercent: number }>>({});
+
+    const handleUpdateLocal = (id: number, field: 'quantity' | 'discountPercent', value: number) => {
+        const idKey = id.toString();
+        setEditData(prev => {
+            const current = prev[idKey] || { 
+                quantity: items.find(i => i.id === id)?.quantity || 1, 
+                discountPercent: items.find(i => i.id === id)?.discountPercent || 0 
+            };
+            return {
+                ...prev,
+                [idKey]: { ...current, [field]: value }
+            };
+        });
+    };
+
+    const handleSaveAll = async () => {
+        setIsSaving(true);
+        try {
+            const updatePromises = Object.entries(editData).map(([id, data]) => 
+                updateOrderItem(Number(id), data)
+            );
+            await Promise.all(updatePromises);
+            showToast('success', 'Đã lưu tất cả thay đổi');
+            setIsGlobalEditing(false);
+            setEditData({});
+            router.refresh();
+        } catch (error) {
+            showToast('error', 'Có lỗi khi lưu thay đổi hàng loạt');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleCancel = () => {
+        setEditData({});
+        setIsGlobalEditing(false);
+    };
+
     if (items.length === 0) {
         return (
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-12 text-center text-slate-500 dark:text-slate-400">
-                <p>Chưa có hạng mục nào trong báo giá.</p>
-                <p className="text-sm">Hãy tìm kiếm và thêm phụ tùng hoặc dịch vụ ở trên.</p>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-16 text-center shadow-sm">
+                <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Trash2 className="w-8 h-8 text-slate-300" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Chưa có hạng mục</h3>
+                <p className="text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+                    Vui lòng chọn phụ tùng hoặc dịch vụ từ ô tìm kiếm phía trên để thêm vào báo giá.
+                </p>
             </div>
         );
     }
 
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[800px]">
-                <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                        {!readOnly && <th className="px-4 py-4 w-12 text-center">Duyệt</th>}
-                        <th className="px-4 py-4 min-w-[200px]">Mã / Tên hàng</th>
-                        <th className="px-4 py-4 w-20 text-center">SL</th>
-                        <th className="px-4 py-4 w-32 text-right">Đơn giá</th>
-                        <th className="px-4 py-4 w-24 text-center">Giảm (%)</th>
-                        <th className="px-4 py-4 w-24 text-center">VAT (%)</th>
-                        <th className="px-4 py-4 w-36 text-right">Thành tiền</th>
-                        <th className="px-4 py-4 w-24 text-right"></th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {items.map((item) => (
-                        <EditableRow key={item.id} item={item} readOnly={readOnly} />
-                    ))}
-                </tbody>
-            </table>
+        <div className="space-y-4">
+            {/* Toolbar Heading */}
+            <div className="flex items-center justify-between px-2">
+                <div className="flex items-center gap-3">
+                    <div className="w-1 h-6 bg-blue-600 rounded-full" />
+                    <h2 className="text-[15px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        Hạng mục dịch vụ
+                        <span className="text-sm font-normal text-slate-400 lowercase italic">({items.length} món)</span>
+                    </h2>
+                </div>
+                
+                {!readOnly && (
+                    <div className="flex items-center gap-2">
+                        {isGlobalEditing ? (
+                            <>
+                                <button
+                                    onClick={handleSaveAll}
+                                    disabled={isSaving}
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-md shadow-blue-200 active:scale-95 disabled:opacity-50"
+                                >
+                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    Lưu thay đổi
+                                </button>
+                                <button
+                                    onClick={handleCancel}
+                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm font-bold transition-all active:scale-95"
+                                >
+                                    Hủy
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                onClick={() => setIsGlobalEditing(true)}
+                                className="px-4 py-2 bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-600 text-slate-600 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-sm active:scale-95"
+                            >
+                                <ChevronRight className="w-4 h-4 text-blue-600" />
+                                Chỉnh sửa báo giá
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Table Container - Extreme Space Optimization */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden text-[13px]">
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse table-fixed min-w-[730px]">
+                        <thead>
+                            <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                                <th className="pl-4 pr-1 py-3 w-[38px] text-center">
+                                    <div className="w-3 h-3 rounded border border-slate-300 dark:border-slate-600 mx-auto" />
+                                </th>
+                                <th className="px-3 py-3 w-[240px] text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Hạng mục</th>
+                                <th className="px-1 py-3 w-[40px] text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">SL</th>
+                                <th className="px-3 py-3 w-[110px] text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Đơn giá</th>
+                                <th className="px-1 py-3 w-[70px] text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Giảm %</th>
+                                <th className="px-1 py-3 w-[60px] text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">VAT</th>
+                                <th className="px-3 py-3 w-[130px] text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Thành tiền</th>
+                                
+                                {/* Sticky Actions Header - Flattened without shadow or blur */}
+                                <th className="sticky right-0 z-20 px-3 py-3 w-[52px] bg-slate-50 dark:bg-slate-800 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Xóa
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                            {items.map((item) => (
+                                <Row 
+                                    key={item.id} 
+                                    item={item} 
+                                    isGlobalEditing={isGlobalEditing}
+                                    editValue={editData[item.id.toString()]}
+                                    onUpdate={handleUpdateLocal}
+                                    readOnly={readOnly}
+                                />
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            {isGlobalEditing && (
+                <div className="px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl flex items-center gap-3 text-blue-700 dark:text-blue-300 text-sm animate-pulse">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Đang trong chế độ chỉnh sửa báo giá... vui lòng Lưu sau khi hoàn tất.
+                </div>
+            )}
         </div>
     );
 }
 
-function EditableRow({ item, readOnly }: { item: OrderDetailItem, readOnly: boolean }) {
+function Row({ 
+    item, 
+    isGlobalEditing, 
+    editValue,
+    onUpdate,
+    readOnly 
+}: { 
+    item: OrderDetailItem, 
+    isGlobalEditing: boolean,
+    editValue?: { quantity: number; discountPercent: number },
+    onUpdate: (id: number, field: 'quantity' | 'discountPercent', value: number) => void,
+    readOnly: boolean 
+}) {
     const router = useRouter();
     const confirm = useConfirm();
     const { showToast } = useToast();
-    const [isEditing, setIsEditing] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-
-    // Edit state
-    const [quantity, setQuantity] = useState(item.quantity);
-    const [discountPercent, setDiscountPercent] = useState(item.discountPercent);
-
-    const isApproved = item.itemStatus === 'KHACH_DONG_Y';
-    const isRejected = item.itemStatus === 'KHACH_TU_CHOI';
-    const isProposed = item.itemStatus === 'DE_XUAT';
-
-    // Checkbox is checked if Approved. 
-    // If Proposed, it is unchecked, but we show special UI
-    const isChecked = isApproved;
-
-    // Tính giá sau giảm để cảnh báo giá sàn
-    const priceAfterDiscount = item.unitPrice * (1 - discountPercent / 100);
-    const isBelowFloor = item.floorPrice > 0 && priceAfterDiscount < item.floorPrice;
-
-    const handleSave = async () => {
-        setIsSaving(true);
-        try {
-            await updateOrderItem(item.id, { quantity, discountPercent });
-            setIsEditing(false);
-            showToast('success', 'Đã cập nhật mục báo giá');
-            router.refresh();
-        } catch (error) {
-            showToast('error', 'Lỗi cập nhật');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleRemove = async () => {
-        const confirmed = await confirm({
-            title: 'Xóa hạng mục',
-            message: 'Bạn có chắc muốn xóa mục này khỏi báo giá?',
-            type: 'danger',
-            confirmText: 'Xóa'
-        });
-        if (!confirmed) return;
-
-        setIsSaving(true);
-        try {
-            await removeOrderItem(item.id);
-            router.refresh();
-        } catch (error) {
-            await confirm({ title: 'Lỗi', message: 'Lỗi xóa mục', type: 'danger', confirmText: 'Đóng', cancelText: '' });
-            setIsSaving(false);
-        }
-    };
-
-    const handleToggleApprove = async () => {
-        setIsSaving(true);
-        const originalStatus = item.itemStatus;
-        const optimisticStatus = originalStatus === 'KHACH_DONG_Y' ? 'KHACH_TU_CHOI' : 'KHACH_DONG_Y';
-
-        // Optimistic UI update via router refresh or local state
-        item.itemStatus = optimisticStatus;
-
-        try {
-            await toggleItemStatus(item.id, originalStatus);
-            showToast('success', optimisticStatus === 'KHACH_DONG_Y' ? 'Khách đã duyệt' : 'Khách từ chối duyệt');
-            router.refresh();
-        } catch (error) {
-            // Revert on failure
-            item.itemStatus = originalStatus;
-            showToast('error', 'Lỗi cập nhật');
-        } finally {
-            setIsSaving(false);
-        }
-    };
 
     const formatCurrency = (val: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
-    return (
-        <tr className={`hover:bg-slate-50 dark:hover:bg-slate-800 
-            ${isRejected ? 'opacity-50 bg-slate-50 dark:bg-slate-800/50' : ''}
-            ${isProposed ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''}
-        `}>
-            {/* Checkbox Duyệt */}
-            {!readOnly && (
-                <td className="px-4 py-4 text-center">
-                    <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={handleToggleApprove}
-                        disabled={isSaving}
-                        className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-500 cursor-pointer"
-                    />
-                </td>
-            )}
+    const isRejected = item.itemStatus === 'KHACH_TU_CHOI';
+    const isApproved = item.itemStatus === 'KHACH_DONG_Y';
 
-            {/* Tên hàng */}
-            <td className="px-4 py-4">
-                <div className={`font-medium ${isRejected ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
-                    {item.productName}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">{item.productCode}</div>
-                <div className="flex gap-1 mt-1 flex-wrap">
-                    {item.isService && <span className="text-[10px] bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded">Dịch vụ</span>}
-                    {isRejected && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Khách từ chối</span>}
-                    {isProposed && <span className="text-[10px] bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 px-1.5 py-0.5 rounded">Phát sinh mới</span>}
-                    {item.proposedByName && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1 ${item.proposedByRole === 'THO_CHAN_DOAN' || item.proposedByRole === 'THO_SUA_CHUA'
-                            ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300'
-                            : item.proposedByRole === 'SALE'
-                                ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
-                                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                            }`}>
-                            {item.proposedByRole === 'THO_CHAN_DOAN' ? '🔧 Thợ khám' :
-                                item.proposedByRole === 'THO_SUA_CHUA' ? '🛠️ Thợ sửa' :
-                                    item.proposedByRole === 'SALE' ? '💼 Sale' :
-                                        item.proposedByRole === 'ADMIN' ? '⚙️ Admin' : '👤'}: {item.proposedByName}
+    return (
+        <tr className={`group transition-all hover:bg-slate-50/80 dark:hover:bg-slate-800/50 ${isRejected ? 'opacity-40' : ''}`}>
+            {/* 1. Tuyển chọn - Interactive Checkbox */}
+            <td className="pl-4 pr-1 py-3 text-center">
+                <button
+                    disabled={readOnly}
+                    onClick={async () => {
+                        try {
+                            await toggleItemStatus(item.id, item.itemStatus);
+                            router.refresh();
+                        } catch (e) {
+                            showToast('error', 'Lỗi khi cập nhật trạng thái');
+                        }
+                    }}
+                    className={`w-4 h-4 rounded flex items-center justify-center border-2 transition-all ${readOnly ? 'cursor-not-allowed' : 'cursor-pointer hover:border-blue-400'} ${isApproved ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 dark:border-slate-700'}`}
+                >
+                    {isApproved && <Check className="w-3 h-3" />}
+                </button>
+            </td>
+
+            {/* 2. Thông tin */}
+            <td className="px-3 py-3 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                    <div className="font-bold text-slate-800 dark:text-slate-100 text-[13px] leading-tight truncate max-w-[160px]" title={item.productName}>
+                        {item.productName}
+                    </div>
+                    {isRejected && (
+                        <span className="px-1.5 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase rounded shrink-0 ring-1 ring-orange-100 dark:ring-orange-800">
+                            Khách không duyệt
                         </span>
                     )}
                 </div>
-            </td>
-
-            {/* Số lượng */}
-            <td className="px-4 py-4 text-center">
-                {isEditing ? (
-                    <input
-                        type="number"
-                        min="1"
-                        value={quantity}
-                        onChange={(e) => setQuantity(Number(e.target.value))}
-                        className="w-16 border dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded px-2 py-1 text-center focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                ) : (
-                    <span className="font-medium text-slate-800 dark:text-slate-100">{item.quantity}</span>
+                <div className="flex items-center gap-1.5 overflow-hidden mb-1">
+                    <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded uppercase shrink-0">{item.productCode}</span>
+                    <span className={`text-[9px] font-bold px-1 py-0.5 rounded uppercase shrink-0 ${item.isService ? 'text-blue-600 bg-blue-50' : 'text-emerald-600 bg-emerald-50'}`}>
+                        {item.isService ? 'DV' : 'PT'}
+                    </span>
+                </div>
+                {item.proposedByName && (
+                    <div className="text-[10px] text-slate-400 italic flex items-center gap-1">
+                        <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                        Đề xuất: {item.proposedByRole === 'AI' ? 'AI Chẩn đoán' : item.proposedByName}
+                    </div>
                 )}
             </td>
 
-            {/* Đơn giá */}
-            <td className="px-4 py-4 text-right text-slate-600 dark:text-slate-300">
-                {formatCurrency(item.unitPrice)}
+            {/* 3. Số lượng */}
+            <td className="px-1 py-3 text-center">
+                {isGlobalEditing ? (
+                    <input
+                        type="number"
+                        min="1"
+                        value={editValue?.quantity ?? item.quantity}
+                        onChange={(e) => onUpdate(item.id, 'quantity', Number(e.target.value))}
+                        className="w-12 h-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-center text-[13px] font-bold text-blue-600 focus:border-blue-500 outline-none transition-all"
+                    />
+                ) : (
+                    <span className="text-[13px] font-black text-slate-800 dark:text-slate-100 tabular-nums">{item.quantity}</span>
+                )}
             </td>
 
-            {/* Giảm giá */}
-            <td className="px-4 py-4 text-center">
-                {isEditing ? (
-                    <div className="flex flex-col items-center gap-1">
-                        <div className="flex items-center justify-center gap-1">
-                            <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={discountPercent}
-                                onChange={(e) => setDiscountPercent(Number(e.target.value))}
-                                className={`w-14 border rounded px-1 py-1 text-center focus:ring-2 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white ${isBelowFloor ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500'}`}
-                            />
-                            <span className="text-slate-700 dark:text-slate-300">%</span>
-                        </div>
-                        {isBelowFloor && (
-                            <div className="flex items-center gap-1 text-xs text-red-600">
-                                <AlertTriangle className="w-3 h-3" />
-                                <span>Dưới giá sàn!</span>
-                            </div>
-                        )}
+            {/* 4. Đơn giá */}
+            <td className="px-3 py-3 text-right">
+                <span className="text-[13px] font-medium text-slate-600 dark:text-slate-400 tabular-nums">
+                    {formatCurrency(item.unitPrice).replace('₫', '')}
+                </span>
+            </td>
+
+            {/* 5. Giảm giá */}
+            <td className="px-1 py-3 text-center">
+                {isGlobalEditing ? (
+                    <div className="relative inline-block">
+                        <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={editValue?.discountPercent ?? item.discountPercent}
+                            onChange={(e) => onUpdate(item.id, 'discountPercent', Number(e.target.value))}
+                            className="w-12 h-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-center text-[13px] font-bold text-red-600 focus:border-red-500 outline-none transition-all"
+                        />
                     </div>
                 ) : (
                     item.discountPercent > 0 ? (
-                        <span className="text-red-600 font-medium">-{item.discountPercent}%</span>
+                        <span className="px-1.5 py-0.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded text-[10px] font-black tabular-nums">
+                            -{item.discountPercent}%
+                        </span>
                     ) : (
-                        <span className="text-slate-400 dark:text-slate-500">-</span>
+                        <span className="text-slate-200 dark:text-slate-800">—</span>
                     )
                 )}
             </td>
 
-            {/* VAT */}
-            <td className="px-4 py-4 text-center text-slate-500 dark:text-slate-400">
-                {item.vatRate ?? 10}%
+            {/* 6. VAT */}
+            <td className="px-1 py-3 text-center text-[12px] text-slate-400 tabular-nums font-medium">
+                {item.vatRate || 10}%
             </td>
 
-            {/* Thành tiền */}
-            <td className="px-4 py-4 text-right font-semibold text-slate-800 dark:text-slate-100">
-                {formatCurrency(item.total)}
-                {item.discountAmount > 0 && !isEditing && (
-                    <div className="text-xs text-red-500 line-through font-normal">
-                        {formatCurrency(item.unitPrice * item.quantity)}
-                    </div>
-                )}
+            {/* 7. Thành tiền */}
+            <td className="px-3 py-3 text-right">
+                <span className="text-[14px] font-black text-slate-900 dark:text-white tabular-nums">
+                    {formatCurrency(item.total).replace('₫', '')}
+                </span>
             </td>
 
-            {/* Actions */}
-            <td className="px-4 py-4 text-right">
-                {/* Sale can only edit/remove if (not readOnly) OR (item is proposed - arising item) */}
-                {(!readOnly || isProposed) && (
-                    <div className="flex items-center justify-end gap-1">
-                        {isEditing ? (
-                            <>
-                                <button
-                                    onClick={handleSave}
-                                    disabled={isSaving}
-                                    className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
-                                    title="Lưu"
-                                >
-                                    <Check className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => { setIsEditing(false); setQuantity(item.quantity); setDiscountPercent(item.discountPercent); }}
-                                    disabled={isSaving}
-                                    className="p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
-                                    title="Hủy"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <button
-                                    onClick={() => setIsEditing(true)}
-                                    className="p-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
-                                    title="Sửa SL/Giảm giá"
-                                >
-                                    <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={handleRemove}
-                                    className="p-1.5 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
-                                    title="Xóa"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </>
-                        )}
-                    </div>
+            {/* 8. Sticky Action Xóa - Compact & Flat & Always Visible */}
+            <td className={`sticky right-0 z-10 px-3 py-3 text-center transition-colors ${isRejected ? 'bg-orange-50/10' : 'bg-white dark:bg-slate-900'} group-hover:bg-slate-50/80 dark:group-hover:bg-slate-800/80`}>
+                {!readOnly && (
+                    <button
+                        onClick={async () => {
+                            const confirmed = await confirm({
+                                title: 'Xóa hạng mục',
+                                message: 'Bạn có chắc muốn xóa mục này khỏi báo giá?',
+                                type: 'danger',
+                                confirmText: 'Xóa'
+                            });
+                            if (!confirmed) return;
+                            try {
+                                await removeOrderItem(item.id);
+                                showToast('success', 'Đã xóa hạng mục');
+                                router.refresh();
+                            } catch (e) {
+                                showToast('error', 'Lỗi khi xóa hạng mục');
+                            }
+                        }}
+                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all active:scale-90"
+                        title="Xóa hạng mục"
+                    >
+                        <Trash2 className="w-4.5 h-4.5" />
+                    </button>
                 )}
             </td>
         </tr>

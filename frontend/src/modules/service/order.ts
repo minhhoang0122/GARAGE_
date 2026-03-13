@@ -163,7 +163,7 @@ export async function addItemToOrder(orderId: number, productId: number, quantit
 }
 
 // 4. Update Item
-export async function updateOrderItem(itemId: number, data: { quantity?: number, discountPercent?: number }) {
+export async function updateOrderItem(itemId: number, data: { quantity?: number, discountPercent?: number, itemStatus?: string }) {
     try {
         const session = await auth();
         const token = (session?.user as any)?.accessToken;

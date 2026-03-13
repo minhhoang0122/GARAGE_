@@ -172,13 +172,11 @@ td input[type="number"] {
 }
 
 /* Ensure table containers have consistent look */
-.table-container,
-[class*="overflow-x-auto"] {
-  @apply rounded-xl border border-stone-200/80 dark:border-slate-800/50 shadow-sm bg-stone-50 dark:bg-slate-900 overflow-hidden transition-all duration-300;
+.table-container {
+  @apply rounded-xl border border-stone-200/80 dark:border-slate-800/50 shadow-sm bg-stone-50 dark:bg-slate-900 transition-all duration-300;
 }
 
-.dark .table-container,
-.dark [class*="overflow-x-auto"] {
+.dark .table-container {
   @apply border-slate-800/50 bg-slate-900;
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
 }
