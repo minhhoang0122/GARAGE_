@@ -83,7 +83,7 @@ jwt:
 
 # CORS
 cors:
-  allowed-origins: http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3005,https://garage-lac.vercel.app
+  allowed-origins: http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3005,https://garage-lac.vercel.app,https://garage-b33o7223r-minhhoangprovjp123-gmailcoms-projects.vercel.app
 
 # OpenAPI
 springdoc:
