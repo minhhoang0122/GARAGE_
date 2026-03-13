@@ -32,6 +32,16 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.getTransactionsByOrder(orderId));
     }
 
+    @GetMapping("/recent")
+    public ResponseEntity<?> getRecent() {
+        return ResponseEntity.ok(transactionService.getRecentTransactions());
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<?> getStats() {
+        return ResponseEntity.ok(transactionService.getTransactionStats());
+    }
+
     @PostMapping
     public ResponseEntity<?> createTransaction(@RequestBody Map<String, Object> payload,
             @AuthenticationPrincipal Object principal) {
