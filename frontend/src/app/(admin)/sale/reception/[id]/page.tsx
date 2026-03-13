@@ -119,19 +119,19 @@ export default function ReceptionDetailPage() {
                                     <div className="flex items-center gap-3 text-sm">
                                         <User className="w-4 h-4 text-slate-400" />
                                         <span className="text-slate-500 w-20">Họ tên:</span>
-                                        <span className="font-bold">{reception.xe?.khachHang?.hoTen}</span>
+                                        <span className="font-bold">{reception.tenKhach}</span>
                                     </div>
                                     <div className="flex items-center gap-3 text-sm">
                                         <Phone className="w-4 h-4 text-slate-400" />
                                         <span className="text-slate-500 w-20">Điện thoại:</span>
-                                        <span className="font-bold">{reception.xe?.khachHang?.soDienThoai}</span>
+                                        <span className="font-bold">{reception.sdtKhach}</span>
                                     </div>
                                 </div>
                                 <div className="space-y-3">
                                     <div className="flex items-center gap-3 text-sm">
                                         <MapPin className="w-4 h-4 text-slate-400" />
                                         <span className="text-slate-500 w-20">Địa chỉ:</span>
-                                        <span className="font-bold italic">{reception.xe?.khachHang?.diaChi || '—'}</span>
+                                        <span className="font-bold italic">{reception.diaChiKhach || '—'}</span>
                                     </div>
                                     <div className="flex items-center gap-3 text-sm">
                                         <Clock className="w-4 h-4 text-slate-400" />
@@ -151,12 +151,12 @@ export default function ReceptionDetailPage() {
                                     <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
                                         <span className="text-sm text-slate-500 font-medium">Biển số xe:</span>
                                         <span className="text-xl font-black text-blue-700 dark:text-blue-400 tracking-wider">
-                                            {reception.xe?.bienSo}
+                                            {reception.bienSo}
                                         </span>
                                     </div>
                                     <div className="flex justify-between text-sm items-center px-1">
                                         <span className="text-slate-500">Hãng & Model:</span>
-                                        <span className="font-bold">{reception.xe?.nhanHieu} {reception.xe?.model}</span>
+                                        <span className="font-bold">{reception.nhanHieu} {reception.model}</span>
                                     </div>
                                     <div className="flex justify-between text-sm items-center px-1">
                                         <span className="text-slate-500">Số ODO:</span>
