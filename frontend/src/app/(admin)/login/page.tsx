@@ -5,6 +5,8 @@ import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 import ThemeToggle from '@/modules/common/components/layout/ThemeToggle';
+import { getHomeRoute } from '@/lib/routes';
+import { getSession } from 'next-auth/react';
 
 function LoginForm() {
   const router = useRouter();
@@ -50,8 +52,16 @@ function LoginForm() {
           setError(`Lỗi xác thực: ${errorCode}`);
         }
       } else if (result?.ok) {
-        // Đăng nhập thành công
-        const target = callbackUrl && callbackUrl !== '/login' ? callbackUrl : '/admin';
+        // Đăng nhập thành công, lấy session mới nhất để xem roles
+        const session = await getSession();
+        const roles = (session?.user as any)?.roles || [];
+        
+        // Nếu có callbackUrl (ví dụ từ middleware ép sang login), quay lại đó. 
+        // Nếu không có hoặc là "/", dùng getHomeRoute
+        const target = callbackUrl && callbackUrl !== '/' && callbackUrl !== '/login' 
+          ? callbackUrl 
+          : getHomeRoute(roles);
+          
         router.push(target);
         router.refresh();
       } else {

@@ -2,11 +2,14 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, MapPin, PhoneCall, Clock, ShieldCheck, Wrench, Settings, Search, CheckCircle2, Menu, User, CarFront } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
+import { ArrowRight, MapPin, PhoneCall, Clock, ShieldCheck, Wrench, Settings, Search, CheckCircle2, Menu, User, CarFront, LayoutDashboard, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
+import { getHomeRoute } from '@/lib/routes';
 
 export default function LandingPage() {
+    const { data: session, status } = useSession();
     const [trackingPlate, setTrackingPlate] = useState('');
     const [trackingResult, setTrackingResult] = useState<any>(null);
     const [isTracking, setIsTracking] = useState(false);
@@ -77,7 +80,18 @@ export default function LandingPage() {
                         <span className="flex items-center gap-1.5"><Clock size={14} className="text-orange-500" /> T2 - T7: 8:00 - 18:00 | CN: Nghỉ</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <Link href="/admin" className="hover:text-white transition-colors">Nội bộ xưởng</Link>
+                        {status === 'authenticated' ? (
+                            <div className="flex items-center gap-4">
+                                <Link href={getHomeRoute((session?.user as any)?.roles || [])} className="text-orange-400 hover:text-white transition-colors flex items-center gap-1.5 font-bold uppercase">
+                                    <LayoutDashboard size={14} /> Đi tới Hệ thống
+                                </Link>
+                                <button onClick={() => signOut()} className="text-stone-400 hover:text-red-400 transition-colors text-xs font-bold uppercase flex items-center gap-1">
+                                    <LogOut size={12} /> Thoát
+                                </button>
+                            </div>
+                        ) : (
+                            <Link href="/login" className="hover:text-white transition-colors">Nội bộ xưởng</Link>
+                        )}
                     </div>
                 </div>
             </div>
@@ -102,9 +116,20 @@ export default function LandingPage() {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <Link href="/login" className="hidden sm:flex items-center gap-2 bg-[#1C1917] hover:bg-stone-800 border border-stone-700 px-5 py-2.5 rounded text-sm font-bold transition-colors shadow-lg">
-                            <User size={16} /> Đăng Nhập Client
-                        </Link>
+                        {status === 'authenticated' ? (
+                            <div className="flex items-center gap-2">
+                                <Link href={getHomeRoute((session?.user as any)?.roles || [])} className="hidden sm:flex items-center gap-2 bg-orange-600 hover:bg-orange-500 border border-orange-700 px-5 py-2.5 rounded text-sm font-bold transition-colors shadow-lg">
+                                    <LayoutDashboard size={16} /> TRANG CHỦ LÀM VIỆC
+                                </Link>
+                                <button onClick={() => signOut()} className="hidden sm:flex items-center justify-center p-2.5 bg-stone-800 hover:bg-red-900/40 text-stone-400 hover:text-red-400 rounded transition-colors border border-stone-700">
+                                    <LogOut size={20} />
+                                </button>
+                            </div>
+                        ) : (
+                            <Link href="/login" className="hidden sm:flex items-center gap-2 bg-[#1C1917] hover:bg-stone-800 border border-stone-700 px-5 py-2.5 rounded text-sm font-bold transition-colors shadow-lg">
+                                <User size={16} /> Đăng Nhập Hệ Thống
+                            </Link>
+                        )}
                         <button className="lg:hidden p-2 text-stone-400 hover:text-white"><Menu size={24} /></button>
                     </div>
                 </div>
@@ -244,7 +269,7 @@ export default function LandingPage() {
                                 <div className="mt-8 pt-6 border-t border-stone-800 text-center relative z-10">
                                     <p className="text-stone-500 text-sm mb-3">Chủ xe cần xem chi tiết hạng mục, phụ tùng?</p>
                                     <Link href="/login" className="inline-flex items-center gap-2 text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 px-4 py-2 rounded transition-colors text-sm font-medium">
-                                        Đăng nhập xem hoá đơn <ArrowRight size={14} />
+                                        {status === 'authenticated' ? 'Đi tới trang quản lý' : 'Đăng nhập xem hoá đơn'} <ArrowRight size={14} />
                                     </Link>
                                 </div>
                             </div>

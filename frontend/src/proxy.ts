@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { ROUTE_PERMISSIONS, ROLE_ROUTES, VaiTroType } from '@/lib/auth';
+import { ROUTE_PERMISSIONS, ROLE_ROUTES, getHomeRoute } from '@/lib/routes';
 
 // Routes không cần đăng nhập
 const publicRoutes = ['/login', '/api/auth', '/', '/services', '/tra-cuu', '/booking'];
@@ -22,9 +22,7 @@ export default auth((req: any) => {
         // Nếu đã đăng nhập mà truy cập /login, redirect về dashboard
         if (pathname === '/login' && session?.user) {
             const roles = (session.user as any).roles || [];
-            // Simple priority for login redirect
-            const firstRole = (roles[0] as string) || '';
-            const redirectUrl = roles.includes('ADMIN') ? '/admin' : (ROLE_ROUTES[firstRole] || '/');
+            const redirectUrl = getHomeRoute(roles);
             return NextResponse.redirect(new URL(redirectUrl, nextUrl));
         }
         return NextResponse.next();
@@ -46,8 +44,7 @@ export default auth((req: any) => {
             const hasAccess = allowedRoles.some((r: string) => (roles as string[]).includes(r));
             if (!hasAccess) {
                 // Không có quyền -> redirect về dashboard mặc định của user
-                const firstRole = (roles[0] as string) || '';
-                const redirectUrl = ROLE_ROUTES[firstRole] || '/';
+                const redirectUrl = getHomeRoute(roles);
                 return NextResponse.redirect(new URL(redirectUrl, nextUrl));
             }
             break;

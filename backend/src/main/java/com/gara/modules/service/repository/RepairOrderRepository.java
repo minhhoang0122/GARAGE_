@@ -244,6 +244,7 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         @org.springframework.data.repository.query.Param("receptionId") Integer receptionId);
 
         @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+        @org.springframework.data.jpa.repository.Query("SELECT r FROM RepairOrder r WHERE r.id = :id")
         java.util.Optional<RepairOrder> findByIdWithLock(
                         @org.springframework.data.repository.query.Param("id") Integer id);
 }

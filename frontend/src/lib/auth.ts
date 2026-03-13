@@ -5,35 +5,9 @@ import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { api, API_URL } from './api';
 
-// Định nghĩa các vai trò
-export const VaiTro = {
-    ADMIN: 'ADMIN',
-    SALE: 'SALE',
-    KHO: 'KHO',
-    THO_CHAN_DOAN: 'THO_CHAN_DOAN',
-    THO_SUA_CHUA: 'THO_SUA_CHUA',
-    KE_TOAN: 'KE_TOAN',
-} as const;
-
-export type VaiTroType = (typeof VaiTro)[keyof typeof VaiTro];
-
-// Route cho từng vai trò
-export const ROLE_ROUTES: Record<string, string> = {
-    ADMIN: '/admin',
-    SALE: '/sale',
-    KHO: '/warehouse',
-    THO_CHAN_DOAN: '/mechanic',
-    THO_SUA_CHUA: '/mechanic',
-    KE_TOAN: '/sale', // Kế toán tạm thời dùng chung với sale
-};
-
-// Quyền truy cập routes
-export const ROUTE_PERMISSIONS: Record<string, string[]> = {
-    '/admin': ['ADMIN'],
-    '/sale': ['ADMIN', 'SALE', 'KE_TOAN'],
-    '/warehouse': ['ADMIN', 'KHO'],
-    '/mechanic': ['THO_CHAN_DOAN', 'THO_SUA_CHUA'],
-};
+import { VaiTro, ROLE_ROUTES, ROUTE_PERMISSIONS } from './routes';
+export { VaiTro, ROLE_ROUTES, ROUTE_PERMISSIONS };
+export type { VaiTroType } from './routes';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     trustHost: true,
@@ -50,17 +24,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 }
 
                 try {
-                    const publicApiUrl = process.env.NEXT_PUBLIC_API_URL;
-                    console.log('DEBUG [auth.ts]: Attempting login for:', credentials.username);
-                    console.log('DEBUG [auth.ts]: process.env.NEXT_PUBLIC_API_URL is:', publicApiUrl);
-                    console.log('DEBUG [auth.ts]: API_URL from api.ts is:', API_URL);
-
                     const data = await api.login(
                         credentials.username as string,
                         credentials.password as string
                     );
                     
-                    console.log('DEBUG [auth.ts]: Login successful for:', credentials.username);
+                    if (!data || !data.token) {
+                        return null;
+                    }
 
                     return {
                         id: data.userId.toString(),
@@ -70,9 +41,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         accessToken: data.token
                     } as any;
                 } catch (error: any) {
-                    console.error('NextAuth Authorize Error:', error.message || error);
-                    console.error('DEBUG [auth.ts] Error occured while calling API:', API_URL);
-                    console.error('DEBUG [auth.ts] NEXT_PUBLIC_API_URL ENV:', process.env.NEXT_PUBLIC_API_URL);
+                    console.error('CRITICAL [auth.ts] Authorize Exception:');
+                    console.error('- Message:', error.message);
+                    console.error('- Stack:', error.stack?.split('\n')[0]); // Log dòng đầu của stack
+                    console.error('- API_URL:', API_URL);
                     return null;
                 }
             },
@@ -97,8 +69,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         async session({ session, token }) {
             if (session.user) {
                 session.user.id = token.id as string;
-                (session.user as any).roles = token.roles;
-                (session.user as any).permissions = token.permissions;
+                (session.user as any).roles = token.roles || [];
+                (session.user as any).permissions = token.permissions || [];
                 (session.user as any).accessToken = token.accessToken;
             }
             return session;
