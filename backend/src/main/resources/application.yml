@@ -39,6 +39,7 @@ spring:
       max-request-size: 11MB
   
   jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect # ÉP DIALECT: Giải quyết lỗi "Unable to determine Dialect"
     hibernate:
       ddl-auto: none # TẮT để khởi động nhanh (schema đã có sẵn)
     show-sql: false
@@ -46,8 +47,8 @@ spring:
     properties:
       hibernate:
         format_sql: false
-        temp:
-          use_jdbc_metadata_defaults: false # TĂNG TỐC: Bỏ qua kiểm tra metadata DB khi khởi động
+        boot:
+          allow_jdbc_metadata_access: false # TĂNG TỐC: Dùng thuộc tính mới thay thế cho 'temp.use_jdbc_metadata_defaults'
         # Batch optimization
         default_batch_fetch_size: 50
         jdbc:
