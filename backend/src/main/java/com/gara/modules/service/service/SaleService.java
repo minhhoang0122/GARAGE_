@@ -93,22 +93,20 @@ public class SaleService {
         List<DashboardStatsDTO.DashboardVehicleDTO> waitingVehicles = waitingOrders.stream()
                 .limit(5)
                 .map(o -> {
-                    String plate = "Unknown";
-                    String customer = "Unknown";
-                    String receptionist = "Unknown";
+                    String plate = "N/A";
+                    String customer = "N/A";
+                    String receptionist = "N/A";
 
-                    try {
-                        if (o.getPhieuTiepNhan() != null && o.getPhieuTiepNhan().getXe() != null) {
+                    if (o.getPhieuTiepNhan() != null) {
+                        if (o.getPhieuTiepNhan().getXe() != null) {
                             plate = o.getPhieuTiepNhan().getXe().getBienSo();
                             if (o.getPhieuTiepNhan().getXe().getKhachHang() != null) {
                                 customer = o.getPhieuTiepNhan().getXe().getKhachHang().getHoTen();
                             }
                         }
-                        if (o.getPhieuTiepNhan() != null && o.getPhieuTiepNhan().getNguoiTiepNhan() != null) {
+                        if (o.getPhieuTiepNhan().getNguoiTiepNhan() != null) {
                             receptionist = o.getPhieuTiepNhan().getNguoiTiepNhan().getHoTen();
                         }
-                    } catch (Exception e) {
-                        // Log and continue with defaults if join fails
                     }
 
                     return DashboardStatsDTO.DashboardVehicleDTO.builder()
@@ -126,12 +124,9 @@ public class SaleService {
         List<RepairOrder> recentOrdersList = orderRepository.findTop5ByOrderByNgayTaoDesc();
         List<DashboardStatsDTO.DashboardOrderDTO> recentOrders = recentOrdersList.stream()
                 .map(o -> {
-                    String plate = "Unknown";
-                    try {
-                        if (o.getPhieuTiepNhan() != null && o.getPhieuTiepNhan().getXe() != null) {
-                            plate = o.getPhieuTiepNhan().getXe().getBienSo();
-                        }
-                    } catch (Exception e) {
+                    String plate = "N/A";
+                    if (o.getPhieuTiepNhan() != null && o.getPhieuTiepNhan().getXe() != null) {
+                        plate = o.getPhieuTiepNhan().getXe().getBienSo();
                     }
 
                     return DashboardStatsDTO.DashboardOrderDTO.builder()

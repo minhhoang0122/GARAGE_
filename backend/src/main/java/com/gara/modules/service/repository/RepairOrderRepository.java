@@ -50,7 +50,10 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
         // Optimized: Get top 5 recent orders. We don't JOIN FETCH xe here to avoid
         // conversion issues if JPA misbehaves.
         // We'll load related entities in the service layer as needed.
-        @Query("SELECT r FROM RepairOrder r " +
+        @Query("SELECT DISTINCT r FROM RepairOrder r " +
+                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
+                        "LEFT JOIN FETCH ptn.xe x " +
+                        "LEFT JOIN FETCH x.khachHang kh " +
                         "ORDER BY r.ngayTao DESC")
         List<RepairOrder> findTop5ByOrderByNgayTaoDesc(org.springframework.data.domain.Pageable pageable);
 
@@ -229,6 +232,7 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
                         "LEFT JOIN FETCH ptn.xe x " +
                         "LEFT JOIN FETCH x.khachHang kh " +
+                        "LEFT JOIN FETCH ptn.nguoiTiepNhan ntn " +
                         "WHERE r.trangThai IN :statuses " +
                         "ORDER BY r.ngayTao DESC")
         List<RepairOrder> findByStatusesOptimized(
