@@ -48,7 +48,7 @@ export default function CreateOrderButton({ receptionId }: CreateOrderButtonProp
         <button
             onClick={handleCreateOrder}
             disabled={loading}
-            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium text-sm disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-bold text-xs rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50"
         >
             {loading ? 'Đang tạo...' : 'Tạo đơn hàng'}
         </button>

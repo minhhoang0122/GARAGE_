@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import DashboardLayout from '@/modules/common/components/layout/DashboardLayout';
-import { Plus, FileText, Car, Printer, RefreshCw } from 'lucide-react';
+import { Plus, FileText, Car, Printer, RefreshCw, Eye, ExternalLink } from 'lucide-react';
 import { EmptyState } from '@/modules/shared/components/ui/empty-state';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
@@ -104,8 +104,8 @@ export default function ReceptionListPage() {
                                         <th className="px-3 py-3 text-center w-36">Biển số</th>
                                         <th className="px-3 py-3 text-left min-w-[150px]">Khách hàng</th>
                                         <th className="px-3 py-3 text-left w-40">Xe</th>
-                                        <th className="px-3 py-3 text-center w-36">Trạng thái</th>
-                                        <th className="px-3 py-3 text-center w-28">Chi tiết</th>
+                                        <th className="px-3 py-3 text-center w-28">Trạng thái</th>
+                                        <th className="px-3 py-3 text-center w-52">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -133,8 +133,9 @@ export default function ReceptionListPage() {
                                                 </div>
                                             </td>
                                             <td className="px-3 py-3 text-center">
-                                                <Link href={`/sale/reception/${r.ID}`} className="font-bold text-sm text-slate-800 dark:text-slate-200 hover:text-indigo-600 transition-colors">
+                                                <Link href={`/sale/reception/${r.ID}`} className="font-bold text-sm text-slate-800 dark:text-slate-200 hover:text-indigo-600 transition-colors inline-flex items-center gap-1.5">
                                                     {r.XeBienSo}
+                                                    <ExternalLink className="w-3 h-3 opacity-30" />
                                                 </Link>
                                             </td>
                                             <td className="px-3 py-3 text-left">
@@ -156,12 +157,19 @@ export default function ReceptionListPage() {
                                                 </div>
                                             </td>
                                             <td className="px-3 py-3 text-center">
-                                                <div className="flex items-center justify-center">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <Link
+                                                        href={`/sale/reception/${r.ID}`}
+                                                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[11px] rounded-lg transition-all flex items-center gap-1.5"
+                                                    >
+                                                        <Eye className="w-3.5 h-3.5" />
+                                                        Xem phiếu
+                                                    </Link>
 
                                                     {r.DonHangSuaChua ? (
                                                         <Link
                                                             href={`/sale/orders/${r.DonHangSuaChua.ID}?source=reception`}
-                                                            className="px-3 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs rounded-lg shadow-sm hover:translate-y-[-1px] transition-all"
+                                                            className="px-2.5 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-[11px] rounded-lg shadow-sm hover:translate-y-[-1px] transition-all"
                                                         >
                                                             Đơn hàng
                                                         </Link>
@@ -197,8 +205,9 @@ export default function ReceptionListPage() {
                                     <div className="flex-1 min-w-0 space-y-1.5">
                                         <div className="flex justify-between items-start">
                                             <div>
-                                                <Link href={`/sale/reception/${r.ID}`} className="font-bold text-base text-slate-900 dark:text-slate-100 hover:text-indigo-600 block leading-tight">
+                                                <Link href={`/sale/reception/${r.ID}`} className="font-bold text-base text-slate-900 dark:text-slate-100 hover:text-indigo-600 flex items-center gap-1.5 leading-tight">
                                                     {r.XeBienSo}
+                                                    <ExternalLink className="w-3.5 h-3.5 opacity-30" />
                                                 </Link>
                                                 <p className="text-xs text-slate-500 line-clamp-1">{r.XeNhanHieu} {r.XeModel}</p>
                                             </div>
@@ -225,22 +234,30 @@ export default function ReceptionListPage() {
 
                                             <div className="flex gap-2">
                                                 <Link
+                                                    href={`/sale/reception/${r.ID}`}
+                                                    className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-[10px] rounded flex items-center hover:bg-slate-200 transition-colors"
+                                                >
+                                                    Xem phiếu
+                                                </Link>
+
+                                                {r.DonHangSuaChua ? (
+                                                    <Link
+                                                        href={`/sale/orders/${r.DonHangSuaChua.ID}?source=reception`}
+                                                        className="px-2.5 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-[10px] rounded flex items-center hover:bg-slate-800 dark:hover:bg-white transition-colors"
+                                                    >
+                                                        Đơn hàng
+                                                    </Link>
+                                                ) : (
+                                                    <CreateOrderButton receptionId={r.ID} />
+                                                )}
+
+                                                <Link
                                                     href={`/sale/reception/${r.ID}?print=true`}
                                                     target="_blank"
                                                     className="p-1.5 text-slate-500 bg-slate-50 dark:bg-slate-800 rounded hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
                                                 >
                                                     <Printer className="w-4 h-4" />
                                                 </Link>
-                                                {r.DonHangSuaChua ? (
-                                                    <Link
-                                                        href={`/sale/orders/${r.DonHangSuaChua.ID}?source=reception`}
-                                                        className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-medium text-xs rounded flex items-center hover:bg-indigo-100 transition-colors"
-                                                    >
-                                                        Đơn hàng &rarr;
-                                                    </Link>
-                                                ) : (
-                                                    <CreateOrderButton receptionId={r.ID} />
-                                                )}
                                             </div>
                                         </div>
                                     </div>
