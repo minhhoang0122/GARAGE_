@@ -1,5 +1,6 @@
 server:
   port: ${PORT:8081}
+  address: 0.0.0.0  # Đảm bảo nghe trên mọi giao diện để Render thấy cổng
   shutdown: graceful
   # Enable response compression
   compression:
@@ -39,14 +40,14 @@ spring:
   
   jpa:
     hibernate:
-      ddl-auto: update
-#      naming:
-#        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+      ddl-auto: none # TẮT để khởi động nhanh (schema đã có sẵn)
     show-sql: false
     open-in-view: false
     properties:
       hibernate:
         format_sql: false
+        temp:
+          use_jdbc_metadata_defaults: false # TĂNG TỐC: Bỏ qua kiểm tra metadata DB khi khởi động
         # Batch optimization
         default_batch_fetch_size: 50
         jdbc:
