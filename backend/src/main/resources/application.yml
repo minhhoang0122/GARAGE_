@@ -17,14 +17,14 @@ spring:
     driver-class-name: org.postgresql.Driver
     # HikariCP Connection Pool Optimization
     hikari:
-      minimum-idle: 5
-      maximum-pool-size: 15
-      idle-timeout: 30000 # 30 seconds - release idle connections quickly
+      minimum-idle: 1
+      maximum-pool-size: 5  # Giảm xuống 5 để tránh quá tải Supabase Free tier
+      idle-timeout: 30000
       pool-name: GaraHikariPool
-      max-lifetime: 45000 # 45 seconds - avoid stale connections from cloud DB
-      connection-timeout: 20000
-      keepalive-time: 30000 # 30 seconds - keep connections warm
-      leak-detection-threshold: 30000 # 30 seconds - enable connection leak detection
+      max-lifetime: 600000 # 10 minutes
+      connection-timeout: 30000 # 30 seconds
+      keepalive-time: 30000
+      leak-detection-threshold: 60000
 
   # Cloudinary Configuration
   cloudinary:

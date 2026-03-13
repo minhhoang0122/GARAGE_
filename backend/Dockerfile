@@ -18,8 +18,9 @@ WORKDIR /app
 # Copy file jar đã build từ bước trước
 COPY --from=build /app/target/*.jar app.jar
 
-# Mở cổng 8081 (khớp với cấu hình trong application.yml)
+# Mở cổng 8081 (mặc định)
 EXPOSE 8081
 
-# Lệnh khởi chạy ứng dụng
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Lệnh khởi chạy ứng dụng với cấu hình tối ưu cho Cloud
+# -Djava.security.egd=file:/dev/./urandom giúp JVM khởi động nhanh hơn trên một số hệ thống Linux
+ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
