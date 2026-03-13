@@ -272,8 +272,39 @@ public class ReceptionService {
     }
 
     @Transactional(readOnly = true)
-    public Optional<Reception> getReceptionById(Integer id) {
-        return receptionRepository.findByIdWithDetails(id);
+    public java.util.Optional<com.gara.dto.ReceptionDetailDTO> getReceptionById(Integer id) {
+        return receptionRepository.findByIdWithDetails(id).map(r -> {
+            var builder = com.gara.dto.ReceptionDetailDTO.builder()
+                    .id(r.getId())
+                    .ngayGio(r.getNgayGio())
+                    .mucXang(r.getMucXang())
+                    .tinhTrangVoXe(r.getTinhTrangVoXe())
+                    .yeuCauSoBo(r.getYeuCauSoBo())
+                    .hinhAnh(r.getHinhAnh())
+                    .odo(r.getOdo());
+
+            if (r.getXe() != null) {
+                builder.bienSo(r.getXe().getBienSo())
+                        .nhanHieu(r.getXe().getNhanHieu())
+                        .model(r.getXe().getModel())
+                        .soKhung(r.getXe().getSoKhung())
+                        .soMay(r.getXe().getSoMay());
+
+                if (r.getXe().getKhachHang() != null) {
+                    builder.tenKhach(r.getXe().getKhachHang().getHoTen())
+                            .sdtKhach(r.getXe().getKhachHang().getSoDienThoai())
+                            .diaChiKhach(r.getXe().getKhachHang().getDiaChi())
+                            .emailKhach(r.getXe().getKhachHang().getEmail());
+                }
+            }
+
+            if (r.getDonHangSuaChua() != null) {
+                builder.orderId(r.getDonHangSuaChua().getId())
+                        .orderStatus(r.getDonHangSuaChua().getTrangThai() != null ? r.getDonHangSuaChua().getTrangThai().name() : null);
+            }
+
+            return builder.build();
+        });
     }
 
     private String sanitizeHtml(String input) {
