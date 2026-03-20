@@ -53,7 +53,6 @@ public class OrderCalculationService {
                 BigDecimal unitPrice = item.getDonGiaGoc();
 
                 // Simple Line Gross Total (Price * Qty)
-                // We ignore historical per-item VAT/Discount for new logic as requested
                 BigDecimal lineSubtotal = unitPrice.multiply(qty);
                 
                 // Clear per-item tax/discount to avoid confusion in DB
@@ -71,16 +70,42 @@ public class OrderCalculationService {
             }
         }
 
+        applyTotals(order, totalParts, totalLabor);
+    }
+
+    /**
+     * Optimized: Updates totals incrementally without loading the full item list.
+     * Use this for single-item updates (status toggle, price change).
+     */
+    @Transactional
+    public void updateTotalsIncrementally(Integer orderId, BigDecimal delta, boolean isLabor) {
+        // Fetch order basic info (No items)
+        RepairOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
+
+        BigDecimal currentParts = order.getTongTienHang() != null ? order.getTongTienHang() : BigDecimal.ZERO;
+        BigDecimal currentLabor = order.getTongTienCong() != null ? order.getTongTienCong() : BigDecimal.ZERO;
+
+        if (isLabor) {
+            currentLabor = currentLabor.add(delta);
+        } else {
+            currentParts = currentParts.add(delta);
+        }
+
+        applyTotals(order, currentParts, currentLabor);
+    }
+
+    private void applyTotals(RepairOrder order, BigDecimal totalParts, BigDecimal totalLabor) {
         // 1. Update Subtotals
         order.setTongTienHang(totalParts);
         order.setTongTienCong(totalLabor);
 
-        // 2. Apply Global Discount (already stored in order.chietKhauTong from request)
+        // 2. Apply Global Discount
         BigDecimal discount = order.getChietKhauTong() != null ? order.getChietKhauTong() : BigDecimal.ZERO;
         BigDecimal subtotalAfterDiscount = totalParts.add(totalLabor).subtract(discount);
         if (subtotalAfterDiscount.compareTo(BigDecimal.ZERO) < 0) subtotalAfterDiscount = BigDecimal.ZERO;
 
-        // 3. Apply Global VAT (percentage stored in order.vatPhanTram)
+        // 3. Apply Global VAT
         BigDecimal vatRate = order.getVatPhanTram() != null ? order.getVatPhanTram() : BigDecimal.ZERO;
         BigDecimal totalTax = subtotalAfterDiscount.multiply(vatRate)
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);

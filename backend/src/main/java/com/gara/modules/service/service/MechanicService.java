@@ -348,8 +348,23 @@ public class MechanicService {
                 .nguoiThucHienId(userId)
                 .build());
 
-        // Recalculate totals
-        orderCalculationService.recalculateTotals(order);
+        // Recalculate totals incrementally
+        BigDecimal deltaParts = items.stream()
+                .filter(p -> !productRepository.findById(p.productId()).orElseThrow().getLaDichVu())
+                .map(p -> productRepository.findById(p.productId()).orElseThrow().getGiaBanNiemYet().multiply(BigDecimal.valueOf(p.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal deltaLabor = items.stream()
+                .filter(p -> productRepository.findById(p.productId()).orElseThrow().getLaDichVu())
+                .map(p -> productRepository.findById(p.productId()).orElseThrow().getGiaBanNiemYet().multiply(BigDecimal.valueOf(p.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (deltaParts.compareTo(BigDecimal.ZERO) > 0) {
+            orderCalculationService.updateTotalsIncrementally(order.getId(), deltaParts, false);
+        }
+        if (deltaLabor.compareTo(BigDecimal.ZERO) > 0) {
+            orderCalculationService.updateTotalsIncrementally(order.getId(), deltaLabor, true);
+        }
 
         // Notification
         asyncNotificationService.pushUniqueAsync(Notification.builder()
@@ -407,8 +422,27 @@ public class MechanicService {
             orderItemRepository.save(item);
         }
 
-        // Bug 127 Fix: Recalculate totals immediately to avoid stale prices
-        orderCalculationService.recalculateTotals(order);
+        // Recalculate totals incrementally
+        BigDecimal deltaParts = items.stream()
+                .filter(p -> !productRepository.findById(p.productId()).orElseThrow().getLaDichVu())
+                .map(p -> productRepository.findById(p.productId()).orElseThrow().getGiaBanNiemYet().multiply(BigDecimal.valueOf(p.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal deltaLabor = items.stream()
+                .filter(p -> productRepository.findById(p.productId()).orElseThrow().getLaDichVu())
+                .map(p -> productRepository.findById(p.productId()).orElseThrow().getGiaBanNiemYet().multiply(BigDecimal.valueOf(p.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // NOTE: CHO_KY_THUAT_DUYET items are NOT included in totals yet in OrderCalculationService?
+        // Wait, let's check OrderCalculationService filter again.
+        // It only skips KHACH_TU_CHOI. So it DOES include CHO_KY_THUAT_DUYET.
+        
+        if (deltaParts.compareTo(BigDecimal.ZERO) > 0) {
+            orderCalculationService.updateTotalsIncrementally(order.getId(), deltaParts, false);
+        }
+        if (deltaLabor.compareTo(BigDecimal.ZERO) > 0) {
+            orderCalculationService.updateTotalsIncrementally(order.getId(), deltaLabor, true);
+        }
         
         orderRepository.save(order);
 

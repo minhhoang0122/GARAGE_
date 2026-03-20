@@ -318,6 +318,8 @@ public class SaleService {
             }
         }
 
+        BigDecimal oldThanhTien = item.getThanhTien() != null ? item.getThanhTien() : BigDecimal.ZERO;
+
         if (quantity != null && quantity > 0) {
             item.setSoLuong(quantity);
         }
@@ -330,10 +332,23 @@ public class SaleService {
         }
 
         // Calculations are handled centrally in OrderCalculationService.recalculateTotals
-        item.setThanhTien(item.getDonGiaGoc().multiply(BigDecimal.valueOf(item.getSoLuong())));
-
+        BigDecimal rawSubtotal = item.getDonGiaGoc().multiply(BigDecimal.valueOf(item.getSoLuong()));
+        
+        // Clear per-item tax/discount complexity for now as logic moved to global
+        item.setThanhTien(rawSubtotal);
         orderItemRepository.save(item);
-        orderCalculationService.recalculateTotals(item.getDonHangSuaChua());
+
+        // Only update order totals if item is NOT rejected
+        if (!ItemStatus.KHACH_TU_CHOI.equals(item.getTrangThai())) {
+            BigDecimal delta = rawSubtotal.subtract(oldThanhTien);
+            if (delta.compareTo(BigDecimal.ZERO) != 0) {
+                orderCalculationService.updateTotalsIncrementally(
+                    item.getDonHangSuaChua().getId(), 
+                    delta, 
+                    item.getHangHoa() != null && item.getHangHoa().getLaDichVu()
+                );
+            }
+        }
     }
 
     // 4b. Update Item Status (Approve/Reject)
@@ -345,9 +360,25 @@ public class SaleService {
         checkOwnership(item.getDonHangSuaChua(), user);
         // Additional validation if needed
 
+        ItemStatus oldStatus = item.getTrangThai();
         item.setTrangThai(status);
         orderItemRepository.save(item);
-        orderCalculationService.recalculateTotals(item.getDonHangSuaChua());
+
+        // Delta logic: Skip if status rejected by customer
+        BigDecimal delta = BigDecimal.ZERO;
+        if (!ItemStatus.KHACH_TU_CHOI.equals(oldStatus) && ItemStatus.KHACH_TU_CHOI.equals(status)) {
+            delta = item.getThanhTien().negate();
+        } else if (ItemStatus.KHACH_TU_CHOI.equals(oldStatus) && !ItemStatus.KHACH_TU_CHOI.equals(status)) {
+            delta = item.getThanhTien();
+        }
+
+        if (delta.compareTo(BigDecimal.ZERO) != 0) {
+            orderCalculationService.updateTotalsIncrementally(
+                item.getDonHangSuaChua().getId(), 
+                delta, 
+                item.getHangHoa() != null && item.getHangHoa().getLaDichVu()
+            );
+        }
     }
 
     // 5. Remove Item
@@ -379,9 +410,15 @@ public class SaleService {
                 .build());
 
         order.getChiTietDonHang().remove(item);
+        BigDecimal currentVal = item.getThanhTien();
+        boolean isLabor = item.getHangHoa() != null && item.getHangHoa().getLaDichVu();
+        boolean wasIncluded = !ItemStatus.KHACH_TU_CHOI.equals(item.getTrangThai());
+
         orderItemRepository.delete(item);
 
-        orderCalculationService.recalculateTotals(order);
+        if (wasIncluded) {
+            orderCalculationService.updateTotalsIncrementally(order.getId(), currentVal.negate(), isLabor);
+        }
     }
 
     // 6. Send Quote to Customer

@@ -279,9 +279,9 @@ public class WarehouseService {
         }
         orderItemRepository.save(orderItem);
 
-        // Bug 113 Fix: Use central calculation service instead of manual aggregation
-        // to ensure VAT and pricing policies are applied consistently.
-        orderCalculationService.recalculateTotals(order);
+        // Bug 113 Fix: Use incremental update for better performance
+        BigDecimal deltaValue = orderItem.getDonGiaGoc().multiply(new BigDecimal(quantity)).negate();
+        orderCalculationService.updateTotalsIncrementally(order.getId(), deltaValue, false);
 
         // 4. Traceability (Audit Log)
         AuditLog log = AuditLog.builder()
