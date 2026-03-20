@@ -202,13 +202,14 @@ function Row({
 
     const [localStatus, setLocalStatus] = useState(item.itemStatus);
     const [isOptimistic, setIsOptimistic] = useState(false);
+    const [isUpdating, setIsUpdating] = useState(false);
 
-    // Sync local state when server data changes, BUT lock it during optimistic updates
+    // Sync local state when server data changes, BUT lock it during active updates
     useEffect(() => {
-        if (!isOptimistic) {
+        if (!isUpdating) {
             setLocalStatus(item.itemStatus);
         }
-    }, [item.itemStatus, isOptimistic]);
+    }, [item.itemStatus, isUpdating]);
     
     const abortRef = useRef<AbortController | null>(null);
 
@@ -230,8 +231,8 @@ function Row({
                         // 1. UI update ngay lập tức (Snapshot for rollback)
                         const prevStatus = localStatus;
                         const nextStatus = localStatus === 'KHACH_DONG_Y' ? 'DE_XUAT' : 'KHACH_DONG_Y';
-                        
-                        setIsOptimistic(true);
+                              setIsOptimistic(true);
+                        setIsUpdating(true);
                         setLocalStatus(nextStatus);
 
                         // 2. Hủy request cũ nếu click quá nhanh
@@ -241,35 +242,52 @@ function Row({
                         const controller = new AbortController();
                         abortRef.current = controller;
  
-                        // 3. API bắn ngay - Fire & Forget (không await)
+                        // 3. API bắn ngay - Fire & Forget
                         if (!token) {
                             showToast('error', 'Phiên làm việc hết hạn. Vui lòng tải lại trang.');
+                            // Reset state immediately and unlock
                             setLocalStatus(prevStatus);
+                            setIsOptimistic(false);
+                            setIsUpdating(false);
                             return;
                         }
                         
                         api.patch(`/sale/items/${item.id}/status`, { status: nextStatus }, token, controller.signal)
                             .then(() => {
-                                // Thành công: Invalidate cache để header/summary cập nhật đúng
+                                // 1. Thành công: Unlock ngay lập tức
+                                setIsOptimistic(false);
+                                setIsUpdating(false);
+
+                                // 2. Invalidate cache để các components khác (Header/Summary) cập nhật
                                 api.invalidateCache(`/sale/orders/${orderId}`);
-                                // Refresh trang ngầm để cập nhật Tổng tiền (Background revalidation)
+                                // 3. Refresh trang ngầm để cập nhật Tổng tiền
                                 router.refresh();
                             })
                             .catch(err => {
-                                if (err.name === 'AbortError') return; // Do ta chủ động hủy
+                                if (err.name === 'AbortError') return;
                                 
-                                // Lỗi thật: Rollback UI
+                                // Lỗi thật: Rollback
                                 setLocalStatus(prevStatus);
-                                showToast('error', 'Đồng bộ trạng thái thất bại');
-                            })
-                            .finally(() => {
-                                // Mở khóa sau khi API hoàn tất (hoặc bị hủy)
                                 setIsOptimistic(false);
+                                setIsUpdating(false);
+                                showToast('error', 'Đồng bộ trạng thái thất bại');
                             });
                     }}
-                    className={`w-4 h-4 rounded flex items-center justify-center border-2 transition-all mx-auto ${readOnly ? 'cursor-not-allowed' : 'cursor-pointer hover:border-blue-400'} ${isApproved ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 dark:border-slate-700'}`}
+                    title={isApproved ? "Bỏ duyệt" : "Duyệt hạng mục"}
+                    className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
                 >
-                    {isApproved && <Check className="w-3 h-3" />}
+                    <div 
+                        className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 
+                        ${isApproved ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'}
+                        ${isUpdating ? 'opacity-70 scale-95' : 'hover:scale-105'}
+                        shadow-sm`}
+                    >
+                        {isUpdating ? (
+                            <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        ) : (
+                            isApproved ? <Check className="w-3 h-3 stroke-[3]" /> : null
+                        )}
+                    </div>
                 </button>
             </td>
 
