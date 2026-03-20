@@ -140,28 +140,30 @@ export default function OrderSummary({
                     )}
                 </div>
 
-                {/* Thuế VAT */}
-                <div className="flex justify-between items-center text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-50 dark:border-slate-800">
-                    <span className="flex items-center gap-1">Thuế VAT:</span>
-                    {isEditing ? (
-                        <div className="relative w-20">
-                            <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={editData.vatPercent}
-                                onChange={(e) => setEditData(prev => ({ ...prev, vatPercent: Number(e.target.value) }))}
-                                className="w-full h-8 pl-2 pr-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-right text-slate-900 dark:text-slate-100 font-bold focus:border-blue-500 outline-none transition-all tabular-nums"
-                            />
-                            <span className="absolute right-2 top-1.5 text-[10px] text-slate-400">%</span>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-end">
-                            <span className="text-slate-900 dark:text-slate-200 tabular-nums">{formatCurrency(vat)}</span>
-                            <span className="text-[10px] text-slate-400">({vatPercent}%)</span>
-                        </div>
-                    )}
-                </div>
+                {/* Thuế VAT - Chỉ hiện nếu có phần trăm thuế hoặc đang chỉnh sửa */}
+                {(isEditing || vatPercent > 0) && (
+                    <div className="flex justify-between items-center text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-50 dark:border-slate-800">
+                        <span className="flex items-center gap-1">Thuế VAT:</span>
+                        {isEditing ? (
+                            <div className="relative w-20">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={editData.vatPercent}
+                                    onChange={(e) => setEditData(prev => ({ ...prev, vatPercent: Number(e.target.value) }))}
+                                    className="w-full h-8 pl-2 pr-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-right text-slate-900 dark:text-slate-100 font-bold focus:border-blue-500 outline-none transition-all tabular-nums"
+                                />
+                                <span className="absolute right-2 top-1.5 text-[10px] text-slate-400">%</span>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-end">
+                                <span className="text-slate-900 dark:text-slate-200 tabular-nums">{formatCurrency(vat)}</span>
+                                <span className="text-[10px] text-slate-400">({vatPercent}%)</span>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Thành tiền */}
                 <div className="flex justify-between items-center text-xl font-black text-slate-900 dark:text-white pt-4 border-t-2 border-blue-50 dark:border-blue-900/30">

@@ -181,9 +181,9 @@ export default function CreateWarrantyPage({ params }: { params: Promise<{ id: s
                                     <div className="text-right">
                                         <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{formatCurrency(item.total)}</p>
                                         {item.warrantyMonths > 0 || item.warrantyKm > 0 ? (
-                                            <p className="text-[10px] text-slate-400 dark:text-slate-500">CS: {item.warrantyMonths}th / {item.warrantyKm.toLocaleString()}km</p>
+                                            <p className="text-[10px] text-slate-400 dark:text-slate-500">Chính sách: {item.warrantyMonths}th / {item.warrantyKm.toLocaleString()}km</p>
                                         ) : (
-                                            <p className="text-[10px] text-slate-400 dark:text-slate-500 italic">Không áp dụng BH</p>
+                                            <p className="text-[10px] text-slate-400 dark:text-slate-500 italic">Hết hạn hoặc Không áp dụng BH</p>
                                         )}
                                     </div>
                                 </div>

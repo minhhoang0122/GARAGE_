@@ -372,9 +372,9 @@ export default function LandingPage() {
                                             </div>
                                             <div>
                                                 <h4 className="text-xl font-bold text-stone-900 mb-2 group-hover:text-orange-600 transition-colors uppercase">{service.tenHang}</h4>
-                                                <p className="text-stone-600 leading-relaxed">
+                                                 <p className="text-stone-600 leading-relaxed">
                                                     Dịch vụ chuyên nghiệp với giá niêm yết {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(service.giaBanNiemYet || 0)}. 
-                                                    Cam kết chất lượng và bảo hành lên đến {service.baoHanhSoThang || 0} tháng.
+                                                    {service.baoHanhSoThang > 0 && ` Cam kết chất lượng và bảo hành lên đến ${service.baoHanhSoThang} tháng.`}
                                                 </p>
                                             </div>
                                         </motion.li>

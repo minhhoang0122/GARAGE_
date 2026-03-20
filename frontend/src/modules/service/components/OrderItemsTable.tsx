@@ -1,7 +1,7 @@
 'use client';
 
 import { OrderDetailItem, updateOrderItem, removeOrderItem, toggleItemStatus } from '@/modules/service/order';
-import { Trash2, Check, X, ChevronRight, Save, Loader2 } from 'lucide-react';
+import { Trash2, Check, X, ChevronRight, Save, Loader2, ShieldCheck } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
@@ -227,9 +227,19 @@ function Row({
                     </span>
                 </div>
                 {item.proposedByName && (
-                    <div className="text-[10px] text-slate-400 italic flex items-center gap-1">
+                    <div className="text-[10px] text-slate-400 italic flex items-center gap-1 mb-1">
                         <span className="w-1 h-1 rounded-full bg-slate-300"></span>
                         Đề xuất: {item.proposedByRole === 'AI' ? 'AI Chẩn đoán' : item.proposedByName}
+                    </div>
+                )}
+                {(item.warrantyMonths > 0 || item.warrantyKm > 0) && (
+                    <div className="flex items-center gap-1.5 text-[9.5px] font-bold text-blue-500/80 bg-blue-50/50 dark:bg-blue-900/10 w-fit px-1.5 py-0.5 rounded border border-blue-100/50 dark:border-blue-800/30">
+                        <ShieldCheck size={10} className="shrink-0" />
+                        <span>
+                            Bảo hành: {item.warrantyMonths > 0 ? `${item.warrantyMonths}T` : ''} 
+                            {item.warrantyMonths > 0 && item.warrantyKm > 0 ? ' / ' : ''}
+                            {item.warrantyKm > 0 ? `${item.warrantyKm.toLocaleString()}km` : ''}
+                        </span>
                     </div>
                 )}
             </td>

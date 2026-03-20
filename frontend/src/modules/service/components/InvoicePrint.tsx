@@ -18,6 +18,7 @@ interface InvoicePrintProps {
             discountAmount: number;
             total: number;
             isService: boolean;
+            warrantyMonths?: number;
         }[];
         totalParts: number;
         totalLabor: number;
@@ -189,6 +190,11 @@ export default function InvoicePrint({ order }: InvoicePrintProps) {
                                         <div className="item-code">
                                             {item.productCode}
                                             {item.isService && <span className="service-badge" style={{ marginLeft: '8px' }}>Dịch vụ</span>}
+                                            {item.warrantyMonths && item.warrantyMonths > 0 ? (
+                                                <span style={{ marginLeft: '8px', color: '#1e40af', fontWeight: 'bold' }}>
+                                                    (BH: {item.warrantyMonths}T)
+                                                </span>
+                                            ) : null}
                                         </div>
                                     </td>
                                     <td style={{ textAlign: 'center' }}>{item.quantity}</td>
@@ -215,10 +221,12 @@ export default function InvoicePrint({ order }: InvoicePrintProps) {
                                 <span className="value" style={{ color: '#dc2626' }}>-{formatCurrency(order.totalDiscount)}</span>
                             </div>
                         )}
-                        <div className="total-row">
-                            <span className="label">Thuế VAT:</span>
-                            <span className="value">{formatCurrency(order.vat)}</span>
-                        </div>
+                        {order.vat > 0 && (
+                            <div className="total-row">
+                                <span className="label">Thuế VAT:</span>
+                                <span className="value">{formatCurrency(order.vat)}</span>
+                            </div>
+                        )}
                         <div className="total-row grand-total">
                             <span className="label">TỔNG CỘNG:</span>
                             <span className="value">{formatCurrency(order.grandTotal)}</span>
