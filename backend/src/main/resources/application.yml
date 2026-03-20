@@ -76,7 +76,7 @@ jwt:
   expiration: 86400000
 
 cors:
-  allowed-origins: http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3005,https://garage-lac.vercel.app,https://garage-b33o7223r-minhhoangprovjp123-gmailcoms-projects.vercel.app
+  allowed-origins: http://localhost:[*],https://*.vercel.app,https://garage-lac.vercel.app,https://garage-pbqbmrpab-minhhoangprovjp123-gmailcoms-projects.vercel.app
 
 springdoc:
   api-docs:

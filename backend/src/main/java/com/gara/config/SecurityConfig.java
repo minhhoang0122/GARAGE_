@@ -104,9 +104,9 @@ public class SecurityConfig {
         // Bug 8 Fix: Do not allow '*' in production. Use restricted whitelist from
         // application.yml
         if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
-            configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+            configuration.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(",")));
         } else {
-            configuration.setAllowedOrigins(List.of("http://localhost:3000")); // Safe default
+            configuration.setAllowedOriginPatterns(List.of("http://localhost:[*]", "https://*.vercel.app")); // Safe default patterns
         }
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
