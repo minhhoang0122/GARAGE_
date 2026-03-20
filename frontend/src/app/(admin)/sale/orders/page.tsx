@@ -118,16 +118,16 @@ export default function OrderListPage() {
                     <>
                         {/* Desktop Table */}
                         <div className="hidden md:block overflow-x-auto">
-                            <table className="data-table w-full text-left min-w-[1000px] table-fixed">
+                            <table className="data-table w-full text-left min-w-[800px]">
                                 <colgroup>
                                     <col className="w-[80px]" />
+                                    <col className="w-[110px]" />
                                     <col className="w-[120px]" />
+                                    <col /> {/* Khách hàng tự fit */}
+                                    <col className="w-[150px]" />
                                     <col className="w-[140px]" />
-                                    <col />
-                                    <col className="w-[160px]" />
-                                    <col className="w-[150px]" />
-                                    <col className="w-[150px]" />
-                                    <col className="w-[100px]" />
+                                    <col className="w-[140px]" />
+                                    <col className="w-[80px]" />
                                 </colgroup>
                                 <thead>
                                     <tr className="bg-stone-100 dark:bg-slate-900 border-b border-stone-200 dark:border-slate-800 text-[10px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-widest transition-colors">

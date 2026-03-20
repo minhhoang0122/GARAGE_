@@ -126,14 +126,14 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
             {/* Table Container - Extreme Space Optimization */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden text-[13px]">
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="data-table w-full text-left min-w-[800px]">
+                    <table className="data-table w-full text-left min-w-[700px]">
                         <colgroup>
                             <col className="w-[50px]" />
-                            <col className="w-[300px]" />
-                            <col className="w-[70px]" />
-                            <col className="w-[150px]" />
-                            <col className="w-[180px]" />
-                            <col className="w-[80px]" />
+                            <col /> {/* Cột Hạng mục tự fit */}
+                            <col className="w-[60px]" />
+                            <col className="w-[120px]" />
+                            <col className="w-[140px]" />
+                            <col className="w-[60px]" />
                         </colgroup>
                         <thead>
                             <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
@@ -217,7 +217,7 @@ function Row({
             </td>
 
             {/* 2. Thông tin */}
-            <td className="pl-6 pr-4 py-4 w-[300px]">
+            <td className="pl-6 pr-4 py-4 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                     <div className="font-bold text-slate-800 dark:text-slate-100 text-[13px] leading-tight truncate max-w-[240px]" title={item.productName}>
                         {item.productName}
