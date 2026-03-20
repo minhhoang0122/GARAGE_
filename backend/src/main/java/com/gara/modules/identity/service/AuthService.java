@@ -181,7 +181,11 @@ public class AuthService {
             user.setMatKhauHash(passwordEncoder.encode("123456"));
             user.setTrangThaiHoatDong(true);
             user.setSoDienThoai("0900000000");
-            userRepository.save(user);
+            try {
+                userRepository.save(user);
+            } catch (Exception e) {
+                log.warn("Could not save user {}: {}. It might already exist with a different username.", username, e.getMessage());
+            }
         } else {
             User user = userOptional.get();
             if (!passwordEncoder.matches("123456", user.getMatKhauHash())) {

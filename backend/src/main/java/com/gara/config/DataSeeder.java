@@ -5,14 +5,15 @@ import com.gara.modules.inventory.repository.ProductRepository;
 import com.gara.modules.identity.service.AuthService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
 
 @Component
-public class DataSeeder implements CommandLineRunner {
+public class DataSeeder {
 
     private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
 
@@ -28,8 +29,8 @@ public class DataSeeder implements CommandLineRunner {
         this.roleRepository = roleRepository;
     }
 
-    @Override
-    public void run(String... args) {
+    @EventListener(ApplicationReadyEvent.class)
+    public void run() {
         try {
             log.info("Seeding default users...");
             authService.seedDefaultUsers(roleRepository);
