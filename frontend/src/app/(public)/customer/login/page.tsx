@@ -4,7 +4,7 @@ import { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2, AlertCircle, Phone, Lock, ArrowLeft } from 'lucide-react';
+import { Loader2, AlertCircle, Phone, Lock, Home } from 'lucide-react';
 
 function CustomerLoginForm() {
     const [phone, setPhone] = useState('');
@@ -55,7 +55,9 @@ function CustomerLoginForm() {
                     href="/" 
                     className="flex items-center gap-2 text-stone-400 hover:text-white transition-all bg-stone-900/50 backdrop-blur-md px-4 py-2 rounded-full border border-stone-800 hover:border-orange-500/50 group"
                 >
-                    <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> 
+                    <div className="p-1 px-2 rounded-lg bg-stone-900 group-hover:bg-orange-600 transition-colors">
+                        <Home size={16} />
+                    </div>
                     <span className="text-sm font-medium">Trang chủ</span>
                 </Link>
             </div>

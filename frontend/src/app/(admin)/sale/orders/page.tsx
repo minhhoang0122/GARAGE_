@@ -118,57 +118,65 @@ export default function OrderListPage() {
                     <>
                         {/* Desktop Table */}
                         <div className="hidden md:block overflow-x-auto">
-                            <table className="w-full text-left border-collapse min-w-[1000px]">
+                            <table className="w-full text-left border-separate border-spacing-0 min-w-[1000px] table-fixed">
+                                <colgroup>
+                                    <col className="w-[80px]" />
+                                    <col className="w-[120px]" />
+                                    <col className="w-[140px]" />
+                                    <col />
+                                    <col className="w-[160px]" />
+                                    <col className="w-[150px]" />
+                                    <col className="w-[150px]" />
+                                    <col className="w-[100px]" />
+                                </colgroup>
                                 <thead>
-                                    <tr className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase transition-colors">
-                                        <th className="px-3 py-3 w-20">Mã đơn</th>
-                                        <th className="px-3 py-3 w-28">Thời gian</th>
-                                        <th className="px-3 py-3 w-36">Biển số</th>
-                                        <th className="px-3 py-3 min-w-[120px]">Khách hàng</th>
-                                        <th className="px-3 py-3 w-32">Trạng thái</th>
-                                        <th className="px-3 py-3 w-32 text-right">Tổng tiền</th>
-                                        <th className="px-3 py-3 w-32 text-right">Còn nợ</th>
-                                        <th className="px-3 py-3 w-24 text-right">Chi tiết</th>
+                                    <tr className="bg-stone-100 dark:bg-slate-900 border-b border-stone-200 dark:border-slate-800 text-[10px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-widest transition-colors">
+                                        <th className="px-3 py-4">Mã đơn</th>
+                                        <th className="px-3 py-4">Thời gian</th>
+                                        <th className="px-3 py-4">Biển số</th>
+                                        <th className="px-3 py-4">Khách hàng</th>
+                                        <th className="px-3 py-4">Trạng thái</th>
+                                        <th className="px-3 py-4 text-right">Tổng tiền</th>
+                                        <th className="px-3 py-4 text-right">Còn nợ</th>
+                                        <th className="px-3 py-4 text-right">Chi tiết</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                <tbody className="bg-white dark:bg-transparent">
                                     {filteredOrders.map((order: any) => (
-                                        <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="px-3 py-3 font-medium text-indigo-600 dark:text-indigo-400">
+                                        <tr key={order.id} className="hover:bg-amber-50/50 dark:hover:bg-slate-800/40 transition-colors group">
+                                            <td className="px-3 py-4 font-bold text-blue-600 dark:text-blue-400 border-b border-stone-100 dark:border-slate-800">
                                                 #{order.id}
                                             </td>
-                                            <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
+                                            <td className="px-3 py-4 text-stone-600 dark:text-slate-400 border-b border-stone-100 dark:border-slate-800 tabular-nums">
                                                 {new Date(order.createdAt).toLocaleDateString('vi-VN')}
-                                                <div className="text-[10px] text-slate-400">{new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
+                                                <div className="text-[10px] opacity-70 font-medium">{new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
                                             </td>
-                                            <td className="px-3 py-3 font-semibold text-slate-800 dark:text-slate-100">
+                                            <td className="px-3 py-4 font-black text-stone-800 dark:text-slate-100 border-b border-stone-100 dark:border-slate-800">
                                                 {order.plate}
-                                                <div className="text-[10px] font-normal text-slate-500">{order.vehicleBrand} {order.vehicleModel}</div>
+                                                <div className="text-[9px] font-bold opacity-50 uppercase tracking-tighter">{order.vehicleBrand} {order.vehicleModel}</div>
                                             </td>
-                                            <td className="px-3 py-3 text-slate-700 dark:text-slate-300">
+                                            <td className="px-3 py-4 text-stone-900 dark:text-slate-100 border-b border-stone-100 dark:border-slate-800 font-medium">
                                                 {order.customerName}
                                             </td>
-                                            <td className="px-3 py-3">
-                                                <div className="scale-90 origin-left">
-                                                    {getStatusBadge(order.status)}
-                                                </div>
+                                            <td className="px-3 py-4 border-b border-stone-100 dark:border-slate-800">
+                                                {getStatusBadge(order.status)}
                                             </td>
-                                            <td className="px-3 py-3 text-right font-medium text-slate-700 dark:text-slate-200">
-                                                {formatCurrency(Number(order.grandTotal))}
+                                            <td className="px-3 py-4 text-right font-black text-stone-900 dark:text-slate-100 border-b border-stone-100 dark:border-slate-800 tabular-nums">
+                                                {formatCurrency(Number(order.grandTotal)).replace('₫', '').trim()}
                                             </td>
-                                            <td className="px-3 py-3 text-right">
+                                            <td className="px-3 py-4 text-right border-b border-stone-100 dark:border-slate-800 tabular-nums">
                                                 {Number(order.debt) > 0 ? (
-                                                    <span className="text-red-500 font-medium">{formatCurrency(Number(order.debt))}</span>
+                                                    <span className="text-red-600 font-black">{formatCurrency(Number(order.debt)).replace('₫', '').trim()}</span>
                                                 ) : (
-                                                    <span className="text-slate-400 text-[10px]">Đã thanh toán</span>
+                                                    <span className="text-stone-400 text-[10px] font-bold uppercase">Paid</span>
                                                 )}
                                             </td>
-                                            <td className="px-3 py-3 text-right">
+                                            <td className="px-3 py-4 text-right border-b border-stone-100 dark:border-slate-800">
                                                 <Link
                                                     href={`/sale/orders/${order.id}?source=list`}
-                                                    className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium text-sm transition-colors"
+                                                    className="inline-flex items-center gap-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all group-hover:gap-2"
                                                 >
-                                                    Xem <ArrowRight className="w-4 h-4" />
+                                                    <ArrowRight className="w-4 h-4" />
                                                 </Link>
                                             </td>
                                         </tr>

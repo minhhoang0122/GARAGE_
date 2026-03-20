@@ -126,17 +126,25 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
             {/* Table Container - Extreme Space Optimization */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden text-[13px]">
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left border-collapse table-fixed min-w-[800px]">
+                    <table className="w-full text-left border-separate border-spacing-0 table-fixed min-w-[800px]">
+                        <colgroup>
+                            <col className="w-[50px]" />
+                            <col className="w-[300px]" />
+                            <col className="w-[70px]" />
+                            <col className="w-[150px]" />
+                            <col className="w-[180px]" />
+                            <col className="w-[80px]" />
+                        </colgroup>
                         <thead>
                             <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                                <th className="px-4 py-3 w-[50px] text-center">
+                                <th className="px-4 py-3 text-center">
                                     <div className="w-3 h-3 rounded border border-slate-300 dark:border-slate-600 mx-auto" />
                                 </th>
-                                <th className="pl-6 pr-4 py-3 w-[300px] text-[10px] font-black text-slate-400 uppercase text-left">Hạng mục</th>
-                                <th className="px-4 py-3 w-[70px] text-right text-[10px] font-black text-slate-400 uppercase">SL</th>
-                                <th className="px-4 py-3 w-[150px] text-right text-[10px] font-black text-slate-400 uppercase">Đơn giá</th>
-                                <th className="px-4 py-3 w-[180px] text-right text-[10px] font-black text-slate-400 uppercase">Thành tiền</th>
-                                <th className="px-4 py-3 w-[80px] text-center text-[10px] font-black text-slate-400 uppercase">Xóa</th>
+                                <th className="pl-6 pr-4 py-3 text-[10px] font-black text-slate-400 uppercase text-left">Hạng mục</th>
+                                <th className="px-4 py-3 text-right text-[10px] font-black text-slate-400 uppercase">SL</th>
+                                <th className="px-4 py-3 text-right text-[10px] font-black text-slate-400 uppercase">Đơn giá</th>
+                                <th className="px-4 py-3 text-right text-[10px] font-black text-slate-400 uppercase">Thành tiền</th>
+                                <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase">Xóa</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -191,7 +199,7 @@ function Row({
     return (
         <tr className={`group transition-all hover:bg-slate-50/80 dark:hover:bg-slate-800/50 ${isRejected ? 'opacity-40' : ''}`}>
             {/* 1. Tuyển chọn */}
-            <td className="px-4 py-4 text-center">
+            <td className="px-4 py-4 w-[50px] text-center">
                 <button
                     disabled={readOnly}
                     onClick={async () => {
@@ -209,9 +217,9 @@ function Row({
             </td>
 
             {/* 2. Thông tin */}
-            <td className="pl-6 pr-4 py-4 min-w-0">
+            <td className="pl-6 pr-4 py-4 w-[300px] min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
-                    <div className="font-bold text-slate-800 dark:text-slate-100 text-[13px] leading-tight truncate max-w-[160px]" title={item.productName}>
+                    <div className="font-bold text-slate-800 dark:text-slate-100 text-[13px] leading-tight truncate max-w-[240px]" title={item.productName}>
                         {item.productName}
                     </div>
                     {isRejected && (
@@ -245,7 +253,7 @@ function Row({
             </td>
 
             {/* 3. Số lượng */}
-            <td className="px-4 py-4 text-right">
+            <td className="px-4 py-4 w-[70px] text-right">
                 {isGlobalEditing ? (
                     <div className="flex justify-end">
                         <input
@@ -262,7 +270,7 @@ function Row({
             </td>
 
             {/* 4. Đơn giá */}
-            <td className="px-4 py-4 text-right">
+            <td className="px-4 py-4 w-[150px] text-right">
                 <span className="text-[14px] font-medium text-slate-600 dark:text-slate-400 tabular-nums">
                     {formatCurrency(item.unitPrice).replace('₫', '').trim()}
                 </span>
@@ -297,14 +305,14 @@ function Row({
             </td> */}
 
             {/* 7. Thành tiền */}
-            <td className="px-4 py-4 text-right">
+            <td className="px-4 py-4 w-[180px] text-right">
                 <span className="text-[15px] font-black text-slate-900 dark:text-white tabular-nums">
                     {formatCurrency(item.total).replace('₫', '').trim()}
                 </span>
             </td>
 
             {/* 8. Action Xóa */}
-            <td className="px-4 py-4 text-center">
+            <td className="px-4 py-4 w-[80px] text-center">
                 {!readOnly && (
                     <button
                         onClick={async () => {

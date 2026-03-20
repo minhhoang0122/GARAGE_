@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, Home } from 'lucide-react';
 import Link from 'next/link';
 import ThemeToggle from '@/modules/common/components/layout/ThemeToggle';
 import { getHomeRoute } from '@/lib/routes';
@@ -173,7 +173,9 @@ export default function LoginPage() {
           href="/" 
           className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all bg-white/40 dark:bg-slate-900/40 backdrop-blur-md rounded-xl border border-white/20 dark:border-slate-800 shadow-sm hover:shadow-md active:scale-95 group"
         >
-          <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+          <div className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors">
+            <Home className="w-4 h-4" />
+          </div>
           <span>Về trang chủ</span>
         </Link>
       </div>

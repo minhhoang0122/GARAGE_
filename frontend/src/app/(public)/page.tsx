@@ -17,11 +17,11 @@ export default function LandingPage() {
     const [hotServices, setHotServices] = useState<any[]>([]);
 
     useEffect(() => {
-        // Lấy 3 dịch vụ tiêu biểu để hiển thị trang chủ
+        // Lấy 6 dịch vụ tiêu biểu để hiển thị trang chủ (thay vì 3)
         api.getCached('/public/services')
             .then(data => {
                 if (Array.isArray(data)) {
-                    setHotServices(data.slice(0, 3));
+                    setHotServices(data.slice(0, 6));
                 }
             })
             .catch(err => console.error('Error fetching services for home:', err));
@@ -363,32 +363,30 @@ export default function LandingPage() {
                                 Giải pháp toàn diện cho xế hộp của bạn
                             </motion.h3>
 
-                            <ul className="space-y-8">
+                            <ul className="grid sm:grid-cols-2 gap-x-10 gap-y-8">
                                 {hotServices.length > 0 ? (
                                     hotServices.map((service, idx) => (
-                                        <motion.li key={service.id} variants={itemVariants} className="flex items-start gap-5 group">
-                                            <div className={`w-12 h-12 shrink-0 ${idx === 2 ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'bg-stone-100 border border-stone-200 text-stone-800'} flex items-center justify-center text-xl font-bold group-hover:scale-110 transition-transform`}>
+                                        <motion.li key={service.id} variants={itemVariants} className="flex items-start gap-4 group">
+                                            <div className={`w-10 h-10 shrink-0 ${idx % 2 === 1 ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'bg-stone-100 border border-stone-200 text-stone-800'} flex items-center justify-center text-lg font-bold group-hover:scale-110 transition-transform`}>
                                                 0{idx + 1}
                                             </div>
                                             <div>
-                                                <h4 className="text-xl font-bold text-stone-900 mb-2 group-hover:text-orange-600 transition-colors uppercase">{service.tenHang}</h4>
-                                                 <p className="text-stone-600 leading-relaxed">
-                                                    Dịch vụ chuyên nghiệp với giá niêm yết {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(service.giaBanNiemYet || 0)}. 
-                                                    {service.baoHanhSoThang > 0 && ` Cam kết chất lượng và bảo hành lên đến ${service.baoHanhSoThang} tháng.`}
+                                                <h4 className="text-lg font-bold text-stone-900 mb-1 group-hover:text-orange-600 transition-colors uppercase line-clamp-1">{service.tenHang}</h4>
+                                                 <p className="text-stone-600 text-sm leading-relaxed line-clamp-2">
+                                                    Giá niêm yết: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(service.giaBanNiemYet || 0)}. 
+                                                    {service.baoHanhSoThang > 0 && ` Bảo hành ${service.baoHanhSoThang} tháng.`}
                                                 </p>
                                             </div>
                                         </motion.li>
                                     ))
                                 ) : (
-                                    <>
-                                        <motion.li variants={itemVariants} className="flex items-start gap-5">
-                                            <div className="w-12 h-12 shrink-0 bg-stone-100 border border-stone-200 flex items-center justify-center text-xl font-bold text-stone-800">01</div>
-                                            <div>
-                                                <h4 className="text-xl font-bold text-stone-900 mb-2">Đang cập nhật dịch vụ...</h4>
-                                                <p className="text-stone-600 leading-relaxed">Hệ thống đang đồng bộ danh mục dịch vụ mới nhất từ trung tâm kỹ thuật.</p>
-                                            </div>
-                                        </motion.li>
-                                    </>
+                                    <motion.li variants={itemVariants} className="col-span-2 flex items-start gap-5">
+                                        <div className="w-12 h-12 shrink-0 bg-stone-100 border border-stone-200 flex items-center justify-center text-xl font-bold text-stone-800">01</div>
+                                        <div>
+                                            <h4 className="text-xl font-bold text-stone-900 mb-2">Đang đồng bộ dữ liệu...</h4>
+                                            <p className="text-stone-600 leading-relaxed">Vui lòng đợi trong giây lát.</p>
+                                        </div>
+                                    </motion.li>
                                 )}
                             </ul>
                         </motion.div>

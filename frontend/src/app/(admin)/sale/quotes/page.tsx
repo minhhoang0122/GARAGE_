@@ -46,53 +46,62 @@ export default async function QuotesListPage() {
                         <p className="max-w-md mx-auto">Tất cả xe tiếp nhận đã được chốt báo giá hoặc chưa có phiếu tiếp nhận nào mới.</p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase transition-colors">
-                                    <th className="px-6 py-4">Mã đơn</th>
-                                    <th className="px-6 py-4">Thời gian tạo</th>
-                                    <th className="px-6 py-4">Biển số</th>
-                                    <th className="px-6 py-4">Khách hàng</th>
-                                    <th className="px-6 py-4">Trạng thái</th>
-                                    <th className="px-6 py-4 text-right">Tổng dự toán</th>
-                                    <th className="px-6 py-4 text-right">Hành động</th>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-separate border-spacing-0 min-w-[1000px] table-fixed">
+                        <colgroup>
+                            <col className="w-[80px]" />
+                            <col className="w-[180px]" />
+                            <col className="w-[140px]" />
+                            <col />
+                            <col className="w-[160px]" />
+                            <col className="w-[160px]" />
+                            <col className="w-[130px]" />
+                        </colgroup>
+                        <thead>
+                            <tr className="bg-stone-100 dark:bg-slate-900 border-b border-stone-200 dark:border-slate-800 text-[10px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-widest transition-colors">
+                                <th className="px-4 py-4">Mã</th>
+                                <th className="px-4 py-4">Thời gian tạo</th>
+                                <th className="px-4 py-4">Biển số</th>
+                                <th className="px-4 py-4">Khách hàng</th>
+                                <th className="px-4 py-4">Trạng thái</th>
+                                <th className="px-4 py-4 text-right">Tổng dự toán</th>
+                                <th className="px-4 py-4 text-right">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-transparent">
+                            {quotes.map((quote: any) => (
+                                <tr key={quote.id} className="hover:bg-amber-50/50 dark:hover:bg-slate-800/40 transition-colors group">
+                                    <td className="px-4 py-4 font-bold text-stone-900 dark:text-slate-100 border-b border-stone-100 dark:border-slate-800">
+                                        #{quote.id}
+                                    </td>
+                                    <td className="px-4 py-4 text-stone-600 dark:text-slate-400 border-b border-stone-100 dark:border-slate-800 tabular-nums">
+                                        {new Date(quote.createdAt).toLocaleString('vi-VN')}
+                                    </td>
+                                    <td className="px-4 py-4 font-black text-stone-800 dark:text-slate-100 border-b border-stone-100 dark:border-slate-800">
+                                        {quote.plate}
+                                    </td>
+                                    <td className="px-4 py-4 truncate text-stone-900 dark:text-slate-100 border-b border-stone-100 dark:border-slate-800 font-medium">
+                                        {quote.customerName}
+                                    </td>
+                                    <td className="px-4 py-4 border-b border-stone-100 dark:border-slate-800">
+                                        {getStatusBadge(quote.status)}
+                                    </td>
+                                    <td className="px-4 py-4 text-right font-black text-stone-900 dark:text-slate-100 border-b border-stone-100 dark:border-slate-800 tabular-nums">
+                                        {formatCurrency(Number(quote.grandTotal)).replace('₫', '').trim()}
+                                    </td>
+                                    <td className="px-4 py-4 text-right border-b border-stone-100 dark:border-slate-800">
+                                        <Link
+                                            href={`/sale/orders/${quote.id}`}
+                                            className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-black text-[12px] uppercase tracking-tighter transition-all group-hover:gap-2"
+                                        >
+                                            Tiếp tục <ArrowRight className="w-3.5 h-3.5" />
+                                        </Link>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {quotes.map((quote: any) => (
-                                    <tr key={quote.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
-                                            #{quote.id}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                                            {new Date(quote.createdAt).toLocaleString('vi-VN')}
-                                        </td>
-                                        <td className="px-6 py-4 font-semibold text-slate-800 dark:text-slate-100">
-                                            {quote.plate}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-slate-900 dark:text-slate-100">{quote.customerName}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {getStatusBadge(quote.status)}
-                                        </td>
-                                        <td className="px-6 py-4 text-right font-medium text-slate-700 dark:text-slate-200">
-                                            {formatCurrency(Number(quote.grandTotal))}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <Link
-                                                href={`/sale/orders/${quote.id}`}
-                                                className="inline-flex items-center gap-1 text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 font-bold text-sm transition-colors"
-                                            >
-                                                Tiếp tục làm <ArrowRight className="w-4 h-4" />
-                                            </Link>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
                 )}
             </div>
         </DashboardLayout>
