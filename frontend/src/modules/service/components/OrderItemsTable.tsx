@@ -132,11 +132,11 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
                                 <th className="px-4 py-3 w-[50px] text-center">
                                     <div className="w-3 h-3 rounded border border-slate-300 dark:border-slate-600 mx-auto" />
                                 </th>
-                                <th className="pl-6 pr-4 py-3 w-[300px] text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Hạng mục</th>
-                                <th className="px-2 py-3 w-[70px] text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">SL</th>
-                                <th className="px-4 py-3 w-[150px] text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Đơn giá</th>
-                                <th className="px-4 py-3 w-[180px] text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Thành tiền</th>
-                                <th className="px-4 py-3 w-[80px] text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Xóa</th>
+                                <th className="pl-6 pr-4 py-3 w-[300px] text-[10px] font-black text-slate-400 uppercase text-left">Hạng mục</th>
+                                <th className="px-4 py-3 w-[70px] text-right text-[10px] font-black text-slate-400 uppercase">SL</th>
+                                <th className="px-4 py-3 w-[150px] text-right text-[10px] font-black text-slate-400 uppercase">Đơn giá</th>
+                                <th className="px-4 py-3 w-[180px] text-right text-[10px] font-black text-slate-400 uppercase">Thành tiền</th>
+                                <th className="px-4 py-3 w-[80px] text-center text-[10px] font-black text-slate-400 uppercase">Xóa</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -235,15 +235,17 @@ function Row({
             </td>
 
             {/* 3. Số lượng */}
-            <td className="px-2 py-4 text-center">
+            <td className="px-4 py-4 text-right">
                 {isGlobalEditing ? (
-                    <input
-                        type="number"
-                        min="1"
-                        value={editValue?.quantity ?? item.quantity}
-                        onChange={(e) => onUpdate(item.id, 'quantity', Number(e.target.value))}
-                        className="w-12 h-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-center text-[13px] font-black text-blue-600 focus:border-blue-500 outline-none transition-all tabular-nums"
-                    />
+                    <div className="flex justify-end">
+                        <input
+                            type="number"
+                            min="1"
+                            value={editValue?.quantity ?? item.quantity}
+                            onChange={(e) => onUpdate(item.id, 'quantity', Number(e.target.value))}
+                            className="w-12 h-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-center text-[13px] font-black text-blue-600 focus:border-blue-500 outline-none transition-all tabular-nums"
+                        />
+                    </div>
                 ) : (
                     <span className="text-[14px] font-black text-slate-800 dark:text-slate-100 tabular-nums">{item.quantity}</span>
                 )}
