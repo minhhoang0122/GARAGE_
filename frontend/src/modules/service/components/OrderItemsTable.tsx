@@ -126,19 +126,17 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
             {/* Table Container - Extreme Space Optimization */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden text-[13px]">
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left border-collapse table-fixed min-w-[730px]">
+                    <table className="w-full text-left border-collapse table-fixed min-w-[800px]">
                         <thead>
                             <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                                <th className="pl-4 pr-1 py-3 w-[40px] text-center">
+                                <th className="px-4 py-3 w-[50px] text-center">
                                     <div className="w-3 h-3 rounded border border-slate-300 dark:border-slate-600 mx-auto" />
                                 </th>
-                                <th className="px-4 py-3 w-[250px] text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Hạng mục</th>
-                                <th className="px-2 py-3 w-[45px] text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">SL</th>
-                                <th className="px-4 py-3 w-[120px] text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Đơn giá</th>
-                                {/* <th className="px-2 py-3 w-[80px] text-center text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Giảm %</th>
-                                <th className="px-2 py-3 w-[70px] text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">VAT</th> */}
-                                <th className="px-4 py-3 w-[140px] text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Thành tiền</th>
-                                <th className="px-4 py-3 w-[60px] text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Xóa</th>
+                                <th className="pl-6 pr-4 py-3 w-[300px] text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Hạng mục</th>
+                                <th className="px-2 py-3 w-[70px] text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">SL</th>
+                                <th className="px-4 py-3 w-[150px] text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Đơn giá</th>
+                                <th className="px-4 py-3 w-[180px] text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Thành tiền</th>
+                                <th className="px-4 py-3 w-[80px] text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Xóa</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -193,7 +191,7 @@ function Row({
     return (
         <tr className={`group transition-all hover:bg-slate-50/80 dark:hover:bg-slate-800/50 ${isRejected ? 'opacity-40' : ''}`}>
             {/* 1. Tuyển chọn */}
-            <td className="pl-4 pr-1 py-4 text-center">
+            <td className="px-4 py-4 text-center">
                 <button
                     disabled={readOnly}
                     onClick={async () => {
@@ -204,14 +202,14 @@ function Row({
                             showToast('error', 'Lỗi khi cập nhật trạng thái');
                         }
                     }}
-                    className={`w-4 h-4 rounded flex items-center justify-center border-2 transition-all ${readOnly ? 'cursor-not-allowed' : 'cursor-pointer hover:border-blue-400'} ${isApproved ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 dark:border-slate-700'}`}
+                    className={`w-4 h-4 rounded flex items-center justify-center border-2 transition-all mx-auto ${readOnly ? 'cursor-not-allowed' : 'cursor-pointer hover:border-blue-400'} ${isApproved ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 dark:border-slate-700'}`}
                 >
                     {isApproved && <Check className="w-3 h-3" />}
                 </button>
             </td>
 
             {/* 2. Thông tin */}
-            <td className="px-4 py-4 min-w-0">
+            <td className="pl-6 pr-4 py-4 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                     <div className="font-bold text-slate-800 dark:text-slate-100 text-[13px] leading-tight truncate max-w-[160px]" title={item.productName}>
                         {item.productName}
@@ -244,17 +242,17 @@ function Row({
                         min="1"
                         value={editValue?.quantity ?? item.quantity}
                         onChange={(e) => onUpdate(item.id, 'quantity', Number(e.target.value))}
-                        className="w-12 h-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-center text-[13px] font-bold text-blue-600 focus:border-blue-500 outline-none transition-all"
+                        className="w-12 h-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-center text-[13px] font-black text-blue-600 focus:border-blue-500 outline-none transition-all tabular-nums"
                     />
                 ) : (
-                    <span className="text-[13px] font-black text-slate-800 dark:text-slate-100 tabular-nums">{item.quantity}</span>
+                    <span className="text-[14px] font-black text-slate-800 dark:text-slate-100 tabular-nums">{item.quantity}</span>
                 )}
             </td>
 
             {/* 4. Đơn giá */}
             <td className="px-4 py-4 text-right">
-                <span className="text-[13px] font-medium text-slate-600 dark:text-slate-400 tabular-nums">
-                    {formatCurrency(item.unitPrice).replace('₫', '')}
+                <span className="text-[14px] font-medium text-slate-600 dark:text-slate-400 tabular-nums">
+                    {formatCurrency(item.unitPrice).replace('₫', '').trim()}
                 </span>
             </td>
 
@@ -288,8 +286,8 @@ function Row({
 
             {/* 7. Thành tiền */}
             <td className="px-4 py-4 text-right">
-                <span className="text-[14px] font-black text-slate-900 dark:text-white tabular-nums">
-                    {formatCurrency(item.total).replace('₫', '')}
+                <span className="text-[15px] font-black text-slate-900 dark:text-white tabular-nums">
+                    {formatCurrency(item.total).replace('₫', '').trim()}
                 </span>
             </td>
 
