@@ -15,6 +15,7 @@ const statusMap: Record<string, { label: string; color: string; icon: any }> = {
     DANG_SUA: { label: 'Đang sửa chữa', color: 'text-blue-400 bg-blue-900/30', icon: Wrench },
     CHO_KCS: { label: 'Kiểm tra chất lượng', color: 'text-purple-400 bg-purple-900/30', icon: CheckCircle },
     CHO_THANH_TOAN: { label: 'Chờ thanh toán', color: 'text-orange-400 bg-orange-900/30', icon: AlertCircle },
+    BAO_GIA_LAI: { label: 'Báo giá bổ sung', color: 'text-orange-500 bg-orange-900/50', icon: AlertCircle },
     HOAN_THANH: { label: 'Hoàn thành', color: 'text-emerald-400 bg-emerald-900/30', icon: CheckCircle },
     DONG: { label: 'Đã đóng', color: 'text-stone-400 bg-stone-800', icon: CheckCircle },
 };
@@ -88,6 +89,14 @@ export default function CustomerProgressPage() {
                                         {order.debt > 0 && <span className="text-orange-400 ml-2">Còn nợ: {Number(order.debt).toLocaleString('vi-VN')}đ</span>}
                                     </div>
                                 )}
+                                <div className="mt-4 pt-4 border-t border-stone-800 flex justify-end">
+                                    <Link 
+                                        href={`/customer/orders/${order.id}`}
+                                        className="text-orange-500 text-sm font-bold hover:underline"
+                                    >
+                                        Xem chi tiết & Duyệt báo giá →
+                                    </Link>
+                                </div>
                             </div>
                         );
                     })

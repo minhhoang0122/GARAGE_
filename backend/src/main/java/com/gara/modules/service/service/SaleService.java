@@ -284,7 +284,7 @@ public class SaleService {
         // Handle Arising Issues (Rule 3.3)
         OrderStatus status = order.getTrangThai();
         if (OrderStatus.DA_DUYET.equals(status) || OrderStatus.DANG_SUA.equals(status)) {
-            item.setTrangThai(ItemStatus.DE_XUAT); // Arising issue needs approval
+            item.setTrangThai(ItemStatus.CHO_KY_THUAT_DUYET); // Arising issue needs technical approval first
         } else {
             item.setTrangThai(ItemStatus.KHACH_DONG_Y); // Initial quote building
         }
@@ -482,41 +482,43 @@ public class SaleService {
         // Replenishment only allowed from DANG_SUA (mid-repair)
         validateTransition(oldStatus, OrderStatus.BAO_GIA_LAI);
 
-        order.setTrangThai(OrderStatus.BAO_GIA_LAI);
-
-        // Filter items that are in 'DE_XUAT' status (Proposed by mechanic or sale)
+        // Filter items that are in 'DE_XUAT' status (Proposed by manager after technical review)
         List<OrderItem> proposedItems = order.getChiTietDonHang().stream()
                 .filter(i -> ItemStatus.DE_XUAT.equals(i.getTrangThai()))
                 .toList();
 
         if (proposedItems.isEmpty()) {
-            throw new RuntimeException("Không có hạng mục phát sinh mới để báo giá.");
+            throw new RuntimeException("Không có hạng mục phát sinh nào đã được duyệt kỹ thuật để báo giá.");
         }
 
-        // We don't change the main order status if it's already DANG_SUA
-        // But we log the action
+        order.setTrangThai(OrderStatus.BAO_GIA_LAI);
+        orderRepository.save(order);
+
+        // Log transition
         asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
-                .duLieuCu(OrderStatus.DANG_SUA.name())
-                .duLieuMoi(OrderStatus.DANG_SUA.name())
-                .lyDo("Gửi báo giá bổ sung cho các hạng mục phát sinh")
+                .duLieuCu(oldStatus.name())
+                .duLieuMoi(OrderStatus.BAO_GIA_LAI.name())
+                .lyDo("Gửi báo giá bổ sung cho các hạng mục phát sinh đã duyệt kỹ thuật")
                 .nguoiThucHienId(user.getId())
                 .build());
 
         // Notify customer about replenishment quote
         Customer repCustomer = order.getPhieuTiepNhan().getXe().getKhachHang();
-        asyncNotificationService.pushUniqueAsync(Notification.builder()
-                .userId(repCustomer.getUserId())
-                .role("CUSTOMER")
-                .title("Báo giá bổ sung: " + order.getPhieuTiepNhan().getXe().getBienSo())
-                .content("Cố vấn dịch vụ đã gửi báo giá cho các hạng mục phát sinh mới. Vui lòng duyệt.")
-                .type("WARNING")
-                .link("/customer/orders/" + order.getId()) // Link for customer to approve
-                .createdAt(LocalDateTime.now())
-                .isRead(false)
-                .build());
+        if (repCustomer.getUserId() != null) {
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
+                    .userId(repCustomer.getUserId())
+                    .role("CUSTOMER")
+                    .title("Báo giá bổ sung: " + order.getPhieuTiepNhan().getXe().getBienSo())
+                    .content("Hệ thống đã cập nhật báo giá cho các hạng mục phát sinh mới. Vui lòng xem và duyệt.")
+                    .type("WARNING")
+                    .link("/customer/progress") // Customer can now go to progress page and follow the link to details
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        }
 
         // Create reservations for these new items
         reservationService.createReservation(orderId, user.getId());

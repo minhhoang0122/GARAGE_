@@ -399,7 +399,7 @@ public class MechanicService {
             item.setSoLuong(pItem.quantity());
             item.setDonGiaGoc(product.getGiaBanNiemYet());
             item.setThanhTien(product.getGiaBanNiemYet().multiply(BigDecimal.valueOf(pItem.quantity())));
-            item.setTrangThai(ItemStatus.DE_XUAT); // Issues are proposed until Sale sends and Customer approves
+            item.setTrangThai(ItemStatus.CHO_KY_THUAT_DUYET); // Waiting for Manager approval
             item.setGiamGiaTien(BigDecimal.ZERO);
             item.setGiamGiaPhanTram(BigDecimal.ZERO);
             item.setNguoiDeXuat(user);
@@ -407,40 +407,116 @@ public class MechanicService {
             orderItemRepository.save(item);
         }
 
-        // Bug 92: Move back to Pending Quote if new items are added
-        OrderStatus oldStatus = order.getTrangThai();
-        order.setTrangThai(OrderStatus.CHO_KH_DUYET);
-        
         // Bug 127 Fix: Recalculate totals immediately to avoid stale prices
         orderCalculationService.recalculateTotals(order);
         
         orderRepository.save(order);
 
-        // Bug 117 Fix: Audit status transition
+        // Audit log
         asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(order.getId())
                 .hanhDong("UPDATE")
-                .duLieuCu(oldStatus.name())
+                .duLieuCu(order.getTrangThai().name())
                 .duLieuMoi(order.getTrangThai().name())
-                .lyDo("Thợ báo phát sinh kỹ thuật mới")
+                .lyDo("Thợ báo phát sinh kỹ thuật mới - Chờ Quản đốc duyệt")
                 .nguoiThucHienId(userId)
                 .build());
 
-        // Recalculate totals
-        // payment/invoice)
-        orderCalculationService.recalculateTotals(order);
+        // Notify Workshop Manager (Quản đốc)
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
+                .role("QUAN_LY_XUONG")
+                .title("Phát sinh kỹ thuật mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
+                .content("Thợ " + user.getHoTen() + " báo phát sinh phụ tùng/dịch vụ mới. Vui lòng kiểm tra và duyệt kỹ thuật.")
+                .type("WARNING")
+                .link("/admin/technical-review")
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
+                .build());
+    }
+
+    // Manager confirms technical items to move them to Sale for pricing
+    @Transactional
+    public void confirmTechnicalIssue(Integer orderId, List<Integer> itemIds, Integer managerId) {
+        RepairOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        User manager = userRepository.findById(managerId)
+                .orElseThrow(() -> new RuntimeException("Manager not found"));
+
+        if (!manager.isQuanLy() && !manager.isAdmin()) {
+            throw new RuntimeException("Chỉ Quản lý xưởng mới có quyền duyệt kỹ thuật.");
+        }
+
+        List<OrderItem> items = orderItemRepository.findAllById(itemIds);
+        for (OrderItem item : items) {
+            if (!item.getDonHangSuaChua().getId().equals(orderId)) {
+                throw new RuntimeException("Item " + item.getId() + " does not belong to order " + orderId);
+            }
+            if (ItemStatus.CHO_KY_THUAT_DUYET.equals(item.getTrangThai())) {
+                item.setTrangThai(ItemStatus.DE_XUAT);
+                orderItemRepository.save(item);
+            }
+        }
 
         // Notify Sale about development
         asyncNotificationService.pushUniqueAsync(Notification.builder()
                 .role("SALE")
-                .title("Phát sinh kỹ thuật: " + order.getPhieuTiepNhan().getXe().getBienSo())
-                .content("Thợ sửa chữa báo phát sinh phụ tùng/dịch vụ mới. Vui lòng kiểm tra.")
-                .type("WARNING")
+                .title("Đề xuất đã duyệt kỹ thuật: " + order.getPhieuTiepNhan().getXe().getBienSo())
+                .content("Quản đốc đã duyệt kỹ thuật các hạng mục phát sinh. Vui lòng báo giá cho khách.")
+                .type("INFO")
                 .link("/sale/orders/" + order.getId())
                 .createdAt(LocalDateTime.now())
                 .isRead(false)
                 .build());
+
+        asyncAuditService.logAsync(AuditLog.builder()
+                .bang("DonHangSuaChua")
+                .banGhiId(order.getId())
+                .hanhDong("UPDATE")
+                .lyDo("Quản lý xưởng duyệt kỹ thuật các hạng mục phát sinh")
+                .nguoiThucHienId(managerId)
+                .build());
+    }
+
+    // Fetch all orders that have items waiting for technical approval
+    @Transactional(readOnly = true)
+    public List<OrderDetailDTO> getOrdersForTechnicalReview() {
+        // Find all items in CHO_KY_THUAT_DUYET
+        List<OrderItem> waitingItems = orderItemRepository.findByTrangThai(ItemStatus.CHO_KY_THUAT_DUYET);
+        
+        // Group by order and map to Detail DTOs
+        return waitingItems.stream()
+                .map(OrderItem::getDonHangSuaChua)
+                .distinct()
+                .map(order -> {
+                    // Reuse existing mapping logic or a simplified version
+                    // For now, let's use a simplified version to avoid huge DTOs if not needed
+                    // but usually the review page needs enough info to decide
+                    return mapToOrderDetailDTO(order);
+                })
+                .toList();
+    }
+
+    private OrderDetailDTO mapToOrderDetailDTO(RepairOrder order) {
+        // Implementation of mapping (simplified for this context)
+        return OrderDetailDTO.builder()
+                .id(order.getId())
+                .status(order.getTrangThai().name())
+                .plateNumber(order.getPhieuTiepNhan().getXe().getBienSo())
+                .carBrand(order.getPhieuTiepNhan().getXe().getNhanHieu())
+                .carModel(order.getPhieuTiepNhan().getXe().getModel())
+                .createdAt(order.getNgayTao())
+                .customerName(order.getPhieuTiepNhan().getXe().getKhachHang().getHoTen())
+                .items(order.getChiTietDonHang().stream()
+                        .map(i -> OrderItemDTO.builder()
+                                .id(i.getId())
+                                .productName(i.getHangHoa().getTenHang())
+                                .quantity(i.getSoLuong())
+                                .itemStatus(i.getTrangThai().name())
+                                .proposedByName(i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getHoTen() : null)
+                                .build())
+                        .toList())
+                .build();
     }
 
     // 6. Complete Job -> Send to QC

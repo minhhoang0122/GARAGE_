@@ -24,4 +24,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
     // Bug 136 Fix: Count Warranty Items
     @Query("SELECT COUNT(i) FROM OrderItem i WHERE i.trangThai LIKE '%WARRANTY%'")
     long countWarrantyItems();
+
+    // New for Supplemental Quote Approval Workflow
+    List<OrderItem> findByTrangThai(com.gara.entity.enums.ItemStatus trangThai);
 }

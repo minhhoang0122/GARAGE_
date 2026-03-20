@@ -135,6 +135,22 @@ public class MechanicController {
         }
     }
 
+    @GetMapping("/technical-review")
+    public ResponseEntity<?> getOrdersForTechnicalReview() {
+        return ResponseEntity.ok(mechanicService.getOrdersForTechnicalReview());
+    }
+
+    @PostMapping("/jobs/{id}/confirm-technical")
+    public ResponseEntity<?> confirmTechnicalIssue(@PathVariable Integer id, @RequestBody List<Integer> itemIds,
+            @AuthenticationPrincipal User user) {
+        try {
+            mechanicService.confirmTechnicalIssue(id, itemIds, user.getId());
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/jobs/{id}/complete")
     public ResponseEntity<?> completeJob(@PathVariable Integer id) {
         try {
