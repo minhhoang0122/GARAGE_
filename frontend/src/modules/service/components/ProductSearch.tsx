@@ -115,11 +115,8 @@ export default function ProductSearch({ orderId, readOnly = false, onProductSele
                 // Invalidate any client-side cache for this order
                 api.invalidateCache(`/sale/orders/${orderId}`);
 
-                // Give the server a moment to complete the transaction and revalidate
-                // Then refresh the current page's data
-                setTimeout(() => {
-                    router.refresh();
-                }, 500);
+                // The Server Action already calls revalidatePath, which will update the page data.
+                // Manual router.refresh() with timeout is no longer needed after backend optimization.
             } else {
                 showToast('error', res.error || 'Lỗi thêm sản phẩm');
             }

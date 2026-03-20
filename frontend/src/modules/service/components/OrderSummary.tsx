@@ -60,7 +60,6 @@ export default function OrderSummary({
             if (res.success) {
                 showToast('success', 'Đã cập nhật tổng hợp báo giá');
                 setIsEditing(false);
-                router.refresh();
             } else {
                 showToast('error', res.error || 'Lỗi khi cập nhật');
             }

@@ -319,8 +319,8 @@ export async function toggleItemStatus(itemId: number, currentStatus: string, or
         if (orderId) {
             revalidatePath(`/sale/orders/${orderId}`);
         }
-        revalidatePath('/sale/orders');
-        revalidatePath('/sale/quotes');
+        // Removed broad revalidations for /sale/orders and /sale/quotes to speed up response.
+        // These will be updated when the user navigates back to those pages.
         return { success: true };
     } catch (error: any) {
         // If API endpoint doesn't exist, we might need a different approach, 

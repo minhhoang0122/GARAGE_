@@ -219,12 +219,13 @@ function Row({
                         setLocalStatus(nextStatus);
                         
                         try {
+                            // Server Action toggleItemStatus already calls revalidatePath,
+                            // so router.refresh() is redundant and causes double-fetching.
                             await toggleItemStatus(item.id, item.itemStatus, orderId);
-                            router.refresh();
-                        } catch (e) {
+                        } catch (err) {
                             // Revert on error
                             setLocalStatus(item.itemStatus);
-                            showToast('error', 'Lỗi khi cập nhật trạng thái');
+                            showToast('error', 'Không thể cập nhật trạng thái. Vui lòng thử lại.');
                         }
                     }}
                     className={`w-4 h-4 rounded flex items-center justify-center border-2 transition-all mx-auto ${readOnly ? 'cursor-not-allowed' : 'cursor-pointer hover:border-blue-400'} ${isApproved ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 dark:border-slate-700'}`}
