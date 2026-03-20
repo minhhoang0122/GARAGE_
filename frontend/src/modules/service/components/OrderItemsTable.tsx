@@ -13,6 +13,7 @@ interface OrderItemsTableProps {
     items: OrderDetailItem[];
     orderId: number;
     readOnly?: boolean;
+    token?: string;
 }
 
 /**
@@ -21,7 +22,7 @@ interface OrderItemsTableProps {
  * - Chế độ chỉnh sửa tập trung (Global Edit) giúp quản lý báo giá chuyên nghiệp.
  * - Cột Xóa Sticky với hiệu ứng Glassmorphism tinh tế.
  */
-export default function OrderItemsTable({ items, orderId, readOnly = false }: OrderItemsTableProps) {
+export default function OrderItemsTable({ items, orderId, readOnly = false, token }: OrderItemsTableProps) {
     const router = useRouter();
     const confirm = useConfirm();
     const { showToast } = useToast();
@@ -160,6 +161,7 @@ export default function OrderItemsTable({ items, orderId, readOnly = false }: Or
                                     editValue={editData[item.id.toString()]}
                                     onUpdate={handleUpdateLocal}
                                     readOnly={readOnly}
+                                    token={token}
                                 />
                             ))}
                         </tbody>
@@ -183,27 +185,31 @@ function Row({
     isGlobalEditing, 
     editValue,
     onUpdate,
-    readOnly 
+    readOnly,
+    token
 }: { 
     item: OrderDetailItem, 
     orderId: number,
     isGlobalEditing: boolean,
     editValue?: { quantity: number; discountPercent: number },
     onUpdate: (id: number, field: 'quantity' | 'discountPercent', value: number) => void,
-    readOnly: boolean 
+    readOnly: boolean,
+    token?: string
 }) {
     const router = useRouter();
     const confirm = useConfirm();
     const { showToast } = useToast();
 
     const [localStatus, setLocalStatus] = useState(item.itemStatus);
+    const [isOptimistic, setIsOptimistic] = useState(false);
 
-    // Sync local state when server data changes
+    // Sync local state when server data changes, BUT lock it during optimistic updates
     useEffect(() => {
-        setLocalStatus(item.itemStatus);
-    }, [item.itemStatus]);
-
-    const { data: session } = useSession();
+        if (!isOptimistic) {
+            setLocalStatus(item.itemStatus);
+        }
+    }, [item.itemStatus, isOptimistic]);
+    
     const abortRef = useRef<AbortController | null>(null);
 
     const isRejected = localStatus === 'KHACH_TU_CHOI';
@@ -224,6 +230,8 @@ function Row({
                         // 1. UI update ngay lập tức (Snapshot for rollback)
                         const prevStatus = localStatus;
                         const nextStatus = localStatus === 'KHACH_DONG_Y' ? 'DE_XUAT' : 'KHACH_DONG_Y';
+                        
+                        setIsOptimistic(true);
                         setLocalStatus(nextStatus);
 
                         // 2. Hủy request cũ nếu click quá nhanh
@@ -232,9 +240,13 @@ function Row({
                         }
                         const controller = new AbortController();
                         abortRef.current = controller;
-
+ 
                         // 3. API bắn ngay - Fire & Forget (không await)
-                        const token = (session?.user as any)?.accessToken;
+                        if (!token) {
+                            showToast('error', 'Phiên làm việc hết hạn. Vui lòng tải lại trang.');
+                            setLocalStatus(prevStatus);
+                            return;
+                        }
                         
                         api.patch(`/sale/items/${item.id}/status`, { status: nextStatus }, token, controller.signal)
                             .then(() => {
@@ -249,6 +261,10 @@ function Row({
                                 // Lỗi thật: Rollback UI
                                 setLocalStatus(prevStatus);
                                 showToast('error', 'Đồng bộ trạng thái thất bại');
+                            })
+                            .finally(() => {
+                                // Mở khóa sau khi API hoàn tất (hoặc bị hủy)
+                                setIsOptimistic(false);
                             });
                     }}
                     className={`w-4 h-4 rounded flex items-center justify-center border-2 transition-all mx-auto ${readOnly ? 'cursor-not-allowed' : 'cursor-pointer hover:border-blue-400'} ${isApproved ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 dark:border-slate-700'}`}

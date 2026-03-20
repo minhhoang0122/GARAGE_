@@ -16,11 +16,15 @@ import { getTransactions } from '@/modules/finance/transaction';
 import { useToast } from '@/modules/shared/components/ui/use-toast';
 import ImageGallery from '@/modules/shared/components/common/ImageGallery';
 import { notFound } from 'next/navigation';
+import { auth } from '@/lib/auth';
 
 export default async function OrderDetailPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
     const { id } = await params;
     const orderId = parseInt(id);
     if (isNaN(orderId)) return notFound();
+
+    const session = await auth();
+    const token = (session?.user as any)?.accessToken;
 
     const order = await getOrder(orderId);
     if (!order) return notFound();
@@ -155,7 +159,7 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                         
                         {/* List Items Table Card */}
                         <div className="transition-all">
-                            <OrderItemsTable items={order.items} orderId={order.id} readOnly={isLocked} />
+                            <OrderItemsTable items={order.items} orderId={order.id} readOnly={isLocked} token={token} />
                         </div>
                     </div>
 
