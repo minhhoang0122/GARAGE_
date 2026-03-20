@@ -41,26 +41,43 @@ function CustomerLoginForm() {
     const registered = searchParams.get('registered');
 
     return (
-        <div className="min-h-screen bg-stone-950 flex items-center justify-center px-4">
-            <div className="w-full max-w-md">
+        <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
+            {/* Background Image with Overlay */}
+            <div 
+                className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-transform duration-[20000ms] hover:scale-110"
+                style={{ backgroundImage: 'url("/bg-customer.png")' }}
+            />
+            <div className="absolute inset-0 z-10 bg-stone-950/80 backdrop-blur-[2px]" />
+
+            {/* Back Button - Top Left */}
+            <div className="absolute top-6 left-6 z-20">
+                <Link 
+                    href="/" 
+                    className="flex items-center gap-2 text-stone-400 hover:text-white transition-all bg-stone-900/50 backdrop-blur-md px-4 py-2 rounded-full border border-stone-800 hover:border-orange-500/50 group"
+                >
+                    <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> 
+                    <span className="text-sm font-medium">Trang chủ</span>
+                </Link>
+            </div>
+
+            <div className="relative z-20 w-full max-w-md">
                 {/* Header */}
                 <div className="text-center mb-8">
-                    <Link href="/" className="inline-flex items-center gap-2 text-stone-500 hover:text-white mb-6 transition-colors text-sm">
-                        <ArrowLeft size={14} /> Trang chủ
-                    </Link>
-                    <h1 className="text-2xl font-bold text-white">Đăng nhập</h1>
-                    <p className="text-stone-400 mt-1">Dành cho Quý khách hàng</p>
+                    <h1 className="text-3xl font-black text-white tracking-tight uppercase">Đăng nhập</h1>
+                    <p className="text-stone-400 mt-2 font-medium">Cổng thông tin dành cho Quý khách hàng</p>
+                    <div className="w-12 h-1 bg-orange-600 mx-auto mt-4 rounded-full"></div>
                 </div>
 
                 {/* Success message from register */}
                 {registered && (
-                    <div className="bg-emerald-900/30 border border-emerald-800 rounded-lg p-3 mb-4 text-emerald-300 text-sm text-center">
-                        Đăng ký thành công! Vui lòng đăng nhập.
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-md rounded-xl p-4 mb-6 text-emerald-400 text-sm text-center flex items-center justify-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                        Đăng ký thành công! Vui lòng đăng nhập để tiếp tục.
                     </div>
                 )}
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="bg-stone-900 border border-stone-800 rounded-xl p-6 space-y-5">
+                <form onSubmit={handleSubmit} className="bg-stone-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-8 space-y-6 shadow-2xl">
                     {error && (
                         <div className="bg-red-900/30 border border-red-800 rounded-lg p-3 flex items-center gap-2 text-red-300 text-sm">
                             <AlertCircle size={16} className="shrink-0" />
