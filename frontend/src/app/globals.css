@@ -145,11 +145,11 @@ select,
 }
 
 .data-table th {
-  @apply py-3.5 px-4 font-bold text-[11px] uppercase tracking-[0.1em] text-stone-600 dark:text-slate-400 bg-stone-100 dark:bg-slate-900/80 border-b border-stone-200 dark:border-slate-800 text-left align-middle tabular-nums;
+  @apply text-stone-600 dark:text-slate-400 bg-stone-100 dark:bg-slate-900/80 border-b border-stone-200 dark:border-slate-800 text-left align-middle tabular-nums;
 }
 
 .data-table td {
-  @apply py-3 px-4 border-b border-stone-100 dark:border-slate-800 transition-colors align-middle text-sm text-stone-700 dark:text-slate-300 tabular-nums bg-stone-50/50 dark:bg-transparent;
+  @apply border-b border-stone-100 dark:border-slate-800 transition-colors align-middle text-sm text-stone-700 dark:text-slate-300 tabular-nums bg-stone-50/50 dark:bg-transparent;
 }
 
 .data-table tbody tr:nth-child(even) {

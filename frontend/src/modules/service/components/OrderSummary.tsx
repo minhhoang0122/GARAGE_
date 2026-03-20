@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { updateOrderTotals } from '@/modules/service/order';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
+import { usePermission } from '@/hooks/usePermission';
 
 interface OrderSummaryProps {
     orderId: number;
@@ -34,14 +35,20 @@ export default function OrderSummary({
 }: OrderSummaryProps) {
     const router = useRouter();
     const { showToast } = useToast();
+    const { hasRole, isAdmin } = usePermission();
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     
+    const canEditVat = isAdmin || !hasRole('SALE');
+
     // Using simple state for editing
     const [editData, setEditData] = useState({
         discount: totalDiscount,
         vatPercent: vatPercent
     });
+
+    // Local state for formatted VND display (with dots)
+    const [displayDiscount, setDisplayDiscount] = useState(totalDiscount.toLocaleString('vi-VN'));
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -69,11 +76,24 @@ export default function OrderSummary({
             discount: totalDiscount,
             vatPercent: vatPercent
         });
+        setDisplayDiscount(totalDiscount.toLocaleString('vi-VN'));
         setIsEditing(false);
     };
 
+    const handleDiscountChange = (val: string) => {
+        // Remove all non-digits
+        const raw = val.replace(/\D/g, '');
+        const num = raw === '' ? 0 : parseInt(raw, 10);
+        
+        // Update raw value for saving
+        setEditData(prev => ({ ...prev, discount: num }));
+        
+        // Update display value with dots
+        setDisplayDiscount(num.toLocaleString('vi-VN'));
+    };
+
     return (
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all relative overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all relative overflow-hidden text-[13px]">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-2xl rounded-full -mr-16 -mt-16"></div>
             
             <div className="flex items-center justify-between mb-6 pb-2 border-b border-slate-100 dark:border-slate-800 relative z-10">
@@ -102,7 +122,10 @@ export default function OrderSummary({
                             </>
                         ) : (
                             <button
-                                onClick={() => setIsEditing(true)}
+                                onClick={() => {
+                                    setIsEditing(true);
+                                    setDisplayDiscount(totalDiscount.toLocaleString('vi-VN'));
+                                }}
                                 className="px-3 py-1.5 bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-600 text-slate-600 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95"
                             >
                                 Chỉnh sửa
@@ -112,31 +135,32 @@ export default function OrderSummary({
                 )}
             </div>
 
-            <div className="space-y-4 text-sm font-medium relative z-10">
+            <div className="space-y-4 font-medium relative z-10">
                 <div className="flex justify-between text-slate-500 dark:text-slate-400">
                     <span>Tiền hàng:</span>
-                    <span className="text-slate-900 dark:text-slate-200 tabular-nums">{formatCurrency(totalParts)}</span>
+                    <span className="text-slate-900 dark:text-slate-200 tabular-nums font-bold">{formatCurrency(totalParts)}</span>
                 </div>
                 <div className="flex justify-between text-slate-500 dark:text-slate-400">
                     <span>Tiền công:</span>
-                    <span className="text-slate-900 dark:text-slate-200 tabular-nums">{formatCurrency(totalLabor)}</span>
+                    <span className="text-slate-900 dark:text-slate-200 tabular-nums font-bold">{formatCurrency(totalLabor)}</span>
                 </div>
 
                 {/* Chiết khấu tổng */}
                 <div className="flex justify-between items-center text-slate-500 dark:text-slate-400">
                     <span>Chiết khấu tổng:</span>
                     {isEditing ? (
-                        <div className="relative w-36">
+                        <div className="relative w-40">
                             <input
-                                type="number"
-                                min="0"
-                                value={editData.discount}
-                                onChange={(e) => setEditData(prev => ({ ...prev, discount: Number(e.target.value) }))}
-                                className="w-full h-8 pl-2 pr-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-right text-rose-600 font-bold focus:border-blue-500 outline-none transition-all tabular-nums"
+                                type="text"
+                                value={displayDiscount}
+                                onChange={(e) => handleDiscountChange(e.target.value)}
+                                className="w-full h-9 pl-2 pr-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-right text-rose-600 font-black focus:border-blue-500 outline-none transition-all tabular-nums text-sm"
+                                placeholder="0"
                             />
+                            <span className="absolute right-2 top-2 text-[11px] font-bold text-slate-400">đ</span>
                         </div>
                     ) : (
-                        <span className="text-rose-500 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/20 rounded-lg tabular-nums">-{formatCurrency(totalDiscount)}</span>
+                        <span className="text-rose-500 font-bold px-2 py-0.5 bg-rose-50 dark:bg-rose-900/20 rounded-lg tabular-nums">-{formatCurrency(totalDiscount)}</span>
                     )}
                 </div>
 
@@ -145,20 +169,26 @@ export default function OrderSummary({
                     <div className="flex justify-between items-center text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-50 dark:border-slate-800">
                         <span className="flex items-center gap-1">Thuế VAT:</span>
                         {isEditing ? (
-                            <div className="relative w-20">
+                            <div className="relative w-24">
                                 <input
                                     type="number"
                                     min="0"
                                     max="100"
+                                    disabled={!canEditVat}
                                     value={editData.vatPercent}
                                     onChange={(e) => setEditData(prev => ({ ...prev, vatPercent: Number(e.target.value) }))}
-                                    className="w-full h-8 pl-2 pr-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-right text-slate-900 dark:text-slate-100 font-bold focus:border-blue-500 outline-none transition-all tabular-nums"
+                                    className={`w-full h-9 pl-2 pr-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-right font-bold focus:border-blue-500 outline-none transition-all tabular-nums text-sm ${!canEditVat ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'text-slate-900 dark:text-slate-100'}`}
                                 />
-                                <span className="absolute right-2 top-1.5 text-[10px] text-slate-400">%</span>
+                                <span className="absolute right-2 top-2 text-[10px] text-slate-400">%</span>
+                                {!canEditVat && (
+                                    <div className="absolute -top-8 right-0 bg-slate-800 text-white text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+                                        Chỉ Admin mới được chỉnh
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="flex flex-col items-end">
-                                <span className="text-slate-900 dark:text-slate-200 tabular-nums">{formatCurrency(vat)}</span>
+                                <span className="text-slate-900 dark:text-slate-200 tabular-nums font-bold">{formatCurrency(vat)}</span>
                                 <span className="text-[10px] text-slate-400">({vatPercent}%)</span>
                             </div>
                         )}

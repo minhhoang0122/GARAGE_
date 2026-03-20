@@ -126,7 +126,7 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
             {/* Table Container - Extreme Space Optimization */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden text-[13px]">
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="data-table w-full text-left table-fixed min-w-[800px]">
+                    <table className="data-table w-full text-left min-w-[800px]">
                         <colgroup>
                             <col className="w-[50px]" />
                             <col className="w-[300px]" />
@@ -217,7 +217,7 @@ function Row({
             </td>
 
             {/* 2. Thông tin */}
-            <td className="pl-6 pr-4 py-4 w-[300px] min-w-0">
+            <td className="pl-6 pr-4 py-4 w-[300px]">
                 <div className="flex items-center gap-2 mb-0.5">
                     <div className="font-bold text-slate-800 dark:text-slate-100 text-[13px] leading-tight truncate max-w-[240px]" title={item.productName}>
                         {item.productName}
