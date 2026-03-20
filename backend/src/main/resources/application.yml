@@ -64,6 +64,12 @@ spring:
     type: caffeine
     caffeine:
       spec: maximumSize=1000,expireAfterWrite=300s
+    cache-names:
+      - users_list
+      - system_configs
+      - products_list
+      - permissions_list
+      - roles_list
 
 jwt:
   secret: ${JWT_SECRET}

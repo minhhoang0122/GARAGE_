@@ -16,19 +16,15 @@ public class CacheConfig {
     @Bean
     public CacheManager cacheManager() {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager();
+        // Cấu hình chung cho mọi vùng cache (Caffeine)
         cacheManager.setCaffeine(Caffeine.newBuilder()
-                .maximumSize(1000)
-                .expireAfterWrite(5, TimeUnit.MINUTES)
+                .initialCapacity(100)
+                .maximumSize(500)
+                .expireAfterAccess(10, TimeUnit.MINUTES)
                 .recordStats());
-
-        // Pre-define cache names for common entities
-        cacheManager.setCacheNames(java.util.List.of(
-                "products",
-                "customers",
-                "users",
-                "systemConfig",
-                "dashboardStats"));
-
+        // QUAN TRỌNG: Cho phép tạo Cache động khi gặp tên mới (như users_list) 
+        // mà không cần khai báo trước trong application.yml
+        cacheManager.setAllowNullValues(true);
         return cacheManager;
     }
 }

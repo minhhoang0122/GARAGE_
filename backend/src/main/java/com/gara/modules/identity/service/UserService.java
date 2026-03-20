@@ -29,11 +29,9 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    // Temporarily remove cache to ensure fresh data after migration
+    @org.springframework.cache.annotation.Cacheable(value = "users_list")
     public List<User> getAllUsers() {
-        List<User> users = userRepository.findAll();
-        System.out.println("USER_DEBUG: Found " + users.size() + " users in database");
-        return users;
+        return userRepository.findAll();
     }
 
     @Transactional

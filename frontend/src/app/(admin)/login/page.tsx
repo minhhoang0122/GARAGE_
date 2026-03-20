@@ -3,7 +3,8 @@
 import { useState, useEffect, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 import ThemeToggle from '@/modules/common/components/layout/ThemeToggle';
 import { getHomeRoute } from '@/lib/routes';
 import { getSession } from 'next-auth/react';
@@ -166,6 +167,16 @@ export default function LoginPage() {
 
       {/* Decorative Grid */}
       <div className="absolute inset-0 bg-grid-slate-200/[0.04] bg-[bottom_1px_center] dark:bg-grid-slate-400/[0.05] [mask-image:linear-gradient(to_bottom,transparent,black)] pointer-events-none" />
+
+      <div className="absolute top-4 left-4 z-20">
+        <Link 
+          href="/" 
+          className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all bg-white/40 dark:bg-slate-900/40 backdrop-blur-md rounded-xl border border-white/20 dark:border-slate-800 shadow-sm hover:shadow-md active:scale-95 group"
+        >
+          <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+          <span>Về trang chủ</span>
+        </Link>
+      </div>
 
       <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
