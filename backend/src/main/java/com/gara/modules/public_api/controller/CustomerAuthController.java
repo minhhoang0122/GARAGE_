@@ -10,6 +10,7 @@ import com.gara.modules.public_api.dto.CustomerRegisterDTO;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -45,6 +46,7 @@ public class CustomerAuthController {
      * 2. Phone exists in Customer table but no User -> create User, link to existing Customer
      * 3. Brand new phone -> create both User and Customer
      */
+    @Transactional
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody CustomerRegisterDTO dto) {
         String phone = dto.soDienThoai().trim();
