@@ -215,7 +215,7 @@ export const api = {
         return res.json();
     },
 
-    async get(path: string, token?: string) {
+    async get(path: string, token?: string, signal?: AbortSignal) {
         const headers: any = {
             'Content-Type': 'application/json',
             'Accept-Encoding': 'gzip, deflate'
@@ -227,6 +227,7 @@ export const api = {
         const res = await fetch(`${API_URL}${path}`, {
             headers,
             cache: 'no-store', // Disable Next.js fetch caching
+            signal,
         });
 
         if (!res.ok) {
@@ -236,7 +237,7 @@ export const api = {
         return res.json();
     },
 
-    async post(path: string, data: any, token: string) {
+    async post(path: string, data: any, token: string, signal?: AbortSignal) {
         const res = await fetch(`${API_URL}${path}`, {
             method: 'POST',
             headers: {
@@ -244,6 +245,7 @@ export const api = {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(data),
+            signal,
         });
 
         if (!res.ok) {
@@ -253,7 +255,7 @@ export const api = {
         return res.json();
     },
 
-    async put(path: string, data: any, token: string) {
+    async put(path: string, data: any, token: string, signal?: AbortSignal) {
         const res = await fetch(`${API_URL}${path}`, {
             method: 'PUT',
             headers: {
@@ -261,6 +263,7 @@ export const api = {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(data),
+            signal,
         });
 
         if (!res.ok) {
@@ -271,7 +274,7 @@ export const api = {
         return text ? JSON.parse(text) : {};
     },
 
-    async patch(path: string, data: any, token: string) {
+    async patch(path: string, data: any, token: string, signal?: AbortSignal) {
         const res = await fetch(`${API_URL}${path}`, {
             method: 'PATCH',
             headers: {
@@ -279,6 +282,7 @@ export const api = {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(data),
+            signal,
         });
 
         if (!res.ok) {
@@ -306,13 +310,14 @@ export const api = {
         return res.json();
     },
 
-    async delete(path: string, token: string) {
+    async delete(path: string, token: string, signal?: AbortSignal) {
         const res = await fetch(`${API_URL}${path}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
+            signal,
         });
 
         if (!res.ok) {

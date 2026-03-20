@@ -2,10 +2,12 @@
 
 import { OrderDetailItem, updateOrderItem, removeOrderItem, toggleItemStatus } from '@/modules/service/order';
 import { Trash2, Check, X, ChevronRight, Save, Loader2, ShieldCheck } from 'lucide-react';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { useToast } from '@/contexts/ToastContext';
+import { useSession } from 'next-auth/react';
+import { api } from '@/lib/api';
 
 interface OrderItemsTableProps {
     items: OrderDetailItem[];
@@ -201,6 +203,9 @@ function Row({
         setLocalStatus(item.itemStatus);
     }, [item.itemStatus]);
 
+    const { data: session } = useSession();
+    const abortRef = useRef<AbortController | null>(null);
+
     const isRejected = localStatus === 'KHACH_TU_CHOI';
     const isApproved = localStatus === 'KHACH_DONG_Y';
 
@@ -213,20 +218,38 @@ function Row({
             <td className="px-4 py-3.5 w-[50px] text-center">
                 <button
                     disabled={readOnly}
-                    onClick={async () => {
-                        // Optimistic Update
+                    onClick={() => {
+                        if (readOnly) return;
+                        
+                        // 1. UI update ngay lập tức (Snapshot for rollback)
+                        const prevStatus = localStatus;
                         const nextStatus = localStatus === 'KHACH_DONG_Y' ? 'DE_XUAT' : 'KHACH_DONG_Y';
                         setLocalStatus(nextStatus);
-                        
-                        try {
-                            // Server Action toggleItemStatus already calls revalidatePath,
-                            // so router.refresh() is redundant and causes double-fetching.
-                            await toggleItemStatus(item.id, item.itemStatus, orderId);
-                        } catch (err) {
-                            // Revert on error
-                            setLocalStatus(item.itemStatus);
-                            showToast('error', 'Không thể cập nhật trạng thái. Vui lòng thử lại.');
+
+                        // 2. Hủy request cũ nếu click quá nhanh
+                        if (abortRef.current) {
+                            abortRef.current.abort();
                         }
+                        const controller = new AbortController();
+                        abortRef.current = controller;
+
+                        // 3. API bắn ngay - Fire & Forget (không await)
+                        const token = (session?.user as any)?.accessToken;
+                        
+                        api.patch(`/sale/items/${item.id}/status`, { status: nextStatus }, token, controller.signal)
+                            .then(() => {
+                                // Thành công: Invalidate cache để header/summary cập nhật đúng
+                                api.invalidateCache(`/sale/orders/${orderId}`);
+                                // Refresh trang ngầm để cập nhật Tổng tiền (Background revalidation)
+                                router.refresh();
+                            })
+                            .catch(err => {
+                                if (err.name === 'AbortError') return; // Do ta chủ động hủy
+                                
+                                // Lỗi thật: Rollback UI
+                                setLocalStatus(prevStatus);
+                                showToast('error', 'Đồng bộ trạng thái thất bại');
+                            });
                     }}
                     className={`w-4 h-4 rounded flex items-center justify-center border-2 transition-all mx-auto ${readOnly ? 'cursor-not-allowed' : 'cursor-pointer hover:border-blue-400'} ${isApproved ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 dark:border-slate-700'}`}
                 >
