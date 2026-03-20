@@ -46,6 +46,13 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
                 { label: 'Thu ngân', href: '/sale/checkout', icon: 'CreditCard' },
             ],
         },
+        {
+            title: 'Khách hàng',
+            items: [
+                { label: 'Bảo hành', href: '/sale/warranty-claims', icon: 'ShieldCheck' },
+                { label: 'Lịch hẹn', href: '/sale/bookings', icon: 'ClipboardCheck' },
+            ],
+        },
     ],
     KE_TOAN: [
         {
@@ -67,13 +74,15 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
             ],
         },
     ],
-    THO_CHAN_DOAN: [
+    QUAN_LY_XUONG: [
         {
             items: [
                 { label: 'Dashboard', href: '/mechanic', icon: 'LayoutDashboard' },
                 { label: 'Khám xe', href: '/mechanic/inspect', icon: 'ClipboardCheck' },
+                { label: 'Chia việc', href: '/mechanic/assign', icon: 'UserPlus' },
                 { label: 'Danh sách việc', href: '/mechanic/jobs', icon: 'ClipboardList' },
-                { label: 'Lịch sử chẩn đoán', href: '/mechanic/history', icon: 'History' },
+                { label: 'Nghiệm thu', href: '/mechanic/qc', icon: 'ShieldCheck' },
+                { label: 'Lịch sử', href: '/mechanic/history', icon: 'History' },
             ],
         },
     ],
@@ -81,7 +90,7 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
         {
             items: [
                 { label: 'Dashboard', href: '/mechanic', icon: 'LayoutDashboard' },
-                { label: 'Danh sách việc', href: '/mechanic/jobs', icon: 'ClipboardList' },
+                { label: 'Việc của tôi', href: '/mechanic/jobs', icon: 'ClipboardList' },
                 { label: 'Lịch sử sửa', href: '/mechanic/history', icon: 'History' },
             ],
         },
@@ -93,7 +102,7 @@ export const ROLE_DISPLAY_NAMES: Record<string, string> = {
     ADMIN: 'Chủ Gara',
     SALE: 'Nhân viên Bán hàng',
     KHO: 'Nhân viên Kho',
-    THO_CHAN_DOAN: 'Thợ Chẩn đoán',
+    QUAN_LY_XUONG: 'Quản Đốc Xưởng',
     THO_SUA_CHUA: 'Thợ Sửa chữa',
     KE_TOAN: 'Kế toán',
 };

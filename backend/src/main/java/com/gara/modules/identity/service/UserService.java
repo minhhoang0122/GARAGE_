@@ -42,6 +42,9 @@ public class UserService {
         if (userRepository.findByTenDangNhap(req.getTenDangNhap()).isPresent()) {
             throw new RuntimeException("Tên đăng nhập đã tồn tại");
         }
+        if (req.getMatKhauHash() == null || req.getMatKhauHash().isBlank()) {
+            throw new RuntimeException("Mật khẩu không được để trống khi tạo mới");
+        }
 
         User user = new User();
         user.setTenDangNhap(req.getTenDangNhap());

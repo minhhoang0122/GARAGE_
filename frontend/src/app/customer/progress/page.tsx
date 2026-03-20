@@ -1,0 +1,98 @@
+'use client';
+
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, Car, Wrench, Clock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+
+const statusMap: Record<string, { label: string; color: string; icon: any }> = {
+    TIEP_NHAN: { label: 'Tiếp nhận', color: 'text-stone-400 bg-stone-800', icon: Clock },
+    CHO_CHAN_DOAN: { label: 'Chờ chẩn đoán', color: 'text-yellow-400 bg-yellow-900/30', icon: Clock },
+    CHO_KH_DUYET: { label: 'Chờ duyệt báo giá', color: 'text-orange-400 bg-orange-900/30', icon: AlertCircle },
+    DA_DUYET: { label: 'Đã duyệt', color: 'text-blue-400 bg-blue-900/30', icon: CheckCircle },
+    CHO_SUA_CHUA: { label: 'Chờ sửa chữa', color: 'text-yellow-400 bg-yellow-900/30', icon: Wrench },
+    DANG_SUA: { label: 'Đang sửa chữa', color: 'text-blue-400 bg-blue-900/30', icon: Wrench },
+    CHO_KCS: { label: 'Kiểm tra chất lượng', color: 'text-purple-400 bg-purple-900/30', icon: CheckCircle },
+    CHO_THANH_TOAN: { label: 'Chờ thanh toán', color: 'text-orange-400 bg-orange-900/30', icon: AlertCircle },
+    HOAN_THANH: { label: 'Hoàn thành', color: 'text-emerald-400 bg-emerald-900/30', icon: CheckCircle },
+    DONG: { label: 'Đã đóng', color: 'text-stone-400 bg-stone-800', icon: CheckCircle },
+};
+
+export default function CustomerProgressPage() {
+    const { data: session, status: authStatus } = useSession();
+    const router = useRouter();
+    const [orders, setOrders] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (authStatus === 'unauthenticated') { router.push('/customer/login'); return; }
+        if (authStatus !== 'authenticated') return;
+
+        const token = (session?.user as any)?.accessToken;
+        if (!token) return;
+
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/api/customer/orders`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then(r => r.json())
+            .then(data => {
+                // Filter active orders (not HOAN_THANH, DONG, HUY)
+                const active = (data || []).filter((o: any) => !['HOAN_THANH', 'DONG', 'HUY'].includes(o.status));
+                setOrders(active);
+            })
+            .catch(() => setOrders([]))
+            .finally(() => setLoading(false));
+    }, [authStatus, session, router]);
+
+    if (authStatus === 'loading' || loading) {
+        return <div className="min-h-screen bg-stone-950 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={32} /></div>;
+    }
+
+    return (
+        <div className="min-h-screen bg-stone-950">
+            <header className="bg-stone-900 border-b border-stone-800 px-4 py-3">
+                <div className="max-w-2xl mx-auto flex items-center gap-3">
+                    <Link href="/customer/home" className="text-stone-500 hover:text-white transition-colors"><ArrowLeft size={20} /></Link>
+                    <h1 className="text-white font-bold">Tiến độ sửa chữa</h1>
+                </div>
+            </header>
+
+            <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+                {orders.length === 0 ? (
+                    <div className="text-center py-12">
+                        <Car size={48} className="text-stone-700 mx-auto mb-4" />
+                        <p className="text-stone-500">Không có xe đang sửa chữa</p>
+                    </div>
+                ) : (
+                    orders.map((order: any) => {
+                        const st = statusMap[order.status] || statusMap.TIEP_NHAN;
+                        const Icon = st.icon;
+                        return (
+                            <div key={order.id} className="bg-stone-900 border border-stone-800 rounded-xl p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <Car size={16} className="text-stone-400" />
+                                        <span className="text-white font-bold">{order.plate}</span>
+                                    </div>
+                                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${st.color}`}>
+                                        <Icon size={12} className="inline mr-1" />{st.label}
+                                    </span>
+                                </div>
+                                <div className="text-stone-500 text-sm">
+                                    Đơn #{order.id} • {order.createdAt ? new Date(order.createdAt).toLocaleDateString('vi-VN') : ''}
+                                </div>
+                                {order.total > 0 && (
+                                    <div className="mt-2 text-stone-400 text-sm">
+                                        Tổng: <span className="text-white font-medium">{Number(order.total).toLocaleString('vi-VN')}đ</span>
+                                        {order.debt > 0 && <span className="text-orange-400 ml-2">Còn nợ: {Number(order.debt).toLocaleString('vi-VN')}đ</span>}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })
+                )}
+            </main>
+        </div>
+    );
+}

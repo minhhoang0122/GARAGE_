@@ -44,6 +44,9 @@ public class RepairOrder {
     @Column(name = "thue_vat", precision = 18, scale = 2)
     private BigDecimal thueVAT = BigDecimal.ZERO;
 
+    @Column(name = "vat_phan_tram", precision = 5, scale = 2)
+    private BigDecimal vatPhanTram = BigDecimal.ZERO;
+
     @Column(name = "tong_cong", precision = 18, scale = 2)
     private BigDecimal tongCong = BigDecimal.ZERO;
 
@@ -126,7 +129,7 @@ public class RepairOrder {
             LocalDateTime ngayThanhToan, String ghiChu, Integer parentOrderId, RepairOrder parentOrder,
             Integer phieuTiepNhanId, Integer thoPhanCongId, Integer nguoiPhuTrachId, Reception phieuTiepNhan,
             User thoPhanCong, Integer thoChanDoanId, User thoChanDoan, User nguoiPhuTrach,
-            List<OrderItem> chiTietDonHang, List<ExportNote> phieuXuatKho) {
+            List<OrderItem> chiTietDonHang, List<ExportNote> phieuXuatKho, BigDecimal vatPhanTram) {
         this.id = id;
         this.ngayTao = ngayTao;
         this.ngayDuyet = ngayDuyet;
@@ -155,6 +158,7 @@ public class RepairOrder {
         this.nguoiPhuTrach = nguoiPhuTrach;
         this.chiTietDonHang = chiTietDonHang;
         this.phieuXuatKho = phieuXuatKho;
+        this.vatPhanTram = vatPhanTram != null ? vatPhanTram : BigDecimal.ZERO;
     }
 
     // Getters and Setters
@@ -228,6 +232,14 @@ public class RepairOrder {
 
     public void setThueVAT(BigDecimal thueVAT) {
         this.thueVAT = thueVAT;
+    }
+
+    public BigDecimal getVatPhanTram() {
+        return vatPhanTram;
+    }
+
+    public void setVatPhanTram(BigDecimal vatPhanTram) {
+        this.vatPhanTram = vatPhanTram;
     }
 
     public BigDecimal getTongCong() {
@@ -404,6 +416,7 @@ public class RepairOrder {
         private BigDecimal tongTienCong = BigDecimal.ZERO;
         private BigDecimal chietKhauTong = BigDecimal.ZERO;
         private BigDecimal thueVAT = BigDecimal.ZERO;
+        private BigDecimal vatPhanTram = BigDecimal.ZERO;
         private BigDecimal tongCong = BigDecimal.ZERO;
         private Boolean laDonBaoHanh = false;
         private BigDecimal soTienDaTra = BigDecimal.ZERO;
@@ -469,6 +482,11 @@ public class RepairOrder {
 
         public RepairOrderBuilder thueVAT(BigDecimal thueVAT) {
             this.thueVAT = thueVAT;
+            return this;
+        }
+
+        public RepairOrderBuilder vatPhanTram(BigDecimal vatPhanTram) {
+            this.vatPhanTram = vatPhanTram;
             return this;
         }
 
@@ -571,7 +589,7 @@ public class RepairOrder {
             return new RepairOrder(id, ngayTao, ngayDuyet, trangThai, tienCoc, tongTienHang, tongTienCong,
                     chietKhauTong, thueVAT, tongCong, laDonBaoHanh, soTienDaTra, congNo, phuongThuc, ngayThanhToan,
                     ghiChu, parentOrderId, parentOrder, phieuTiepNhanId, thoPhanCongId, nguoiPhuTrachId, phieuTiepNhan,
-                    thoPhanCong, thoChanDoanId, thoChanDoan, nguoiPhuTrach, chiTietDonHang, phieuXuatKho);
+                    thoPhanCong, thoChanDoanId, thoChanDoan, nguoiPhuTrach, chiTietDonHang, phieuXuatKho, vatPhanTram);
         }
     }
 }

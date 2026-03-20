@@ -32,7 +32,7 @@ interface ImportItem {
     product: Product;
     quantity: number;
     costPrice: number;
-    vatRate: number;
+    vatRate?: number;
     expiryDate?: string;
     sellingPrice?: number;
     updateGlobalPrice?: boolean;
@@ -63,38 +63,9 @@ export default function ImportStockPage() {
 
     // Selected Product for Adding
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [addQty, setAddQty] = useState(1);
-    const [addCost, setAddCost] = useState(0);
-    const [addVatRate, setAddVatRate] = useState(10);
+    const [addQuantity, setAddQuantity] = useState<number>(1);
+    const [addCostPrice, setAddCostPrice] = useState<number>(0);
     const [addExpiry, setAddExpiry] = useState<string>('');
-    const [addSellingPrice, setAddSellingPrice] = useState(0);
-    const [updateGlobalPrice, setUpdateGlobalPrice] = useState(true);
-
-    // Pricing Logic
-    const calculateSuggestedPrice = (cost: number) => {
-        let price = 0;
-        if (cost < 50000) {
-            price = cost * 2;
-            price = Math.ceil(price / 1000) * 1000;
-        } else if (cost < 500000) {
-            price = cost * 1.5;
-            price = Math.ceil(price / 5000) * 5000;
-        } else if (cost < 2000000) {
-            price = cost * 1.3;
-            price = Math.ceil(price / 10000) * 10000;
-        } else {
-            price = cost * 1.15;
-            price = Math.ceil(price / 50000) * 50000;
-        }
-        return price;
-    };
-
-    useEffect(() => {
-        if (!isAdminOrSale) return;
-        if (addCost > 0) {
-            setAddSellingPrice(calculateSuggestedPrice(addCost));
-        }
-    }, [addCost, isAdminOrSale]);
 
     // Quick Create State
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -204,10 +175,8 @@ export default function ImportStockPage() {
 
     const handleSelectProduct = (p: Product) => {
         setSelectedProduct(p);
-        setAddCost(p.GiaVon || 0);
-        setAddSellingPrice(p.GiaBanNiemYet || 0);
-        setUpdateGlobalPrice(true);
-        setAddQty(1);
+        setAddCostPrice(p.GiaVon || 0);
+        setAddQuantity(1);
         setSearchTerm(''); // Clear search
         setFilteredProducts([]);
         setIsSearching(false);
@@ -215,11 +184,11 @@ export default function ImportStockPage() {
 
     const handleAddItem = () => {
         if (!selectedProduct) return;
-        if (addQty <= 0) {
+        if (addQuantity <= 0) {
             toast({ title: "Lỗi", description: 'Số lượng phải > 0', variant: "destructive" });
             return;
         }
-        if (addCost < 0) {
+        if (addCostPrice < 0) {
             toast({ title: "Lỗi", description: 'Giá nhập không hợp lệ', variant: "destructive" });
             return;
         }
@@ -228,19 +197,16 @@ export default function ImportStockPage() {
             ...prev,
             {
                 product: selectedProduct,
-                quantity: addQty,
-                costPrice: addCost,
-                vatRate: addVatRate,
+                quantity: addQuantity,
+                costPrice: addCostPrice,
+                vatRate: 0,
                 expiryDate: addExpiry || undefined,
-                sellingPrice: isAdminOrSale ? addSellingPrice : undefined,
-                updateGlobalPrice: isAdminOrSale ? updateGlobalPrice : undefined
             }
         ]);
         setSelectedProduct(null);
-        setAddVatRate(10);
+        setAddQuantity(1);
+        setAddCostPrice(0);
         setAddExpiry('');
-        setAddSellingPrice(0);
-        setUpdateGlobalPrice(true);
     };
 
     const handleRemoveItem = (index: number) => {
@@ -266,10 +232,8 @@ export default function ImportStockPage() {
                     productId: i.product.ID,
                     quantity: i.quantity,
                     costPrice: i.costPrice,
-                    vatRate: i.vatRate,
+                    vatRate: 0, // VAT removed, set to 0
                     expiryDate: i.expiryDate,
-                    sellingPrice: i.sellingPrice,
-                    updateGlobalPrice: i.updateGlobalPrice
                 }))
             };
 
@@ -506,70 +470,38 @@ export default function ImportStockPage() {
                                             <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Số lượng</label>
                                             <input
                                                 type="text"
-                                                value={addQty}
+                                                value={addQuantity}
                                                 onChange={e => {
                                                     const val = e.target.value.replace(/[^0-9]/g, '');
-                                                    setAddQty(Number(val));
+                                                    setAddQuantity(Number(val));
                                                 }}
                                                 className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white rounded-lg"
                                                 placeholder="0"
                                             />
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Giá nhập (VNĐ)</label>
-                                                <input
-                                                    type="text"
-                                                    value={addCost === 0 ? '' : new Intl.NumberFormat('vi-VN').format(addCost)}
-                                                    onChange={e => {
-                                                        const rawValue = e.target.value.replace(/[^0-9]/g, '');
-                                                        setAddCost(Number(rawValue));
-                                                    }}
-                                                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white rounded-lg font-mono"
-                                                    placeholder="0"
-                                                />
-                                            </div>
-                                            {isAdminOrSale && (
-                                                <div>
-                                                    <label className="block text-xs font-medium text-indigo-700 dark:text-indigo-400 mb-1">Giá bán dự kiến (VNĐ)</label>
-                                                    <input
-                                                        type="text"
-                                                        value={addSellingPrice === 0 ? '' : new Intl.NumberFormat('vi-VN').format(addSellingPrice)}
-                                                        onChange={e => {
-                                                            const rawValue = e.target.value.replace(/[^0-9]/g, '');
-                                                            setAddSellingPrice(Number(rawValue));
-                                                        }}
-                                                        className="w-full px-3 py-2 border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-900 dark:text-indigo-100 rounded-lg font-mono"
-                                                        placeholder="0"
-                                                    />
-                                                </div>
-                                            )}
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Giá nhập (VNĐ)</label>
+                                            <input
+                                                type="text"
+                                                value={addCostPrice === 0 ? '' : new Intl.NumberFormat('vi-VN').format(addCostPrice)}
+                                                onChange={e => {
+                                                    const rawValue = e.target.value.replace(/[^0-9]/g, '');
+                                                    setAddCostPrice(Number(rawValue));
+                                                }}
+                                                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white rounded-lg font-mono"
+                                                placeholder="0"
+                                            />
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Thuế VAT (%)</label>
-                                            <input
-                                                type="text"
-                                                value={addVatRate}
-                                                onChange={e => {
-                                                    const val = e.target.value.replace(/[^0-9.]/g, '');
-                                                    setAddVatRate(Number(val));
-                                                }}
-                                                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white rounded-lg"
-                                                placeholder="10"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Hạn sử dụng (Tùy chọn)</label>
-                                            <input
-                                                type="date"
-                                                value={addExpiry || ''}
-                                                onChange={e => setAddExpiry(e.target.value)}
-                                                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white rounded-lg"
-                                            />
-                                        </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Hạn sử dụng (Tùy chọn)</label>
+                                        <input
+                                            type="date"
+                                            value={addExpiry || ''}
+                                            onChange={e => setAddExpiry(e.target.value)}
+                                            className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white rounded-lg"
+                                        />
                                     </div>
 
                                     <button
@@ -601,7 +533,6 @@ export default function ImportStockPage() {
                                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Tên hàng</th>
                                             <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">SL</th>
                                             <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Giá nhập</th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Thuế (%)</th>
                                             <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Thành tiền</th>
                                             <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Xóa</th>
                                         </tr>
@@ -613,8 +544,7 @@ export default function ImportStockPage() {
                                                 <td className="px-6 py-4 text-sm text-slate-900 dark:text-slate-200 font-medium">{item.product.TenHang}</td>
                                                 <td className="px-6 py-4 text-sm text-right dark:text-slate-300">{item.quantity}</td>
                                                 <td className="px-6 py-4 text-sm text-right dark:text-slate-300">{formatCurrency(item.costPrice)}</td>
-                                                <td className="px-6 py-4 text-sm text-right dark:text-slate-300">{item.vatRate}%</td>
-                                                <td className="px-6 py-4 text-sm text-right font-medium dark:text-slate-200">{formatCurrency(item.quantity * item.costPrice * (1 + item.vatRate / 100))}</td>
+                                                <td className="px-6 py-4 text-sm text-right font-medium dark:text-slate-200">{formatCurrency(item.quantity * item.costPrice)}</td>
                                                 <td className="px-6 py-4 text-center">
                                                     <button
                                                         onClick={() => handleRemoveItem(idx)}
@@ -643,7 +573,7 @@ export default function ImportStockPage() {
                                     className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-lg shadow-sm"
                                 >
                                     {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                                    Hoàn tất nhập kho (Tổng: {formatCurrency(items.reduce((sum, item) => sum + (item.quantity * item.costPrice * (1 + item.vatRate / 100)), 0))})
+                                    Hoàn tất nhập kho (Tổng: {formatCurrency(items.reduce((sum, item) => sum + (item.quantity * item.costPrice), 0))})
                                 </button>
                             </div>
                         </div>

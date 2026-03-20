@@ -3,9 +3,10 @@ export const VaiTro = {
     ADMIN: 'ADMIN',
     SALE: 'SALE',
     KHO: 'KHO',
-    THO_CHAN_DOAN: 'THO_CHAN_DOAN',
+    QUAN_LY_XUONG: 'QUAN_LY_XUONG',
     THO_SUA_CHUA: 'THO_SUA_CHUA',
     KE_TOAN: 'KE_TOAN',
+    KHACH_HANG: 'KHACH_HANG',
 } as const;
 
 export type VaiTroType = (typeof VaiTro)[keyof typeof VaiTro];
@@ -15,9 +16,10 @@ export const ROLE_ROUTES: Record<string, string> = {
     ADMIN: '/admin',
     SALE: '/sale',
     KHO: '/warehouse',
-    THO_CHAN_DOAN: '/mechanic',
+    QUAN_LY_XUONG: '/mechanic',
     THO_SUA_CHUA: '/mechanic',
     KE_TOAN: '/sale',
+    KHACH_HANG: '/customer/home',
 };
 
 // Quyền truy cập cho từng tiền tố route
@@ -25,7 +27,8 @@ export const ROUTE_PERMISSIONS: Record<string, string[]> = {
     '/admin': ['ADMIN'],
     '/sale': ['ADMIN', 'SALE', 'KE_TOAN'],
     '/warehouse': ['ADMIN', 'KHO'],
-    '/mechanic': ['THO_CHAN_DOAN', 'THO_SUA_CHUA'],
+    '/mechanic': ['QUAN_LY_XUONG', 'THO_SUA_CHUA'],
+    '/customer': ['KHACH_HANG'],
 };
 
 /**

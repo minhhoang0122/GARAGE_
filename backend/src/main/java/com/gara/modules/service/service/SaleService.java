@@ -40,7 +40,6 @@ public class SaleService {
     private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
     private final jakarta.persistence.EntityManager entityManager;
     private final OrderCalculationService orderCalculationService;
-    private final com.gara.modules.system.repository.SystemConfigRepository systemConfigRepository;
 
     private final com.gara.modules.inventory.service.WarehouseService warehouseService;
 
@@ -57,7 +56,6 @@ public class SaleService {
             com.gara.modules.support.service.AsyncNotificationService asyncNotificationService,
             jakarta.persistence.EntityManager entityManager,
             OrderCalculationService orderCalculationService,
-            com.gara.modules.system.repository.SystemConfigRepository systemConfigRepository,
             com.gara.modules.inventory.service.WarehouseService warehouseService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -73,7 +71,6 @@ public class SaleService {
         this.entityManager = entityManager;
         this.warehouseService = warehouseService;
         this.orderCalculationService = orderCalculationService;
-        this.systemConfigRepository = systemConfigRepository;
     }
 
     // 7. Get Dashboard Stats
@@ -203,6 +200,7 @@ public class SaleService {
                 .items(items)
                 .discount(order.getChietKhauTong())
                 .tax(order.getThueVAT())
+                .vatPercent(order.getVatPhanTram())
                 .totalAmount((order.getTongTienHang() != null ? order.getTongTienHang() : BigDecimal.ZERO)
                         .add(order.getTongTienCong() != null ? order.getTongTienCong() : BigDecimal.ZERO))
                 .finalAmount(finalAmount)
@@ -274,23 +272,14 @@ public class SaleService {
             throw new RuntimeException("Số lượng phải lớn hơn 0");
         }
 
-        // Fetch Global Service VAT Rate if it's a service
-        BigDecimal vatRate = product.getLaDichVu()
-                ? systemConfigRepository.findById("SERVICE_VAT_RATE")
-                        .map(c -> new BigDecimal(c.getConfigValue()))
-                        .orElse(new BigDecimal("10.00"))
-                : (product.getThueVAT() != null ? product.getThueVAT() : BigDecimal.ZERO);
-
         BigDecimal unitPrice = product.getGiaBanNiemYet();
         BigDecimal rawTotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
-        BigDecimal taxAmount = rawTotal.multiply(vatRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        BigDecimal totalWithTax = rawTotal.add(taxAmount);
 
         item.setSoLuong(quantity);
         item.setDonGiaGoc(unitPrice);
-        item.setVatPhanTram(vatRate);
-        item.setTienThue(taxAmount);
-        item.setThanhTien(totalWithTax);
+        item.setVatPhanTram(BigDecimal.ZERO);
+        item.setTienThue(BigDecimal.ZERO);
+        item.setThanhTien(rawTotal);
 
         // Handle Arising Issues (Rule 3.3)
         OrderStatus status = order.getTrangThai();
@@ -340,26 +329,8 @@ public class SaleService {
             item.setGiamGiaPhanTram(BigDecimal.valueOf(discountPercent));
         }
 
-        // Bug 112 Fix: Centralize calculation using OrderCalculationService for consistency
-        // or at least ensure VAT is recalculated here if we don't want to wait for recalculateTotals
-        BigDecimal quantityVal = BigDecimal.valueOf(item.getSoLuong());
-        BigDecimal unitPrice = item.getDonGiaGoc();
-        BigDecimal vatRate = item.getVatPhanTram() != null ? item.getVatPhanTram() : BigDecimal.ZERO;
-        
-        BigDecimal lineSubtotal = unitPrice.multiply(quantityVal);
-        BigDecimal discount = lineSubtotal.multiply(item.getGiamGiaPhanTram())
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        
-        item.setGiamGiaTien(discount);
-        BigDecimal lineAfterDiscount = lineSubtotal.subtract(discount);
-        
-        // Use central logic for VAT (exclusive/inclusive) - here we assume exclusive for simplicity 
-        // but OrderCalculationService will fix it anyway. However, item needs consistent state.
-        BigDecimal taxAmount = lineAfterDiscount.multiply(vatRate)
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        
-        item.setTienThue(taxAmount);
-        item.setThanhTien(lineAfterDiscount.add(taxAmount));
+        // Calculations are handled centrally in OrderCalculationService.recalculateTotals
+        item.setThanhTien(item.getDonGiaGoc().multiply(BigDecimal.valueOf(item.getSoLuong())));
 
         orderItemRepository.save(item);
         orderCalculationService.recalculateTotals(item.getDonHangSuaChua());
@@ -465,6 +436,37 @@ public class SaleService {
                     .isRead(false)
                     .build());
         }
+    }
+
+    /**
+     * Update global discount and VAT percentage for an order and recalculate totals.
+     */
+    @Transactional
+    public void updateOrderTotals(Integer orderId, BigDecimal discount, BigDecimal vatPercent, User user) {
+        RepairOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found with ID: " + orderId));
+
+        checkOwnership(order, user);
+        validateOrderModifiable(order);
+
+        if (discount != null) {
+            order.setChietKhauTong(discount);
+        }
+        if (vatPercent != null) {
+            order.setVatPhanTram(vatPercent);
+        }
+
+        orderCalculationService.recalculateTotals(order);
+        orderRepository.save(order);
+
+        // Audit log
+        asyncAuditService.logAsync(AuditLog.builder()
+                .bang("DonHangSuaChua")
+                .banGhiId(orderId)
+                .hanhDong("UPDATE")
+                .lyDo("Cập nhật chiết khấu/VAT tổng: " + discount + "/" + vatPercent)
+                .nguoiThucHienId(user.getId())
+                .build());
     }
 
     // 6c. Submit Replenishment Quote (For Technical Issues found mid-repair)

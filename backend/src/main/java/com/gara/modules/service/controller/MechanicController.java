@@ -50,6 +50,23 @@ public class MechanicController {
         }
     }
 
+    @PostMapping("/jobs/{id}/assign")
+    public ResponseEntity<?> assignJob(@PathVariable Integer id,
+            @RequestParam Integer mechanicId,
+            @AuthenticationPrincipal User user) {
+        try {
+            mechanicService.assignJob(id, mechanicId, user.getId());
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/mechanics")
+    public ResponseEntity<?> getAvailableMechanics(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(mechanicService.getAvailableMechanics());
+    }
+
     @PostMapping("/items/{itemId}/toggle")
     public ResponseEntity<?> toggleItemCompletion(@PathVariable Integer itemId,
             @AuthenticationPrincipal User user) {

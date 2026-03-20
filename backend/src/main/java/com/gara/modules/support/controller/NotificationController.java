@@ -21,6 +21,9 @@ public class NotificationController {
 
     @GetMapping
     public ResponseEntity<List<Notification>> getMyNotifications(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
         List<String> userRoles = user.getRoles().stream()
                 .map(com.gara.entity.Role::getName)
                 .toList();
@@ -33,6 +36,9 @@ public class NotificationController {
 
     @PutMapping("/read-all")
     public ResponseEntity<?> markAllAsRead(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
         List<String> userRoles = user.getRoles().stream()
                 .map(com.gara.entity.Role::getName)
                 .toList();

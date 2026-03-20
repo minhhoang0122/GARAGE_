@@ -60,6 +60,48 @@ export async function getAssignedJobs() {
     }
 }
 
+// --- Mechanic Info (for assignment UI) ---
+export type MechanicInfo = {
+    id: number;
+    hoTen: string;
+    chuyenMon: string | null;
+    chuyenMonLabel: string;
+    capBac: string | null;
+    capBacLabel: string;
+    soViecDangLam: number;
+};
+
+// Get available mechanics with specialty, level, workload
+export async function getAvailableMechanics(): Promise<MechanicInfo[]> {
+    try {
+        const session = await auth();
+        const token = (session?.user as any)?.accessToken;
+        if (!token) return [];
+        return (await api.get('/mechanic/mechanics', token)) as MechanicInfo[];
+    } catch (error) {
+        console.error('Error fetching mechanics:', error);
+        return [];
+    }
+}
+
+// Assign job to mechanic (Quản đốc chia việc)
+export async function assignJob(orderId: number, mechanicId: number) {
+    try {
+        const session = await auth();
+        const token = (session?.user as any)?.accessToken;
+        if (!session?.user || !token) {
+            return { success: false, error: 'Chưa đăng nhập' };
+        }
+        await api.post(`/mechanic/jobs/${orderId}/assign?mechanicId=${mechanicId}`, {}, token);
+        revalidatePath('/mechanic');
+        revalidatePath('/mechanic/jobs');
+        revalidatePath('/mechanic/assign');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
 // 1.5. Claim Job (Thợ nhận việc)
 export async function claimJob(orderId: number) {
     try {

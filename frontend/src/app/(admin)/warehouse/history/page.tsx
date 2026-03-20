@@ -7,7 +7,8 @@ import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import {
     Clock, ArrowDownCircle, ArrowUpCircle,
-    User, Truck, FileText, ChevronDown, ChevronUp, Package, Calendar, Printer
+    User, Truck, FileText, ChevronDown, ChevronUp, Package, Calendar, Printer,
+    CheckCircle2, XCircle, AlertCircle
 } from 'lucide-react';
 import PrintImportNote from '@/modules/inventory/components/PrintImportNote';
 
@@ -72,6 +73,32 @@ export default function WarehouseHistoryPage() {
         }
     };
 
+    const handleApprove = async (e: React.MouseEvent, id: number) => {
+        e.stopPropagation();
+        if (!confirm('Bạn có chắc chắn muốn duyệt phiếu nhập này? Tồn kho sẽ được cộng thêm ngay lập tức.')) return;
+        
+        try {
+            await api.post(`/warehouse/import/${id}/approve`, {}, token);
+            toast({ title: "Thành công", description: "Đã duyệt phiếu nhập kho." });
+            loadData();
+        } catch (error: any) {
+            toast({ title: "Lỗi", description: error.message || "Không thể duyệt phiếu.", variant: "destructive" });
+        }
+    };
+
+    const handleReject = async (e: React.MouseEvent, id: number) => {
+        e.stopPropagation();
+        if (!confirm('Bạn có chắc chắn muốn từ chối phiếu nhập này?')) return;
+        
+        try {
+            await api.post(`/warehouse/import/${id}/reject`, {}, token);
+            toast({ title: "Đã từ chối", description: "Phiếu nhập đã bị hủy." });
+            loadData();
+        } catch (error: any) {
+            toast({ title: "Lỗi", description: error.message || "Không thể thực hiện.", variant: "destructive" });
+        }
+    };
+
     return (
         <DashboardLayout title="Lịch sử Kho" subtitle="Theo dõi chi tiết nhập xuất hàng hóa">
             {printData && (
@@ -119,7 +146,8 @@ export default function WarehouseHistoryPage() {
                                         </th>
                                         <th className="px-6 py-4">Người thực hiện</th>
                                         <th className="px-6 py-4 text-right">Tổng giá trị</th>
-                                        <th className="px-6 py-4 text-center">Chi tiết</th>
+                                        <th className="px-6 py-4 text-center">Trạng thái</th>
+                                        <th className="px-6 py-4 text-center">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -159,21 +187,68 @@ export default function WarehouseHistoryPage() {
                                                         <span>{item.creator}</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-right font-medium">
+                                                <td className="px-6 py-4 text-right font-medium text-slate-900 dark:text-slate-100">
                                                     {formatCurrency(item.total)}
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <div className="flex items-center justify-center gap-2">
+                                                    {activeTab === 'import' ? (
+                                                        <div className="flex justify-center">
+                                                            {item.status === 'COMPLETED' && (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                                                    <CheckCircle2 className="w-3 h-3" />
+                                                                    Đã duyệt
+                                                                </span>
+                                                            )}
+                                                            {item.status === 'PENDING' && (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                                                                    <AlertCircle className="w-3 h-3" />
+                                                                    Chờ duyệt
+                                                                </span>
+                                                            )}
+                                                            {(item.status === 'REJECTED' || item.status === 'CANCELLED') && (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                                                                    <XCircle className="w-3 h-3" />
+                                                                    Từ chối
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-slate-400 text-xs">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        {activeTab === 'import' && item.status === 'PENDING' && (
+                                                            <>
+                                                                <button
+                                                                    onClick={(e) => handleApprove(e, item.id)}
+                                                                    className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+                                                                    title="Duyệt phiếu"
+                                                                >
+                                                                    <CheckCircle2 className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => handleReject(e, item.id)}
+                                                                    className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                                                                    title="Từ chối"
+                                                                >
+                                                                    <XCircle className="w-4 h-4" />
+                                                                </button>
+                                                            </>
+                                                        )}
                                                         {activeTab === 'import' && (
                                                             <button
                                                                 onClick={(e) => handlePrint(e, item.id)}
-                                                                className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 p-1"
+                                                                className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors"
                                                                 title="In phiếu nhập"
                                                             >
                                                                 <Printer className="w-4 h-4" />
                                                             </button>
                                                         )}
-                                                        <button className="text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">
+                                                        <button 
+                                                            className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 rounded-lg transition-colors"
+                                                            title="Chi tiết"
+                                                        >
                                                             {expandedRows[item.id] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                                         </button>
                                                     </div>
@@ -225,7 +300,7 @@ export default function WarehouseHistoryPage() {
                                     ))}
                                     {(activeTab === 'import' ? imports : exports).length === 0 && (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                                            <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                                                 Chưa có dữ liệu lịch sử
                                             </td>
                                         </tr>

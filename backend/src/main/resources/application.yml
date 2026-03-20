@@ -41,7 +41,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect # ÉP DIALECT: Giải quyết lỗi "Unable to determine Dialect"
     hibernate:
-      ddl-auto: none # TẮT để khởi động nhanh (schema đã có sẵn)
+      ddl-auto: update # TỰ ĐỘNG CẬP NHẬT: Để sửa lỗi thiếu cột nha_cung_cap mà không cần chạy SQL thủ công
     show-sql: false
     open-in-view: false
     properties:

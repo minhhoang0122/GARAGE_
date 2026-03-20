@@ -10,6 +10,8 @@ public record ImportItemDto(
                 Integer batchId,
                 String productName,
                 Integer quantity,
-                BigDecimal price,
+                BigDecimal price, // Net Price
+                BigDecimal vatRate,
+                BigDecimal lineTotal, // Gross Price
                 LocalDate expiryDate) {
 }

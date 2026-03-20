@@ -38,4 +38,12 @@ public interface ReceptionRepository extends JpaRepository<Reception, Integer> {
                         "WHERE r.id = :id")
         java.util.Optional<Reception> findByIdWithDetails(
                         @org.springframework.data.repository.query.Param("id") Integer id);
+
+        @org.springframework.data.jpa.repository.Query("SELECT r FROM Reception r " +
+                        "LEFT JOIN FETCH r.xe x " +
+                        "LEFT JOIN FETCH x.khachHang kh " +
+                        "LEFT JOIN FETCH r.donHangSuaChua o " +
+                        "WHERE r.yeuCauSoBo LIKE '%ĐẶT LỊCH ONLINE%' " +
+                        "ORDER BY r.ngayGio DESC")
+        List<Reception> findAllBookings();
 }

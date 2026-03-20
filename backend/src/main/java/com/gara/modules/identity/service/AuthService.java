@@ -22,14 +22,17 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final com.gara.modules.support.service.LoginAttemptService loginAttemptService;
+    private final com.gara.modules.auth.repository.PermissionRepository permissionRepository;
 
     public AuthService(UserRepository userRepository,
             PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
-            com.gara.modules.support.service.LoginAttemptService loginAttemptService) {
+            com.gara.modules.support.service.LoginAttemptService loginAttemptService,
+            com.gara.modules.auth.repository.PermissionRepository permissionRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.loginAttemptService = loginAttemptService;
+        this.permissionRepository = permissionRepository;
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -91,9 +94,73 @@ public class AuthService {
     public void seedDefaultUsers(com.gara.modules.auth.repository.RoleRepository roleRepository) {
         seedUser(roleRepository, "admin", "Quản Trị Viên", "ADMIN");
         seedUser(roleRepository, "sale1", "Nhân Viên Sale", "SALE");
-        seedUser(roleRepository, "tho1", "Thợ Chẩn Đoán", "THO_CHAN_DOAN");
-        seedUser(roleRepository, "tho2", "Thợ Sửa Chữa", "THO_SUA_CHUA");
+        seedUser(roleRepository, "quandoc1", "Quản Đốc Xưởng", "QUAN_LY_XUONG");
+        seedMechanic(roleRepository, "tho2", "Nguyễn Văn Bình", "THO_SUA_CHUA",
+                com.gara.entity.enums.MechanicSpecialty.MAY,
+                com.gara.entity.enums.MechanicLevel.KY_THUAT_VIEN);
+        seedMechanic(roleRepository, "tho3", "Trần Văn Cường", "THO_SUA_CHUA",
+                com.gara.entity.enums.MechanicSpecialty.DIEN,
+                com.gara.entity.enums.MechanicLevel.KTV_CHINH);
         seedUser(roleRepository, "kho1", "Thủ Kho", "KHO");
+        seedUser(roleRepository, "khach1", "Nguyễn Văn Khách", "KHACH_HANG");
+
+        // Seed permissions for roles
+        seedRolePermissions(roleRepository);
+    }
+
+    private void seedRolePermissions(com.gara.modules.auth.repository.RoleRepository roleRepository) {
+        // QUAN_LY_XUONG permissions
+        assignPermissionsToRole(roleRepository, "QUAN_LY_XUONG", new String[][]{
+            {"CREATE_PROPOSAL", "Lập đề xuất sửa chữa", "SERVICE"},
+            {"APPROVE_QC", "Duyệt nghiệm thu QC", "SERVICE"},
+            {"REJECT_QC", "Từ chối nghiệm thu QC", "SERVICE"},
+            {"ASSIGN_WORK", "Chia việc cho thợ", "SERVICE"},
+            {"VIEW_ALL_JOBS", "Xem tất cả việc trong xưởng", "SERVICE"},
+            {"COMPLETE_REPAIR_JOB", "Đánh dấu hoàn thành hạng mục", "SERVICE"},
+            {"VIEW_ASSIGNED_JOBS", "Xem danh sách việc được giao", "SERVICE"},
+        });
+
+        // THO_SUA_CHUA permissions (limited)
+        assignPermissionsToRole(roleRepository, "THO_SUA_CHUA", new String[][]{
+            {"COMPLETE_REPAIR_JOB", "Đánh dấu hoàn thành hạng mục", "SERVICE"},
+            {"VIEW_ASSIGNED_JOBS", "Xem danh sách việc được giao", "SERVICE"},
+            {"REQUEST_MATERIAL", "Yêu cầu thêm vật tư", "SERVICE"},
+        });
+
+        // KHACH_HANG permissions (customer portal)
+        assignPermissionsToRole(roleRepository, "KHACH_HANG", new String[][]{
+            {"VIEW_OWN_VEHICLES", "Xem danh sách xe của mình", "CUSTOMER"},
+            {"VIEW_OWN_ORDERS", "Xem đơn sửa chữa của mình", "CUSTOMER"},
+            {"CREATE_BOOKING", "Đặt lịch hẹn sửa chữa", "CUSTOMER"},
+        });
+    }
+
+    private void assignPermissionsToRole(com.gara.modules.auth.repository.RoleRepository roleRepository,
+            String roleName, String[][] permissionDefs) {
+        Role role = roleRepository.findByName(roleName).orElse(null);
+        if (role == null) return;
+        for (String[] pDef : permissionDefs) {
+            String code = pDef[0];
+            String name = pDef[1];
+            String module = pDef[2];
+
+            Permission perm = findOrCreatePermission(code, name, module);
+            if (!role.getPermissions().contains(perm)) {
+                role.getPermissions().add(perm);
+            }
+        }
+        roleRepository.save(role);
+    }
+
+    private Permission findOrCreatePermission(String code, String name, String module) {
+        return permissionRepository.findByCode(code)
+                .orElseGet(() -> {
+                    Permission p = new Permission();
+                    p.setCode(code);
+                    p.setName(name);
+                    p.setModule(module);
+                    return permissionRepository.save(p);
+                });
     }
 
     private void seedUser(com.gara.modules.auth.repository.RoleRepository roleRepository,
@@ -111,7 +178,6 @@ public class AuthService {
             user.setTenDangNhap(username);
             user.setHoTen(fullName);
             user.setRoles(new java.util.HashSet<>(java.util.Set.of(role)));
-            // Bug 133 Fix: Only set default password for NEW seeded users
             user.setMatKhauHash(passwordEncoder.encode("123456"));
             user.setTrangThaiHoatDong(true);
             user.setSoDienThoai("0900000000");
@@ -137,4 +203,26 @@ public class AuthService {
             }
         }
     }
+
+    private void seedMechanic(com.gara.modules.auth.repository.RoleRepository roleRepository,
+            String username, String fullName, String roleName,
+            com.gara.entity.enums.MechanicSpecialty specialty,
+            com.gara.entity.enums.MechanicLevel level) {
+        // Seed the user with role first
+        seedUser(roleRepository, username, fullName, roleName);
+
+        // Then set mechanic attributes
+        var userOptional = userRepository.findByTenDangNhap(username);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            if (user.getChuyenMon() == null) {
+                user.setChuyenMon(specialty);
+            }
+            if (user.getCapBac() == null) {
+                user.setCapBac(level);
+            }
+            userRepository.save(user);
+        }
+    }
 }
+

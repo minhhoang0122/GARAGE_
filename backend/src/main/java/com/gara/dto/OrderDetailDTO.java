@@ -16,6 +16,7 @@ public record OrderDetailDTO(
         BigDecimal totalAmount,
         BigDecimal discount,
         BigDecimal tax,
+        BigDecimal vatPercent,
         BigDecimal finalAmount,
         BigDecimal paidAmount,
         BigDecimal deposit,
@@ -38,6 +39,7 @@ public record OrderDetailDTO(
         private BigDecimal totalAmount;
         private BigDecimal discount;
         private BigDecimal tax;
+        private BigDecimal vatPercent;
         private BigDecimal finalAmount;
         private BigDecimal paidAmount;
         private BigDecimal deposit;
@@ -99,6 +101,11 @@ public record OrderDetailDTO(
             return this;
         }
 
+        public OrderDetailDTOBuilder vatPercent(BigDecimal vatPercent) {
+            this.vatPercent = vatPercent;
+            return this;
+        }
+
         public OrderDetailDTOBuilder finalAmount(BigDecimal finalAmount) {
             this.finalAmount = finalAmount;
             return this;
@@ -126,7 +133,7 @@ public record OrderDetailDTO(
 
         public OrderDetailDTO build() {
             return new OrderDetailDTO(id, status, createdAt, customerName, customerPhone, plateNumber, carBrand,
-                    carModel, totalAmount, discount, tax, finalAmount, paidAmount, deposit, thoChanDoanId, items);
+                    carModel, totalAmount, discount, tax, vatPercent, finalAmount, paidAmount, deposit, thoChanDoanId, items);
         }
     }
 }

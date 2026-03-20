@@ -8,6 +8,7 @@ import { getOrder } from '@/modules/service/order';
 import ProductSearch from '@/modules/service/components/ProductSearch';
 import OrderItemsTable from '@/modules/service/components/OrderItemsTable';
 import OrderActions from '@/modules/service/components/OrderActions';
+import OrderSummary from '@/modules/service/components/OrderSummary';
 import InvoicePrint from '@/modules/service/components/InvoicePrint';
 import PaymentButton from '@/modules/service/components/PaymentButton';
 import TransactionHistory from '@/modules/service/components/TransactionHistory';
@@ -82,15 +83,18 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     
                     {/* Main Content Area (8/12) */}
-                    <div className="lg:col-span-8 space-y-8">
+                    <div className="lg:col-span-8 space-y-6">
                         {/* Thông tin chung - Card top aligned */}
-                        <div className="relative overflow-hidden bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/5 to-transparent blur-3xl rounded-full -mr-32 -mt-32"></div>
+                        <div className="relative bg-white dark:bg-slate-900 p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
+                            {/* Background decoration with its own clipping */}
+                            <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-2xl">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/5 to-transparent blur-3xl rounded-full -mr-32 -mt-32"></div>
+                            </div>
 
-                            <div className="flex flex-col md:flex-row justify-between items-center gap-12 relative z-10">
-                                <div className="flex flex-col md:flex-row items-center gap-10 w-full md:w-auto">
+                            <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
+                                <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto">
                                     {/* Realistic License Plate Visual */}
-                                    <div className="flex flex-col items-center">
+                                    <div className="flex flex-col items-center shrink-0">
                                         <div className="bg-white dark:bg-slate-50 border-2 border-slate-900 dark:border-white rounded-xl px-6 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] transform hover:-rotate-1 transition-all duration-300 group cursor-default">
                                             <span className="text-3xl font-black text-slate-900 tracking-[0.15em] font-mono leading-none block truncate">
                                                 {order.plate}
@@ -101,7 +105,7 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                                         </div>
                                     </div>
 
-                                    <div className="text-center md:text-left space-y-4">
+                                    <div className="text-center md:text-left space-y-2 min-w-0">
                                         <div className="space-y-1 min-w-0">
                                             <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Khách hàng</p>
                                             <h3 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center justify-center md:justify-start gap-2 truncate">
@@ -122,13 +126,13 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col lg:flex-row items-center gap-10">
-                                    <div className="w-48">
+                                <div className="flex flex-col md:flex-row items-center gap-8 pr-2">
+                                    <div className="w-44 shrink-0">
                                         <ImageGallery images={order.imageUrl} />
                                     </div>
-                                    <div className="flex flex-col items-center md:items-end gap-3 min-w-[200px]">
-                                        <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Trạng thái hiện tại</p>
-                                        <div className="flex justify-end min-h-[40px]">
+                                    <div className="flex flex-col items-center md:items-end gap-3 shrink-0 min-w-fit">
+                                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Trạng thái</p>
+                                        <div className="flex items-center">
                                             {getStatusBadge(order.status)}
                                         </div>
                                     </div>
@@ -158,45 +162,19 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                     {/* Summary Sidebar - Proximity maintained but with clear Gap */}
                     <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-8 self-start">
                         {/* Summary Card */}
-                        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-2xl rounded-full -mr-16 -mt-16"></div>
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800 uppercase tracking-tight flex items-center justify-between">
-                                Tổng cộng
-                                <FileText className="w-5 h-5 text-slate-400" />
-                            </h3>
-
-                            <div className="space-y-4 text-sm font-medium">
-                                <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                                    <span>Tiền hàng:</span>
-                                    <span className="text-slate-900 dark:text-slate-200">{formatCurrency(order.totalParts)}</span>
-                                </div>
-                                <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                                    <span>Tiền công:</span>
-                                    <span className="text-slate-900 dark:text-slate-200">{formatCurrency(order.totalLabor)}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-slate-500 dark:text-slate-400">
-                                    <span>Chiết khấu:</span>
-                                    <span className="text-rose-500 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/20 rounded-lg">-{formatCurrency(order.totalDiscount)}</span>
-                                </div>
-                                <div className="flex justify-between text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-50 dark:border-slate-800">
-                                    <span>Thuế VAT:</span>
-                                    <span className="text-slate-900 dark:text-slate-200">{formatCurrency(order.vat)}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-xl font-black text-slate-900 dark:text-white pt-4 border-t-2 border-blue-50 dark:border-blue-900/30">
-                                    <span>Thành tiền:</span>
-                                    <span className="text-slate-900 dark:text-white text-2xl tracking-tighter">{formatCurrency(order.grandTotal)}</span>
-                                </div>
-                            </div>
-
-                            {!isWaitingPayment && !isCompleted && (
-                                <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500 text-center uppercase tracking-widest font-bold">
-                                    Báo giá có hiệu lực trong 7 ngày
-                                </div>
-                            )}
-                        </div>
+                        <OrderSummary
+                            orderId={order.id}
+                            totalParts={order.totalParts}
+                            totalLabor={order.totalLabor}
+                            totalDiscount={order.totalDiscount}
+                            vat={order.vat}
+                            vatPercent={order.vatPercent}
+                            grandTotal={order.grandTotal}
+                            isLocked={isLocked}
+                        />
 
                         {/* Payment/Transactions Card */}
-                        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
+                        <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
                             <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800 uppercase tracking-tight">Thanh toán</h3>
 
                             <div className="space-y-4 mb-6">
@@ -227,7 +205,7 @@ export default async function OrderDetailPage({ params, searchParams }: { params
 
                         {/* Completed info */}
                         {isCompleted && (
-                            <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-6 rounded-3xl border border-emerald-200 dark:border-emerald-800 transition-colors">
+                            <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-6 rounded-2xl border border-emerald-200 dark:border-emerald-800 transition-colors">
                                 <div className="flex items-center gap-3 mb-4">
                                     <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
                                         <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />

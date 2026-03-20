@@ -38,18 +38,21 @@ export default function UsersPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            if (editingUser) {
-                await updateUser(editingUser.id, formData);
+            const result = editingUser 
+                ? await updateUser(editingUser.id, formData)
+                : await createUser(formData);
+            
+            if (result.success) {
+                setIsModalOpen(false);
+                setEditingUser(null);
+                resetForm();
+                loadUsers();
+                showToast('success', editingUser ? 'Cập nhật thành công!' : 'Tạo mới thành công!');
             } else {
-                await createUser(formData);
+                showToast('error', result.error || 'Lỗi lưu người dùng');
             }
-            setIsModalOpen(false);
-            setEditingUser(null);
-            resetForm();
-            loadUsers();
-            showToast('success', editingUser ? 'Cập nhật thành công!' : 'Tạo mới thành công!');
         } catch (err) {
-            showToast('error', 'Lỗi lưu người dùng');
+            showToast('error', 'Lỗi hệ thống, vui lòng thử lại sau');
         }
     };
 
@@ -203,7 +206,7 @@ export default function UsersPage() {
                                 <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-950 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
                                     {[
                                         { value: 'SALE', label: 'Sale (Cố vấn)' },
-                                        { value: 'THO_CHAN_DOAN', label: 'Thợ chẩn đoán' },
+                                        { value: 'QUAN_LY_XUONG', label: 'Quản Đốc Xưởng' },
                                         { value: 'THO_SUA_CHUA', label: 'Thợ sửa chữa' },
                                         { value: 'KHO', label: 'Thủ kho' },
                                         { value: 'ADMIN', label: 'Admin (Chủ gara)' }

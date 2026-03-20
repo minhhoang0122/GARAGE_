@@ -90,7 +90,11 @@ export default function LandingPage() {
                                 </button>
                             </div>
                         ) : (
-                            <Link href="/login" className="hover:text-white transition-colors">Nội bộ xưởng</Link>
+                            <div className="flex items-center gap-4">
+                                <Link href="/customer/login" className="text-orange-400 hover:text-white transition-colors font-bold">Khách hàng</Link>
+                                <span className="text-stone-600">|</span>
+                                <Link href="/login" className="text-stone-500 hover:text-white transition-colors">Nội bộ xưởng</Link>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -115,7 +119,7 @@ export default function LandingPage() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                         {status === 'authenticated' ? (
                             <div className="flex items-center gap-2">
                                 <Link href={getHomeRoute((session?.user as any)?.roles || [])} className="hidden sm:flex items-center gap-2 bg-orange-600 hover:bg-orange-500 border border-orange-700 px-5 py-2.5 rounded text-sm font-bold transition-colors shadow-lg">
@@ -126,9 +130,14 @@ export default function LandingPage() {
                                 </button>
                             </div>
                         ) : (
-                            <Link href="/login" className="hidden sm:flex items-center gap-2 bg-[#1C1917] hover:bg-stone-800 border border-stone-700 px-5 py-2.5 rounded text-sm font-bold transition-colors shadow-lg">
-                                <User size={16} /> Đăng Nhập Hệ Thống
-                            </Link>
+                            <div className="hidden sm:flex items-center gap-2">
+                                <Link href="/customer/login" className="flex items-center gap-2 bg-orange-600 hover:bg-orange-500 border border-orange-700 px-5 py-2.5 rounded text-sm font-bold transition-colors shadow-lg text-white">
+                                    <User size={16} /> Đăng Nhập
+                                </Link>
+                                <Link href="/login" className="flex items-center gap-2 bg-[#1C1917] hover:bg-stone-800 border border-stone-700 px-4 py-2.5 rounded text-xs font-medium transition-colors text-stone-400 hover:text-white">
+                                    Nội bộ
+                                </Link>
+                            </div>
                         )}
                         <button className="lg:hidden p-2 text-stone-400 hover:text-white"><Menu size={24} /></button>
                     </div>
@@ -268,7 +277,7 @@ export default function LandingPage() {
 
                                 <div className="mt-8 pt-6 border-t border-stone-800 text-center relative z-10">
                                     <p className="text-stone-500 text-sm mb-3">Chủ xe cần xem chi tiết hạng mục, phụ tùng?</p>
-                                    <Link href="/login" className="inline-flex items-center gap-2 text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 px-4 py-2 rounded transition-colors text-sm font-medium">
+                                    <Link href="/customer/login" className="inline-flex items-center gap-2 text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 px-4 py-2 rounded transition-colors text-sm font-medium">
                                         {status === 'authenticated' ? 'Đi tới trang quản lý' : 'Đăng nhập xem hoá đơn'} <ArrowRight size={14} />
                                     </Link>
                                 </div>

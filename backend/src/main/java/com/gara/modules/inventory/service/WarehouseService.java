@@ -453,8 +453,8 @@ public class WarehouseService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // Check User Permission
-        boolean isAuthorized = user.hasPermission("MANAGE_INVENTORY") || user.isAdmin();
-        String status = isAuthorized ? "COMPLETED" : "PENDING";
+        // Rule: All imports must be approved by Admin regardless of who creates it
+        String status = "PENDING";
 
         ImportNote note = ImportNote.builder()
                 .maPhieu("PN" + System.currentTimeMillis())
@@ -470,7 +470,6 @@ public class WarehouseService {
 
         // Setup BATCH LISTS
         List<ImportDetail> detailsToSave = new ArrayList<>();
-        List<Product> productsToSave = new ArrayList<>();
 
         for (com.gara.dto.ImportRequestDTO.ImportItemDTO item : req.items()) {
             Product product = productRepository.findByIdWithLock(item.productId())
@@ -483,65 +482,25 @@ public class WarehouseService {
                 throw new RuntimeException("Giá vốn nhập không được âm");
             }
 
-            int oldStock = product.getSoLuongTon();
-            BigDecimal oldCost = product.getGiaVon();
             int importQty = item.quantity();
             BigDecimal importCost = item.costPrice();
-            BigDecimal importVat = item.vatRate() != null ? item.vatRate() : new BigDecimal("10.00");
+            
+            // VAT is now removed from import process, default to 0
+            BigDecimal importVat = BigDecimal.ZERO;
 
-            BigDecimal currentTotalValue = oldCost.multiply(new BigDecimal(oldStock));
+            // Value calculation (Net = Gross since VAT is 0)
             BigDecimal newImportValue = importCost.multiply(new BigDecimal(importQty));
-            BigDecimal newTotalQty = new BigDecimal(oldStock + importQty);
 
-            if ("COMPLETED".equals(status)) {
-                if (newTotalQty.compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal newAvgCost = currentTotalValue.add(newImportValue)
-                            .divide(newTotalQty, 2, java.math.RoundingMode.HALF_UP);
-                    product.setGiaVon(newAvgCost);
-                }
-
-                // --- PRICING STRATEGY (Tiered Markup) ---
-                boolean shouldUpdatePrice = item.updateGlobalPrice() == null || item.updateGlobalPrice();
-
-                if (shouldUpdatePrice) {
-                    if (item.sellingPrice() != null && item.sellingPrice().compareTo(BigDecimal.ZERO) > 0) {
-                        // Admin/Manager override
-                        product.setGiaBanNiemYet(item.sellingPrice());
-                    } else {
-                        // Warehouse logic: Auto-calculate using Tiered Markup
-                        BigDecimal cost = item.costPrice();
-                        BigDecimal suggestedPrice;
-
-                        if (cost.compareTo(new BigDecimal("50000")) < 0) { // < 50k
-                            suggestedPrice = cost.multiply(new BigDecimal("2.0")); // x2
-                            suggestedPrice = roundTo(suggestedPrice, 1000);
-                        } else if (cost.compareTo(new BigDecimal("500000")) < 0) { // 50k - 500k
-                            suggestedPrice = cost.multiply(new BigDecimal("1.5")); // +50%
-                            suggestedPrice = roundTo(suggestedPrice, 5000);
-                        } else if (cost.compareTo(new BigDecimal("2000000")) < 0) { // 500k - 2m
-                            suggestedPrice = cost.multiply(new BigDecimal("1.3")); // +30%
-                            suggestedPrice = roundTo(suggestedPrice, 10000);
-                        } else { // > 2m
-                            suggestedPrice = cost.multiply(new BigDecimal("1.15")); // +15%
-                            suggestedPrice = roundTo(suggestedPrice, 50000);
-                        }
-                        product.setGiaBanNiemYet(suggestedPrice);
-                    }
-                }
-                // ----------------------------------------
-
-                product.setSoLuongTon(oldStock + importQty);
-                product.setThueVAT(importVat); // Sync product VAT with latest import
-                productsToSave.add(product);
-            }
+            // Stock update is deferred to approveImport method
+            // Only prepare details for the pending note
 
             ImportDetail detail = ImportDetail.builder()
                     .phieuNhap(note)
                     .hangHoa(product)
                     .soLuong(importQty)
                     .donGiaNhap(importCost)
-                    .thueVAT(importVat) // Save historical VAT for this batch
-                    .thanhTien(newImportValue)
+                    .thueVAT(importVat) 
+                    .thanhTien(newImportValue) 
                     .hanSuDung(item.expiryDate())
                     .soLuongConLai(importQty)
                     .build();
@@ -555,9 +514,7 @@ public class WarehouseService {
         importNoteRepository.save(note);
 
         // Execute BATCH SAVES
-        if (!productsToSave.isEmpty()) {
-            productRepository.saveAll(productsToSave);
-        }
+        // Removed productsToSave since we don't update stock in PENDING state
         if (!detailsToSave.isEmpty()) {
             importDetailRepository.saveAll(detailsToSave);
         }
@@ -612,12 +569,15 @@ public class WarehouseService {
                         note.getNhaCungCap(),
                         note.getTongTien(),
                         note.getNguoiNhap() != null ? note.getNguoiNhap().getHoTen() : "N/A",
+                        note.getTrangThai(),
                         note.getChiTietNhap().stream()
                                 .map(d -> new ImportItemDto(
                                         d.getId(),
                                         d.getHangHoa().getTenHang(),
                                         d.getSoLuong(),
                                         d.getDonGiaNhap(),
+                                        d.getThueVAT(),
+                                        d.getThanhTien(),
                                         d.getHanSuDung()))
                                 .toList()))
                 .toList();
@@ -825,11 +785,33 @@ public class WarehouseService {
         return result;
     }
 
-    public List<ImportNote> getAllImports(String status) {
-        if (status != null && !status.isEmpty()) {
-            return importNoteRepository.findByTrangThai(status);
+    public List<ImportHistoryDto> getAllImports(String status) {
+        List<ImportNote> notes;
+        if (status != null && !"ALL".equals(status) && !status.isEmpty()) {
+            notes = importNoteRepository.findByTrangThai(status);
+        } else {
+            notes = importNoteRepository.findAll(Sort.by(Sort.Direction.DESC, "ngayNhap"));
         }
-        return importNoteRepository.findAll(Sort.by(Sort.Direction.DESC, "ngayNhap"));
+
+        return notes.stream().map(note -> new ImportHistoryDto(
+                note.getId(),
+                note.getMaPhieu(),
+                note.getNgayNhap(),
+                note.getNhaCungCap(),
+                note.getTongTien(),
+                note.getNguoiNhap() != null ? note.getNguoiNhap().getHoTen() : "N/A",
+                note.getTrangThai(),
+                note.getChiTietNhap().stream()
+                        .map(d -> new ImportItemDto(
+                                d.getId(),
+                                d.getHangHoa().getTenHang(),
+                                d.getSoLuong(),
+                                d.getDonGiaNhap(),
+                                d.getThueVAT(),
+                                d.getThanhTien(),
+                                d.getHanSuDung()))
+                        .toList()))
+                .toList();
     }
 
     @Transactional
@@ -867,29 +849,11 @@ public class WarehouseService {
                 product.setGiaVon(newAvgCost);
             }
 
-            // Sync VAT
-            product.setThueVAT(detail.getThueVAT());
+            // product.setThueVAT(detail.getThueVAT()); // Removed as per simplified rules (VAT=0)
 
-            // --- PRICING STRATEGY (Approved) ---
-            BigDecimal cost = detail.getDonGiaNhap();
-            BigDecimal suggestedPrice;
-
-            if (cost.compareTo(new BigDecimal("50000")) < 0) { // < 50k
-                suggestedPrice = cost.multiply(new BigDecimal("2.0"));
-                suggestedPrice = roundTo(suggestedPrice, 1000);
-            } else if (cost.compareTo(new BigDecimal("500000")) < 0) { // 50k - 500k
-                suggestedPrice = cost.multiply(new BigDecimal("1.5"));
-                suggestedPrice = roundTo(suggestedPrice, 5000);
-            } else if (cost.compareTo(new BigDecimal("2000000")) < 0) { // 500k - 2m
-                suggestedPrice = cost.multiply(new BigDecimal("1.3"));
-                suggestedPrice = roundTo(suggestedPrice, 10000);
-            } else { // > 2m
-                suggestedPrice = cost.multiply(new BigDecimal("1.15"));
-                suggestedPrice = roundTo(suggestedPrice, 50000);
-            }
-            product.setGiaBanNiemYet(suggestedPrice);
-            // ----------------------------------------
-
+            // Pricing strategy removed as per user request
+            // We only update stock and average cost.
+            
             productRepository.save(product);
         }
 
@@ -1006,11 +970,5 @@ public class WarehouseService {
                     .nguoiThucHienId(userId)
                     .build());
         }
-    }
-
-    private java.math.BigDecimal roundTo(java.math.BigDecimal value, int multiple) {
-        java.math.BigDecimal m = new java.math.BigDecimal(multiple);
-        // Divide, ceil, then multiply back
-        return value.divide(m, 0, java.math.RoundingMode.CEILING).multiply(m);
     }
 }

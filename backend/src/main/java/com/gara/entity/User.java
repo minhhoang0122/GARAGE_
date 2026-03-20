@@ -35,6 +35,14 @@ public class User {
     @Column(name = "trang_thai_hoat_dong")
     private Boolean trangThaiHoatDong = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "chuyen_mon", length = 30)
+    private com.gara.entity.enums.MechanicSpecialty chuyenMon;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cap_bac", length = 20)
+    private com.gara.entity.enums.MechanicLevel capBac;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new java.util.HashSet<>();
@@ -96,12 +104,34 @@ public class User {
         this.trangThaiHoatDong = trangThaiHoatDong;
     }
 
+    public com.gara.entity.enums.MechanicSpecialty getChuyenMon() {
+        return chuyenMon;
+    }
+
+    public void setChuyenMon(com.gara.entity.enums.MechanicSpecialty chuyenMon) {
+        this.chuyenMon = chuyenMon;
+    }
+
+    public com.gara.entity.enums.MechanicLevel getCapBac() {
+        return capBac;
+    }
+
+    public void setCapBac(com.gara.entity.enums.MechanicLevel capBac) {
+        this.capBac = capBac;
+    }
+
     public Set<Role> getRoles() {
         return roles;
     }
 
     public void setRoles(Set<Role> roles) {
         this.roles = roles;
+    }
+
+    // Helper: Check if user is Workshop Manager
+    public boolean isQuanLy() {
+        if (roles == null) return false;
+        return roles.stream().anyMatch(r -> "QUAN_LY_XUONG".equals(r.getName()));
     }
 
     // Helper Methods

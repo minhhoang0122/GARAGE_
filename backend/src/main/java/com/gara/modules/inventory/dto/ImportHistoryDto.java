@@ -15,5 +15,6 @@ public record ImportHistoryDto(
                 String supplier,
                 BigDecimal total,
                 String creator,
+                String status,
                 List<ImportItemDto> items) {
 }

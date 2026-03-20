@@ -124,7 +124,7 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
                 setActiveRole(savedRole);
             } else {
                 // Default priority
-                const priority = ['ADMIN', 'SALE', 'KHO', 'THO_CHAN_DOAN', 'THO_SUA_CHUA'];
+                const priority = ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA'];
                 const bestRole = priority.find(r => roles.includes(r)) || roles[0];
                 setActiveRole(bestRole);
             }

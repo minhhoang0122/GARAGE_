@@ -66,44 +66,57 @@ public class MechanicService {
         return fullPhone;
     }
 
-    // 1. Get Assigned Jobs
+    // 1. Get Assigned Jobs - Role-based filtering
     @Transactional(readOnly = true)
     public List<JobSummaryDTO> getAssignedJobs(Integer userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Diagnostic Mechanic or anyone with CREATE_PROPOSAL permission should see QC
-        // jobs (CHO_KCS) if assigned
-        if (user.hasPermission("CREATE_PROPOSAL") || user.hasPermission("APPROVE_QC")) {
-            // Fetch jobs waiting for QC assigned to this diagnostician
-            return orderRepository.findByTrangThaiIn(List.of(OrderStatus.CHO_KCS)).stream()
+        // QUAN_LY_XUONG / Admin: See ALL jobs + QC jobs
+        if (user.isQuanLy() || user.isAdmin() || user.hasPermission("VIEW_ALL_JOBS")) {
+            List<JobSummaryDTO> allJobs = new ArrayList<>();
+
+            // Active repair jobs
+            allJobs.addAll(orderRepository.findJobsForMechanic().stream()
+                    .filter(o -> !o.getChiTietDonHang().isEmpty())
+                    .map(this::mapToJobSummary)
+                    .toList());
+
+            // QC jobs assigned to this manager
+            allJobs.addAll(orderRepository.findByTrangThaiIn(List.of(OrderStatus.CHO_KCS)).stream()
                     .filter(o -> o.getThoChanDoan() != null && o.getThoChanDoan().getId().equals(userId))
                     .map(this::mapToJobSummary)
-                    .toList();
+                    .toList());
+
+            return allJobs;
         }
 
-        // Should rely on Repository query for status check IN ('CHO_SUA_CHUA',
-        // 'DANG_SUA')
+        // THO_SUA_CHUA: Only see jobs assigned to them
         return orderRepository.findJobsForMechanic().stream()
                 .filter(o -> !o.getChiTietDonHang().isEmpty())
+                .filter(o -> o.getThoPhanCong() != null && o.getThoPhanCong().getId().equals(userId))
                 .map(this::mapToJobSummary)
                 .toList();
     }
 
+    // Assign Job - Only QUAN_LY_XUONG or Admin can assign work to mechanics
     @Transactional
-    public void claimJob(Integer orderId, Integer userId) {
+    public void assignJob(Integer orderId, Integer mechanicId, Integer assignedById) {
         RepairOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-        User mechanic = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng."));
+        User assigner = userRepository.findById(assignedById)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        User mechanic = userRepository.findById(mechanicId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thợ."));
 
-        if (!mechanic.hasPermission("CLAIM_REPAIR_JOB") && !mechanic.isAdmin()) {
-            throw new RuntimeException("Bạn không có quyền nhận việc sửa chữa.");
+        // Permission check: Only QUAN_LY_XUONG or Admin
+        if (!assigner.hasPermission("ASSIGN_WORK") && !assigner.isAdmin()) {
+            throw new RuntimeException("Chỉ Quản đốc hoặc Admin mới được chia việc.");
         }
 
-        // Fix: Prevent Job Stealing
+        // Prevent double-assign
         if (order.getThoPhanCong() != null) {
-            throw new RuntimeException("Đơn hàng này đã có người nhận (" + order.getThoPhanCong().getHoTen() + ").");
+            throw new RuntimeException("Đơn hàng đã được giao cho: " + order.getThoPhanCong().getHoTen());
         }
 
         // Rule 10.4: Check Deposit
@@ -124,16 +137,65 @@ public class MechanicService {
         }
         orderRepository.save(order);
 
-        // Bug 117 Fix: Add Audit Log
+        // Audit log
         asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(orderId)
                 .hanhDong("UPDATE")
                 .duLieuCu(oldStatus.name())
                 .duLieuMoi(order.getTrangThai().name())
-                .lyDo("Thợ nhận việc: " + mechanic.getHoTen())
-                .nguoiThucHienId(userId)
+                .lyDo("Quản đốc " + assigner.getHoTen() + " giao việc cho " + mechanic.getHoTen())
+                .nguoiThucHienId(assignedById)
                 .build());
+
+        // Notify mechanic about new assignment
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
+                .userId(mechanicId)
+                .role("THO_SUA_CHUA")
+                .title("Việc mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
+                .content("Quản đốc đã giao việc sửa chữa cho bạn. Vui lòng kiểm tra.")
+                .type("INFO")
+                .link("/mechanic/jobs/" + orderId)
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
+                .build());
+    }
+
+    // Backward compat: claimJob now requires ASSIGN_WORK (Quan doc self-assigns)
+    @Transactional
+    public void claimJob(Integer orderId, Integer userId) {
+        assignJob(orderId, userId, userId);
+    }
+
+    // Get Available Mechanics with specialty, level, and workload
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getAvailableMechanics() {
+        // Find all users with THO_SUA_CHUA role
+        List<User> allUsers = userRepository.findAll();
+        List<User> mechanics = allUsers.stream()
+                .filter(u -> u.getTrangThaiHoatDong() != null && u.getTrangThaiHoatDong())
+                .filter(u -> u.getRoles().stream().anyMatch(r -> "THO_SUA_CHUA".equals(r.getName())))
+                .toList();
+
+        // Count active jobs per mechanic
+        List<RepairOrder> activeOrders = orderRepository.findByTrangThaiIn(
+                List.of(OrderStatus.DANG_SUA, OrderStatus.CHO_SUA_CHUA));
+
+        return mechanics.stream().map(m -> {
+            Map<String, Object> info = new java.util.HashMap<>();
+            info.put("id", m.getId());
+            info.put("hoTen", m.getHoTen());
+            info.put("chuyenMon", m.getChuyenMon() != null ? m.getChuyenMon().name() : null);
+            info.put("chuyenMonLabel", m.getChuyenMon() != null ? m.getChuyenMon().getDescription() : "Chưa xác định");
+            info.put("capBac", m.getCapBac() != null ? m.getCapBac().name() : null);
+            info.put("capBacLabel", m.getCapBac() != null ? m.getCapBac().getDescription() : "Chưa xác định");
+
+            long activeJobs = activeOrders.stream()
+                    .filter(o -> o.getThoPhanCong() != null && o.getThoPhanCong().getId().equals(m.getId()))
+                    .count();
+            info.put("soViecDangLam", activeJobs);
+            return info;
+        }).toList();
     }
 
     // 3. Unclaim Job (Secured)
@@ -395,11 +457,11 @@ public class MechanicService {
         order.setTrangThai(OrderStatus.CHO_KCS);
         orderRepository.save(order);
 
-        // Notify Lead/Diagnostician
+        // Notify Workshop Manager (Quản đốc)
         if (order.getThoChanDoan() != null) {
             asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .userId(order.getThoChanDoan().getId())
-                    .role("THO_CHAN_DOAN")
+                    .role("QUAN_LY_XUONG")
                     .title("Yêu cầu nghiệm thu: " + order.getPhieuTiepNhan().getXe().getBienSo())
                     .content("Thợ sửa chữa đã hoàn thành. Vui lòng kiểm tra xe.")
                     .type("INFO")

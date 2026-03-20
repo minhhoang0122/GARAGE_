@@ -79,7 +79,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/debts/**").hasAnyAuthority("FINANCIAL_REPORT", "ADMIN")
 
                         // Customer portal
-                        .requestMatchers("/api/customer/**").hasAnyAuthority("ADMIN", "ROLE_KHACH")
+                        .requestMatchers("/api/customer/**").hasAnyAuthority("ADMIN", "KHACH_HANG", "ROLE_KHACH")
 
                         // Product Management (Shared)
                         .requestMatchers("/api/products/**")

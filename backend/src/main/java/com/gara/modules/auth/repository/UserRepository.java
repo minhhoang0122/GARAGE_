@@ -8,4 +8,6 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     Optional<User> findByTenDangNhap(String tenDangNhap);
 
     boolean existsByTenDangNhap(String tenDangNhap);
+
+    Optional<User> findBySoDienThoai(String soDienThoai);
 }

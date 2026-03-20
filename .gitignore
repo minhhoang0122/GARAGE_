@@ -31,29 +31,46 @@ dist/
 Thumbs.db
 .DS_Store
 
-# Logs
+# Logs & Diagnostic Files
 *.log
+*.log.*
 npm-debug.log*
 yarn-error.log*
 debug_error.log
 hs_err_pid*
 replay_pid*
-backend_log*.txt
+**/backend_log*.txt
+**/start_log*.txt
+**/frontend_log*.txt
+**/build.log
+**/compile_log.txt
+**/lint_output.txt
+**/error_body*.json
+**/error_extract*.txt
+error_page.html
 reset_all_passwords.ps1
-
+tsconfig.tsbuildinfo
+ 
 # AI Agent & Docs
 .agent/
 .antigravityignore
 docs/
-
+ 
 # Scratch files at root
 /*.sql
 /*.js
 /*.log
 /*.txt
 /*.ps1
-
-# Backend scratch, scripts & logs
+/DataSeeder_old.java
+/changed_files.txt
+/latest_docker.txt
+/modified_files.txt
+/untracked_files.txt
+/git_status.txt
+/porcelain_status.txt
+ 
+# Backend scratch, scripts & logs (additional specific patterns)
 backend/*.log
 backend/*.txt
 backend/*.sql

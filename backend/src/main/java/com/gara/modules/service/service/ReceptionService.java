@@ -218,7 +218,7 @@ public class ReceptionService {
                     .build());
 
             asyncNotificationService.pushUniqueAsync(Notification.builder()
-                    .role("THO_CHAN_DOAN")
+                    .role("QUAN_LY_XUONG")
                     .title("Xe chờ chẩn đoán: " + vehicle.getBienSo())
                     .content("Xe " + vehicle.getBienSo() + " đã tiếp nhận. Vui lòng tiến hành chẩn đoán.")
                     .type("INFO")

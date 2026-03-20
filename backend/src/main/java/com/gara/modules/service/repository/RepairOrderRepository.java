@@ -8,6 +8,16 @@ import java.util.List;
 
 public interface RepairOrderRepository extends JpaRepository<RepairOrder, Integer> {
 
+        @Query("SELECT DISTINCT r FROM RepairOrder r " +
+                        "LEFT JOIN FETCH r.chiTietDonHang i " +
+                        "LEFT JOIN FETCH i.hangHoa " +
+                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
+                        "LEFT JOIN FETCH ptn.xe x " +
+                        "LEFT JOIN FETCH x.khachHang " +
+                        "WHERE r.laDonBaoHanh = true " +
+                        "ORDER BY r.ngayTao DESC")
+        List<RepairOrder> findByLaDonBaoHanhTrue();
+
         List<RepairOrder> findByTrangThaiIn(List<OrderStatus> trangThaiList);
 
         // Optimized: Ordered multi-status query

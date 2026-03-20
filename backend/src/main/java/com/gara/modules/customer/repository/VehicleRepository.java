@@ -19,4 +19,7 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Integer> {
 
     // Like search for autocomplete
     java.util.List<Vehicle> findByBienSoContaining(String bienSo);
+
+    // Customer portal: get all vehicles owned by a customer
+    java.util.List<Vehicle> findByKhachHangId(Integer khachHangId);
 }

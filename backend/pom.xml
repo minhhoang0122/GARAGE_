@@ -101,6 +101,13 @@
             <version>2.8.5</version>
         </dependency>
         
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+        
 
         
         <!-- spring-dotenv: auto-load .env file -->
@@ -161,6 +168,13 @@
             </exclusions>
         </dependency>
 
+
+        <!-- Lombok for cleaner code -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
 
         <!-- Cloudinary for Image Storage -->
         <dependency>

@@ -40,6 +40,7 @@ export type OrderData = {
     totalLabor: number;
     totalDiscount: number;
     vat: number;
+    vatPercent: number;
     grandTotal: number;
     amountPaid: number;
     debt: number;
@@ -106,6 +107,7 @@ export async function getOrder(orderId: number) {
             totalLabor,
             totalDiscount: order.discount || order.totalDiscount || 0,
             vat: order.tax || 0,
+            vatPercent: order.vatPercent || 0,
             grandTotal: order.finalAmount || (totalParts + totalLabor),
             amountPaid: order.paidAmount || order.amountPaid || 0,
             debt: (order.finalAmount || 0) - (order.paidAmount || order.amountPaid || 0),
@@ -332,6 +334,21 @@ export async function createProduct(data: any) {
         const res = await api.post('/products', data, token);
 
         return { success: true, data: res };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+// 14. Update Order Totals (Global Discount and VAT)
+export async function updateOrderTotals(orderId: number, data: { discount?: number, vatPercent?: number }) {
+    try {
+        const session = await auth();
+        const token = (session?.user as any)?.accessToken;
+
+        await api.patch(`/sale/orders/${orderId}/totals`, data, token);
+
+        revalidatePath(`/sale/orders/${orderId}`);
+        return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
     }

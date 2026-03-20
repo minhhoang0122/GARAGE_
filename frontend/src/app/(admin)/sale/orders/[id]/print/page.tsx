@@ -73,6 +73,7 @@ export default async function PrintQuotePage({ params, searchParams }: { params:
     const amountPaid = Number(order.paidAmount || order.amountPaid || 0);
     const depositAmount = Number(order.deposit || order.tienCoc || 0);
     const taxAmount = Number(order.tax || 0);
+    const discountAmount = Number(order.discount || order.totalDiscount || 0);
     const debt = Number(order.congNo || order.debt || (grandTotal - amountPaid));
 
     // Determine document title based on status
@@ -249,7 +250,6 @@ export default async function PrintQuotePage({ params, searchParams }: { params:
                         <th>Nội dung công việc / Vật tư phụ tùng</th>
                         <th className="w-16 text-center">SL</th>
                         <th className="w-32 text-right">Đơn giá</th>
-                        <th className="w-24 text-center">Giảm (%)</th>
                         <th className="w-32 text-right">Thành tiền</th>
                     </tr>
                 </thead>
@@ -266,11 +266,6 @@ export default async function PrintQuotePage({ params, searchParams }: { params:
                             </td>
                             <td className="text-center">{item.quantity}</td>
                             <td className="text-right">{formatCurrency(Number(item.unitPrice))}</td>
-                            <td className="text-center">
-                                {Number(item.discountPercent) > 0 ? (
-                                    <span className="text-red-600 font-bold">-{item.discountPercent}%</span>
-                                ) : '—'}
-                            </td>
                             <td className="text-right font-bold">{formatCurrency(getItemTotal(item))}</td>
                         </tr>
                     ))}
@@ -289,7 +284,11 @@ export default async function PrintQuotePage({ params, searchParams }: { params:
                         <span>{formatCurrency(totalLabor)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Thuế VAT:</span>
+                        <span className="text-slate-500">Chiết khấu:</span>
+                        <span className="text-rose-600">{formatCurrency(discountAmount)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">Thuế VAT ({order.vatPercent}%):</span>
                         <span>{formatCurrency(taxAmount)}</span>
                     </div>
                     <div className="flex justify-between text-lg font-black border-t pt-2 mt-2">
