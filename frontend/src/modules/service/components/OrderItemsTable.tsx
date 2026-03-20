@@ -2,13 +2,14 @@
 
 import { OrderDetailItem, updateOrderItem, removeOrderItem, toggleItemStatus } from '@/modules/service/order';
 import { Trash2, Check, X, ChevronRight, Save, Loader2, ShieldCheck } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { useToast } from '@/contexts/ToastContext';
 
 interface OrderItemsTableProps {
     items: OrderDetailItem[];
+    orderId: number;
     readOnly?: boolean;
 }
 
@@ -18,7 +19,7 @@ interface OrderItemsTableProps {
  * - Chế độ chỉnh sửa tập trung (Global Edit) giúp quản lý báo giá chuyên nghiệp.
  * - Cột Xóa Sticky với hiệu ứng Glassmorphism tinh tế.
  */
-export default function OrderItemsTable({ items, readOnly = false }: OrderItemsTableProps) {
+export default function OrderItemsTable({ items, orderId, readOnly = false }: OrderItemsTableProps) {
     const router = useRouter();
     const confirm = useConfirm();
     const { showToast } = useToast();
@@ -126,25 +127,25 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
             {/* Table Container - Extreme Space Optimization */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden text-[13px]">
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="data-table w-full text-left min-w-[700px]">
+                    <table className="data-table w-full text-left min-w-[850px] table-fixed">
                         <colgroup>
                             <col className="w-[50px]" />
                             <col /> {/* Cột Hạng mục tự fit */}
-                            <col className="w-[60px]" />
-                            <col className="w-[120px]" />
-                            <col className="w-[140px]" />
-                            <col className="w-[60px]" />
+                            <col className="w-[70px]" />
+                            <col className="w-[150px]" />
+                            <col className="w-[180px]" />
+                            <col className="w-[80px]" />
                         </colgroup>
                         <thead>
                             <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                                <th className="px-4 py-3 text-center">
+                                <th className="px-4 py-3.5 text-center">
                                     <div className="w-3 h-3 rounded border border-slate-300 dark:border-slate-600 mx-auto" />
                                 </th>
-                                <th className="pl-6 pr-4 py-3 text-[10px] font-black text-slate-400 uppercase text-left">Hạng mục</th>
-                                <th className="px-4 py-3 text-right text-[10px] font-black text-slate-400 uppercase">SL</th>
-                                <th className="px-4 py-3 text-right text-[10px] font-black text-slate-400 uppercase">Đơn giá</th>
-                                <th className="px-4 py-3 text-right text-[10px] font-black text-slate-400 uppercase">Thành tiền</th>
-                                <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase">Xóa</th>
+                                <th className="pl-6 pr-4 py-3.5 text-[10px] font-black text-slate-400 uppercase text-left">Hạng mục</th>
+                                <th className="px-4 py-3.5 text-right text-[10px] font-black text-slate-400 uppercase">SL</th>
+                                <th className="px-4 py-3.5 text-right text-[10px] font-black text-slate-400 uppercase">Đơn giá</th>
+                                <th className="px-4 py-3.5 text-right text-[10px] font-black text-slate-400 uppercase">Thành tiền</th>
+                                <th className="px-4 py-3.5 text-center text-[10px] font-black text-slate-400 uppercase">Xóa</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -152,6 +153,7 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
                                 <Row 
                                     key={item.id} 
                                     item={item} 
+                                    orderId={orderId}
                                     isGlobalEditing={isGlobalEditing}
                                     editValue={editData[item.id.toString()]}
                                     onUpdate={handleUpdateLocal}
@@ -175,12 +177,14 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
 
 function Row({ 
     item, 
+    orderId,
     isGlobalEditing, 
     editValue,
     onUpdate,
     readOnly 
 }: { 
     item: OrderDetailItem, 
+    orderId: number,
     isGlobalEditing: boolean,
     editValue?: { quantity: number; discountPercent: number },
     onUpdate: (id: number, field: 'quantity' | 'discountPercent', value: number) => void,
@@ -190,23 +194,36 @@ function Row({
     const confirm = useConfirm();
     const { showToast } = useToast();
 
+    const [localStatus, setLocalStatus] = useState(item.itemStatus);
+
+    // Sync local state when server data changes
+    useEffect(() => {
+        setLocalStatus(item.itemStatus);
+    }, [item.itemStatus]);
+
+    const isRejected = localStatus === 'KHACH_TU_CHOI';
+    const isApproved = localStatus === 'KHACH_DONG_Y';
+
     const formatCurrency = (val: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
-
-    const isRejected = item.itemStatus === 'KHACH_TU_CHOI';
-    const isApproved = item.itemStatus === 'KHACH_DONG_Y';
 
     return (
         <tr className={`group transition-all hover:bg-slate-50/80 dark:hover:bg-slate-800/50 ${isRejected ? 'opacity-40' : ''}`}>
             {/* 1. Tuyển chọn */}
-            <td className="px-4 py-4 w-[50px] text-center">
+            <td className="px-4 py-3.5 w-[50px] text-center">
                 <button
                     disabled={readOnly}
                     onClick={async () => {
+                        // Optimistic Update
+                        const nextStatus = localStatus === 'KHACH_DONG_Y' ? 'DE_XUAT' : 'KHACH_DONG_Y';
+                        setLocalStatus(nextStatus);
+                        
                         try {
-                            await toggleItemStatus(item.id, item.itemStatus);
+                            await toggleItemStatus(item.id, item.itemStatus, orderId);
                             router.refresh();
                         } catch (e) {
+                            // Revert on error
+                            setLocalStatus(item.itemStatus);
                             showToast('error', 'Lỗi khi cập nhật trạng thái');
                         }
                     }}
@@ -217,7 +234,7 @@ function Row({
             </td>
 
             {/* 2. Thông tin */}
-            <td className="pl-6 pr-4 py-4 min-w-0">
+            <td className="pl-6 pr-4 py-3.5 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                     <div className="font-bold text-slate-800 dark:text-slate-100 text-[13px] leading-tight truncate max-w-[240px]" title={item.productName}>
                         {item.productName}
@@ -253,7 +270,7 @@ function Row({
             </td>
 
             {/* 3. Số lượng */}
-            <td className="px-4 py-4 w-[70px] text-right">
+            <td className="px-4 py-3.5 w-[70px] text-right">
                 {isGlobalEditing ? (
                     <div className="flex justify-end">
                         <input
@@ -270,7 +287,7 @@ function Row({
             </td>
 
             {/* 4. Đơn giá */}
-            <td className="px-4 py-4 w-[150px] text-right">
+            <td className="px-4 py-3.5 w-[150px] text-right">
                 <span className="text-[14px] font-medium text-slate-600 dark:text-slate-400 tabular-nums">
                     {formatCurrency(item.unitPrice).replace('₫', '').trim()}
                 </span>
@@ -305,14 +322,14 @@ function Row({
             </td> */}
 
             {/* 7. Thành tiền */}
-            <td className="px-4 py-4 w-[180px] text-right">
+            <td className="px-4 py-3.5 w-[180px] text-right">
                 <span className="text-[15px] font-black text-slate-900 dark:text-white tabular-nums">
                     {formatCurrency(item.total).replace('₫', '').trim()}
                 </span>
             </td>
 
             {/* 8. Action Xóa */}
-            <td className="px-4 py-4 w-[80px] text-center">
+            <td className="px-4 py-3.5 w-[80px] text-center">
                 {!readOnly && (
                     <button
                         onClick={async () => {

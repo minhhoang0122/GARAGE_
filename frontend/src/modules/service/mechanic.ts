@@ -93,9 +93,9 @@ export async function assignJob(orderId: number, mechanicId: number) {
             return { success: false, error: 'Chưa đăng nhập' };
         }
         await api.post(`/mechanic/jobs/${orderId}/assign?mechanicId=${mechanicId}`, {}, token);
-        revalidatePath('/mechanic');
         revalidatePath('/mechanic/jobs');
         revalidatePath('/mechanic/assign');
+        revalidatePath(`/mechanic/jobs/${orderId}`);
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -114,7 +114,6 @@ export async function claimJob(orderId: number) {
 
         await api.post(`/mechanic/jobs/${orderId}/claim`, {}, token);
 
-        revalidatePath('/mechanic');
         revalidatePath('/mechanic/jobs');
         revalidatePath(`/mechanic/jobs/${orderId}`);
 
@@ -136,7 +135,6 @@ export async function unclaimJob(orderId: number) {
 
         await api.post(`/mechanic/jobs/${orderId}/unclaim`, {}, token);
 
-        revalidatePath('/mechanic');
         revalidatePath('/mechanic/jobs');
         revalidatePath(`/mechanic/jobs/${orderId}`);
 
@@ -194,10 +192,10 @@ export async function completeJob(orderId: number) {
 
         await api.post(`/mechanic/jobs/${orderId}/complete`, {}, token);
 
-        revalidatePath('/mechanic');
         revalidatePath('/mechanic/jobs');
         revalidatePath(`/mechanic/jobs/${orderId}`);
-        revalidatePath('/sale');
+        revalidatePath(`/sale/orders/${orderId}`);
+        revalidatePath('/sale/orders');
 
         return { success: true };
     } catch (error: any) {

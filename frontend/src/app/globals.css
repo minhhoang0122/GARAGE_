@@ -145,7 +145,7 @@ select,
 }
 
 .data-table th {
-  @apply text-stone-600 dark:text-slate-400 bg-stone-100 dark:bg-slate-900/80 border-b border-stone-200 dark:border-slate-800 text-left align-middle tabular-nums;
+  @apply font-bold text-[11px] uppercase tracking-[0.1em] text-stone-600 dark:text-slate-400 bg-stone-100 dark:bg-slate-900/80 border-b border-stone-200 dark:border-slate-800 text-left align-middle tabular-nums;
 }
 
 .data-table td {

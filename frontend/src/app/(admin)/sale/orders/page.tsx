@@ -118,7 +118,7 @@ export default function OrderListPage() {
                     <>
                         {/* Desktop Table */}
                         <div className="hidden md:block overflow-x-auto">
-                            <table className="data-table w-full text-left min-w-[800px]">
+                            <table className="data-table w-full text-left min-w-[800px] table-fixed">
                                 <colgroup>
                                     <col className="w-[80px]" />
                                     <col className="w-[110px]" />

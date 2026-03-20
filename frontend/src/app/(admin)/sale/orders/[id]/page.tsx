@@ -82,8 +82,8 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                 {/* Unified 12-Column Grid with intentional Gaps */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     
-                    {/* Main Content Area (8/12) */}
-                    <div className="lg:col-span-8 space-y-6">
+                    {/* Main Content Area (8/12) - Added min-w-0 to prevent overflow */}
+                    <div className="lg:col-span-8 space-y-6 min-w-0">
                         {/* Thông tin chung - Card top aligned */}
                         <div className="relative bg-white dark:bg-slate-900 p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
                             {/* Background decoration with its own clipping */}
@@ -155,7 +155,7 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                         
                         {/* List Items Table Card */}
                         <div className="transition-all">
-                            <OrderItemsTable items={order.items} readOnly={isLocked} />
+                            <OrderItemsTable items={order.items} orderId={order.id} readOnly={isLocked} />
                         </div>
                     </div>
 

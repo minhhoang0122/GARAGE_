@@ -237,7 +237,8 @@ export async function finalizeOrder(orderId: number) {
         await api.post(`/sale/orders/${orderId}/finalize`, {}, token);
 
         revalidatePath(`/sale/orders/${orderId}`);
-        revalidatePath('/sale');
+        revalidatePath('/sale/orders');
+        revalidatePath('/sale/quotes');
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -292,7 +293,8 @@ export async function createWarranty(orderId: number, itemIds: number[], odo: nu
 
         const res = await api.post(`/sale/orders/${orderId}/warranty`, { itemIds, odo }, token);
 
-        revalidatePath('/sale');
+        revalidatePath(`/sale/orders/${orderId}`);
+        revalidatePath('/sale/orders');
         return { success: true, warrantyOrderId: res.warrantyOrderId };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -305,7 +307,7 @@ export async function createOrder(data: any) {
 }
 
 // 12. Toggle Item Status
-export async function toggleItemStatus(itemId: number, currentStatus: string) {
+export async function toggleItemStatus(itemId: number, currentStatus: string, orderId?: number) {
     try {
         const session = await auth();
         const token = (session?.user as any)?.accessToken;
@@ -314,7 +316,11 @@ export async function toggleItemStatus(itemId: number, currentStatus: string) {
         // Using generic patch endpoint or specific status endpoint
         await api.patch(`/sale/items/${itemId}/status`, { status: newStatus }, token);
 
-        revalidatePath('/sale'); // Broad revalidate
+        if (orderId) {
+            revalidatePath(`/sale/orders/${orderId}`);
+        }
+        revalidatePath('/sale/orders');
+        revalidatePath('/sale/quotes');
         return { success: true };
     } catch (error: any) {
         // If API endpoint doesn't exist, we might need a different approach, 
