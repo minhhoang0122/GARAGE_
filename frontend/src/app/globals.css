@@ -149,7 +149,7 @@ th {
 }
 
 td {
-  @apply py-3 px-4 border-b border-r border-stone-100 dark:border-slate-800 last:border-r-0 transition-colors align-middle text-sm text-stone-700 dark:text-slate-300 tabular-nums bg-stone-50/50 dark:bg-transparent;
+  @apply py-3 px-4 border-b border-stone-100 dark:border-slate-800 transition-colors align-middle text-sm text-stone-700 dark:text-slate-300 tabular-nums bg-stone-50/50 dark:bg-transparent;
 }
 
 tbody tr:nth-child(even) {

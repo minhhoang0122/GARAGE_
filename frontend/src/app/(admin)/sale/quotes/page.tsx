@@ -47,7 +47,7 @@ export default async function QuotesListPage() {
                     </div>
                 ) : (
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-separate border-spacing-0 min-w-[1000px] table-fixed">
+                    <table className="w-full text-left min-w-[1000px] table-fixed">
                         <colgroup>
                             <col className="w-[80px]" />
                             <col className="w-[180px]" />

@@ -126,7 +126,7 @@ export default function OrderItemsTable({ items, readOnly = false }: OrderItemsT
             {/* Table Container - Extreme Space Optimization */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden text-[13px]">
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left border-separate border-spacing-0 table-fixed min-w-[800px]">
+                    <table className="w-full text-left table-fixed min-w-[800px]">
                         <colgroup>
                             <col className="w-[50px]" />
                             <col className="w-[300px]" />
