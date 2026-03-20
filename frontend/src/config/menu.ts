@@ -22,17 +22,11 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
                 { label: 'Dịch vụ & Giá', href: '/admin/services', icon: 'Tag' },
                 { label: 'Tài chính', href: '/admin/finance', icon: 'Wallet' },
                 { label: 'Khách hàng', href: '/sale/customers', icon: 'Users' },
+                { label: 'Tài khoản khách', href: '/admin/customers/accounts', icon: 'Users' },
                 { label: 'Nhân sự', href: '/admin/users', icon: 'UserCog' },
                 { label: 'Báo cáo', href: '/dashboard', icon: 'BarChart3' },
                 { label: 'Cấu hình', href: '/admin/config', icon: 'Settings' },
                 { label: 'Nhật ký', href: '/admin/logs', icon: 'History' },
-            ],
-        },
-        {
-            title: 'Truy cập nhanh',
-            items: [
-                { label: 'Bán hàng', href: '/sale', icon: 'ShoppingCart' },
-                { label: 'Kho', href: '/warehouse', icon: 'Package' },
             ],
         },
     ],

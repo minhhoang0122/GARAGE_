@@ -34,6 +34,20 @@ public class UserService {
         return userRepository.findAll();
     }
 
+    public List<User> getStaffOnly() {
+        return userRepository.findAll().stream()
+                .filter(u -> u.getRoles() != null && u.getRoles().stream()
+                        .anyMatch(r -> !r.getName().equals("KHACH_HANG")))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    public List<User> getCustomersOnly() {
+        return userRepository.findAll().stream()
+                .filter(u -> u.getRoles() != null && u.getRoles().stream()
+                        .anyMatch(r -> r.getName().equals("KHACH_HANG")))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     @Transactional
     @CacheEvict(value = "users_list", allEntries = true)
     public User createUser(UserReqDTO req) {

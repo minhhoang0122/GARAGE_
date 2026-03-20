@@ -15,6 +15,28 @@ export async function getUsers() {
     }
 }
 
+export async function getStaffUsers() {
+    const session = await auth();
+    const token = (session?.user as any)?.accessToken;
+    try {
+        return await api.get('/users/staff', token);
+    } catch (error: any) {
+        console.error('FAILED TO FETCH STAFF:', error.message);
+        return [];
+    }
+}
+
+export async function getCustomerAccounts() {
+    const session = await auth();
+    const token = (session?.user as any)?.accessToken;
+    try {
+        return await api.get('/users/customers', token);
+    } catch (error: any) {
+        console.error('FAILED TO FETCH CUSTOMERS:', error.message);
+        return [];
+    }
+}
+
 export async function createUser(data: any) {
     const session = await auth();
     const token = (session?.user as any)?.accessToken;

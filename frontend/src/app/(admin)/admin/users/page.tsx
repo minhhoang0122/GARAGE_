@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Plus, Edit, Lock, Unlock, Key } from 'lucide-react';
-import { getUsers, createUser, updateUser, toggleUserActive } from '@/modules/identity/user';
+import { getStaffUsers as getUsers, createUser, updateUser, toggleUserActive } from '@/modules/identity/user';
 import { getStatusBadge } from '@/lib/status';
 import { Card, CardContent, CardHeader, CardTitle } from '@/modules/shared/components/ui/card';
 import { Button } from '@/modules/shared/components/ui/button';

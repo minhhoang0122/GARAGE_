@@ -35,6 +35,32 @@ public class UserController {
         }
     }
 
+    @GetMapping("/staff")
+    public ResponseEntity<?> getStaffOnly() {
+        try {
+            var users = userService.getStaffOnly().stream()
+                    .map(this::mapUserToDTO)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(users);
+        } catch (Exception e) {
+            log.error("Error fetching staff", e);
+            return ResponseEntity.internalServerError().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/customers")
+    public ResponseEntity<?> getCustomersOnly() {
+        try {
+            var users = userService.getCustomersOnly().stream()
+                    .map(this::mapUserToDTO)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(users);
+        } catch (Exception e) {
+            log.error("Error fetching customer accounts", e);
+            return ResponseEntity.internalServerError().body(e.getMessage());
+        }
+    }
+
     @PostMapping
     public ResponseEntity<?> createUser(@RequestBody @Valid UserReqDTO req) {
         return ResponseEntity.ok(mapUserToDTO(userService.createUser(req)));
