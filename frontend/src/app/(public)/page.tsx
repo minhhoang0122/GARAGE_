@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { ArrowRight, MapPin, PhoneCall, Clock, ShieldCheck, Wrench, Settings, Search, CheckCircle2, Menu, User, CarFront, LayoutDashboard, LogOut } from 'lucide-react';
@@ -14,6 +14,21 @@ export default function LandingPage() {
     const [trackingResult, setTrackingResult] = useState<any>(null);
     const [isTracking, setIsTracking] = useState(false);
     const [trackError, setTrackError] = useState('');
+    const [hotServices, setHotServices] = useState<any[]>([]);
+
+    useEffect(() => {
+        // Lấy 3 dịch vụ tiêu biểu để hiển thị trang chủ
+        api.getCached('/public/services')
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setHotServices(data.slice(0, 3));
+                }
+            })
+            .catch(err => console.error('Error fetching services for home:', err));
+    }, []);
+
+    const roles = (session?.user as any)?.roles || [];
+    const isStaff = roles.some((r: string) => ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA', 'KE_TOAN'].includes(r));
 
     const handleTrack = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -185,10 +200,22 @@ export default function LandingPage() {
                             </motion.p>
 
                             <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 mb-4 lg:mb-0">
-                                <Link href="/booking" className="bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-sm font-bold transition-all flex items-center justify-center gap-3 w-fit text-lg">
-                                    Đặt Lịch Mang Xe Tới Xưởng
-                                    <ArrowRight size={20} />
-                                </Link>
+                                {status === 'unauthenticated' ? (
+                                    <Link href="/customer/login" className="bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-sm font-bold transition-all flex items-center justify-center gap-3 w-fit text-lg">
+                                        Đăng Nhập Để Đặt Lịch
+                                        <ArrowRight size={20} />
+                                    </Link>
+                                ) : isStaff ? (
+                                    <Link href="/sale/reception" className="bg-stone-800 hover:bg-black text-white px-8 py-4 rounded-sm font-bold transition-all flex items-center justify-center gap-3 w-fit text-lg">
+                                        Hệ Thống Tiếp Nhận (Nội Bộ)
+                                        <ArrowRight size={20} />
+                                    </Link>
+                                ) : (
+                                    <Link href="/booking" className="bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-sm font-bold transition-all flex items-center justify-center gap-3 w-fit text-lg">
+                                        Đặt Lịch Mang Xe Tới Xưởng
+                                        <ArrowRight size={20} />
+                                    </Link>
+                                )}
                                 <Link href="/services" className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-8 py-4 rounded-sm font-bold transition-all flex items-center justify-center w-fit text-lg">
                                     Xem bảng giá sửa chữa
                                 </Link>
@@ -337,27 +364,32 @@ export default function LandingPage() {
                             </motion.h3>
 
                             <ul className="space-y-8">
-                                <motion.li variants={itemVariants} className="flex items-start gap-5">
-                                    <div className="w-12 h-12 shrink-0 bg-stone-100 border border-stone-200 flex items-center justify-center text-xl font-bold text-stone-800">01</div>
-                                    <div>
-                                        <h4 className="text-xl font-bold text-stone-900 mb-2">Bảo dưỡng máy gầm, điện & phần mềm</h4>
-                                        <p className="text-stone-600 leading-relaxed">Đại tu động cơ, hộp số. Khắc phục triệt để tiếng kêu gầm, xử lý hệ thống treo, thước lái. Chẩn đoán và xóa lỗi hệ thống điện tử nhanh chóng.</p>
-                                    </div>
-                                </motion.li>
-                                <motion.li variants={itemVariants} className="flex items-start gap-5">
-                                    <div className="w-12 h-12 shrink-0 bg-stone-100 border border-stone-200 flex items-center justify-center text-xl font-bold text-stone-800">02</div>
-                                    <div>
-                                        <h4 className="text-xl font-bold text-stone-900 mb-2">Đồng sơn gò hàn & Phục hồi bề mặt</h4>
-                                        <p className="text-stone-600 leading-relaxed">Xử lý móp méo cản trước sau, trầy xước nước sơn. Sơn quây toàn bộ xe, đánh bóng phủ ceramic giúp xe lấy lại vẻ đẹp nguyên bản.</p>
-                                    </div>
-                                </motion.li>
-                                <motion.li variants={itemVariants} className="flex items-start gap-5">
-                                    <div className="w-12 h-12 shrink-0 bg-orange-600 text-white flex items-center justify-center text-xl font-bold shadow-lg shadow-orange-600/20">03</div>
-                                    <div>
-                                        <h4 className="text-xl font-bold text-stone-900 mb-2">Bảo dưỡng điều hòa & Thay dầu định kỳ</h4>
-                                        <p className="text-stone-600 leading-relaxed">Thông rửa giàn lạnh, thay lốc lạnh, nạp gas bổ sung. Thay dầu nhớt nhập khẩu Castrol, Mobil 1 tiêu chuẩn, làm sạch buồng đốt tẩy muội than.</p>
-                                    </div>
-                                </motion.li>
+                                {hotServices.length > 0 ? (
+                                    hotServices.map((service, idx) => (
+                                        <motion.li key={service.id} variants={itemVariants} className="flex items-start gap-5 group">
+                                            <div className={`w-12 h-12 shrink-0 ${idx === 2 ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'bg-stone-100 border border-stone-200 text-stone-800'} flex items-center justify-center text-xl font-bold group-hover:scale-110 transition-transform`}>
+                                                0{idx + 1}
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xl font-bold text-stone-900 mb-2 group-hover:text-orange-600 transition-colors uppercase">{service.tenHang}</h4>
+                                                <p className="text-stone-600 leading-relaxed">
+                                                    Dịch vụ chuyên nghiệp với giá niêm yết {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(service.giaBanNiemYet || 0)}. 
+                                                    Cam kết chất lượng và bảo hành lên đến {service.baoHanhSoThang || 0} tháng.
+                                                </p>
+                                            </div>
+                                        </motion.li>
+                                    ))
+                                ) : (
+                                    <>
+                                        <motion.li variants={itemVariants} className="flex items-start gap-5">
+                                            <div className="w-12 h-12 shrink-0 bg-stone-100 border border-stone-200 flex items-center justify-center text-xl font-bold text-stone-800">01</div>
+                                            <div>
+                                                <h4 className="text-xl font-bold text-stone-900 mb-2">Đang cập nhật dịch vụ...</h4>
+                                                <p className="text-stone-600 leading-relaxed">Hệ thống đang đồng bộ danh mục dịch vụ mới nhất từ trung tâm kỹ thuật.</p>
+                                            </div>
+                                        </motion.li>
+                                    </>
+                                )}
                             </ul>
                         </motion.div>
                     </div>
@@ -539,9 +571,19 @@ export default function LandingPage() {
                     <p className="text-xl mb-12 max-w-2xl mx-auto opacity-90">Quý khách vui lòng gọi Hotline để được tư vấn hoặc đặt lịch hẹn trực tiếp. Chúng tôi hỗ trợ chẩn đoán tổng quát miễn phí bằng máy chuyên dụng.</p>
 
                     <div className="flex flex-col sm:flex-row justify-center gap-6">
-                        <Link href="/booking" className="bg-[#111] hover:bg-black text-white px-10 py-5 font-bold shadow-2xl transition-transform active:scale-95 text-lg shrink-0">
-                            Mang xe qua xưởng ngay
-                        </Link>
+                        {status === 'unauthenticated' ? (
+                            <Link href="/customer/login" className="bg-[#111] hover:bg-black text-white px-10 py-5 font-bold shadow-2xl transition-transform active:scale-95 text-lg shrink-0">
+                                Đăng nhập & Đặt lịch
+                            </Link>
+                        ) : isStaff ? (
+                            <Link href="/sale/reception" className="bg-stone-800 hover:bg-stone-900 text-white px-10 py-5 font-bold shadow-2xl transition-transform active:scale-95 text-lg shrink-0">
+                                Đi tới Trang Tiếp nhận
+                            </Link>
+                        ) : (
+                            <Link href="/booking" className="bg-[#111] hover:bg-black text-white px-10 py-5 font-bold shadow-2xl transition-transform active:scale-95 text-lg shrink-0">
+                                Mang xe qua xưởng ngay
+                            </Link>
+                        )}
                         <a href="tel:0987654321" className="bg-transparent border-2 border-white/30 hover:border-white text-white px-10 py-5 font-bold text-lg flex items-center justify-center gap-3 transition-transform active:scale-95">
                             <PhoneCall size={20} />
                             Gọi 098.765.4321

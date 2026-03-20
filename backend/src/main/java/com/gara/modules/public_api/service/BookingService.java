@@ -41,10 +41,17 @@ public class BookingService {
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Hệ thống chưa có Admin để tiếp nhận lịch hẹn."));
 
-        // 1. Tìm hoặc tạo khách hàng theo SĐT
-        Customer customer = customerRepository.findBySoDienThoai(dto.soDienThoai())
+        // 1. Tìm hoặc tạo khách hàng (Bắt buộc userId)
+        if (dto.userId() == null) {
+            throw new RuntimeException("Bạn cần đăng nhập bằng tài khoản khách hàng để thực hiện chức năng này.");
+        }
+
+        Customer customer = customerRepository.findByUserId(dto.userId())
                 .orElseGet(() -> {
+                    // Nếu đã có SĐT này dưới dạng Guest, có thể cân nhắc link. 
+                    // Nhưng ở đây ưu tiên tạo mới và link userId.
                     Customer newCust = new Customer();
+                    newCust.setUserId(dto.userId());
                     newCust.setHoTen(dto.hoTen());
                     newCust.setSoDienThoai(dto.soDienThoai());
                     newCust.setEmail(dto.email());
@@ -55,10 +62,10 @@ public class BookingService {
         // 2. Tìm hoặc tạo xe theo biển số (Bug 24 Fix: Prevents hijacking)
         Vehicle vehicle = vehicleRepository.findByBienSo(dto.bienSoXe())
                 .map(v -> {
-                    // Verification: Plate must match requester Phone
-                    if (!v.getKhachHang().getSoDienThoai().equals(dto.soDienThoai())) {
-                        throw new RuntimeException("Biển số xe này đã tồn tại dưới tên khách hàng khác. " +
-                                "Vui lòng kiểm tra lại biển số hoặc liên hệ hỗ trợ.");
+                    // Verification: Plate must match requester Customer ORrequester Phone
+                    if (!v.getKhachHang().getId().equals(customer.getId())) {
+                        throw new RuntimeException("Biển số xe này đã được đăng ký bởi khách hàng khác. " +
+                                "Vui lòng kiểm tra lại hoặc liên hệ Gara để được hỗ trợ.");
                     }
                     return v;
                 })

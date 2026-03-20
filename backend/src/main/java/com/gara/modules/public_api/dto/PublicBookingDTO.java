@@ -12,5 +12,6 @@ public record PublicBookingDTO(
         String modelXe,
         LocalDateTime ngayHen,
         String ghiChu,
-        List<Integer> selectedServiceIds) {
+        List<Integer> selectedServiceIds,
+        Integer userId) {
 }

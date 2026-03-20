@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Search, Info, Tag, Clock, ArrowRight, Wrench, FileText, CheckCircle2, Settings } from 'lucide-react';
+import { Search, Info, Tag, Clock, ArrowRight, ArrowLeft, Wrench, FileText, CheckCircle2, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
@@ -61,8 +61,8 @@ export default function ServicesPage() {
                                 <p className="text-stone-400 text-xs">Phụ tùng chính hãng - Bảo hành tiêu chuẩn</p>
                             </div>
                         </div>
-                        <Link href="/" className="text-stone-400 hover:text-white text-sm font-medium transition-colors flex items-center gap-2 w-fit">
-                            Quay lại Trang Chủ <ArrowRight size={16} />
+                        <Link href="/" className="text-stone-400 hover:text-white text-sm font-medium transition-colors flex items-center gap-2 w-fit group">
+                            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Quay lại Trang Chủ
                         </Link>
                     </div>
                 </div>
@@ -99,60 +99,95 @@ export default function ServicesPage() {
                             </div>
                         </div>
                     ) : (
-                        <motion.div
-                            variants={containerVariants}
-                            initial="hidden"
-                            animate="show"
-                            className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
-                        >
-                            {filteredServices.length > 0 ? (
-                                filteredServices.map((s, idx) => (
-                                    <motion.div key={idx} variants={itemVariants} className="bg-white border hover:border-orange-500 transition-colors duration-300 shadow-sm hover:shadow-xl group relative overflow-hidden flex flex-col">
-                                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform duration-500 pointer-events-none">
-                                            <Wrench size={80} className="rotate-45" />
-                                        </div>
-
-                                        <div className="p-6 md:p-8 flex flex-col h-full relative z-10">
-                                            <div className="flex justify-between items-start mb-6">
-                                                <h3 className="font-bold text-stone-900 text-xl leading-tight pr-4 group-hover:text-orange-600 transition-colors uppercase">{s.tenHang}</h3>
-                                                <div className="p-2 bg-stone-100 text-stone-600 rounded-sm shrink-0">
-                                                    <Tag size={18} />
+                        <div className="space-y-16">
+                            {/* Featured Services Section if any */}
+                            {filteredServices.length >= 2 && search === '' && (
+                                <section>
+                                    <h3 className="text-xl font-bold text-stone-900 mb-8 flex items-center gap-3">
+                                        <div className="w-8 h-1 bg-orange-600"></div>
+                                        Dịch vụ phổ biến nhất
+                                    </h3>
+                                    <div className="grid lg:grid-cols-2 gap-8">
+                                        {filteredServices.slice(0, 2).map((s, idx) => (
+                                            <motion.div 
+                                                key={`featured-${idx}`}
+                                                initial={{ opacity: 0, x: idx === 0 ? -20 : 20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                className="bg-[#1C1917] text-white p-8 md:p-10 border-b-8 border-orange-600 shadow-2xl relative group overflow-hidden"
+                                            >
+                                                <div className="absolute -right-10 -bottom-10 opacity-10 group-hover:scale-125 transition-transform duration-700 pointer-events-none">
+                                                    <Wrench size={200} className="rotate-12" />
                                                 </div>
-                                            </div>
-
-                                            <div className="mt-auto space-y-5 pt-4 border-t border-stone-100">
-                                                <div>
-                                                    <div className="text-stone-400 text-xs font-bold uppercase tracking-widest mb-1">Đơn giá tham khảo</div>
-                                                    <div className="text-3xl font-black text-[#111]">
+                                                <div className="relative z-10">
+                                                    <span className="inline-block bg-orange-600 text-[10px] font-black uppercase tracking-[3px] px-3 py-1 mb-6">Hot Service</span>
+                                                    <h4 className="text-3xl font-black mb-4 group-hover:text-orange-400 transition-colors uppercase">{s.tenHang}</h4>
+                                                    <div className="text-4xl font-black text-orange-500 mb-6">
                                                         {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(s.giaBanNiemYet || 0)}
                                                     </div>
+                                                    <p className="text-stone-400 text-sm mb-6 max-w-md">Bao gồm công thợ tay nghề cao, kiểm tra tổng quát các hạng mục liên quan và bảo hành {s.baoHanhSoThang || 0} tháng chính hãng.</p>
+                                                    <Link href="/booking" className="inline-flex items-center gap-2 text-orange-500 font-bold hover:gap-4 transition-all">
+                                                        ĐẶT LỊCH NGAY <ArrowRight size={18} />
+                                                    </Link>
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
+
+                            {/* All Services Grid */}
+                            <section>
+                                <h3 className="text-xl font-bold text-stone-900 mb-8 flex items-center gap-3">
+                                    <div className="w-8 h-1 bg-stone-300"></div>
+                                    {search ? `Kết quả cho "${search}"` : 'Tất cả hạng mục dịch vụ'}
+                                </h3>
+                                <motion.div
+                                    variants={containerVariants}
+                                    initial="hidden"
+                                    animate="show"
+                                    className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+                                >
+                                    {filteredServices.length > 0 ? (
+                                        filteredServices.map((s, idx) => (
+                                            <motion.div key={idx} variants={itemVariants} className="bg-white border-2 border-transparent hover:border-stone-800 transition-all duration-300 shadow-sm hover:shadow-xl group relative overflow-hidden flex flex-col">
+                                                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform duration-500 pointer-events-none">
+                                                    <Settings size={80} className="rotate-45" />
                                                 </div>
 
-                                                <div className="flex items-center gap-4 text-xs font-medium text-stone-500 bg-stone-50 p-3 rounded-sm">
-                                                    <div className="flex items-center gap-1.5" title="Bảo hành">
-                                                        <Clock size={14} className="text-orange-500" />
-                                                        <span>BH {s.baoHanhSoThang || 0} tháng</span>
+                                                <div className="p-6 md:p-8 flex flex-col h-full relative z-10">
+                                                    <div className="flex justify-between items-start mb-6">
+                                                        <h3 className="font-bold text-stone-900 text-lg leading-tight pr-4 group-hover:text-orange-600 transition-colors uppercase">{s.tenHang}</h3>
+                                                        <div className="p-2 bg-stone-100 text-stone-400 rounded-sm shrink-0">
+                                                            <Tag size={18} />
+                                                        </div>
                                                     </div>
-                                                    <div className="w-px h-4 bg-stone-300"></div>
-                                                    <div className="flex items-center gap-1.5" title="Thuế GTGT">
-                                                        <FileText size={14} className="text-orange-500" />
-                                                        <span>VAT {s.thueVat || 0}%</span>
+
+                                                    <div className="mt-auto space-y-4 pt-4 border-t border-stone-100">
+                                                        <div className="flex justify-between items-end">
+                                                            <div>
+                                                                <div className="text-stone-400 text-[10px] font-black uppercase tracking-widest">Giá Niêm Yết</div>
+                                                                <div className="text-2xl font-black text-[#111]">
+                                                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(s.giaBanNiemYet || 0)}
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-[10px] font-bold text-stone-500 bg-stone-100 px-2 py-1 uppercase">BH {s.baoHanhSoThang || 0}T</div>
+                                                        </div>
                                                     </div>
                                                 </div>
+                                            </motion.div>
+                                        ))
+                                    ) : (
+                                        <div className="col-span-full py-16 text-center border-2 border-dashed border-stone-300 bg-stone-50">
+                                            <div className="inline-flex items-center justify-center w-16 h-16 bg-stone-200 text-stone-500 rounded-full mb-4">
+                                                <Search size={24} />
                                             </div>
+                                            <h3 className="text-lg font-bold text-stone-700 mb-2">Không tìm thấy hạng mục phù hợp</h3>
+                                            <p className="text-stone-500">Quý khách vui lòng thử lại với từ khóa khác hoặc liên hệ Hotline.</p>
                                         </div>
-                                    </motion.div>
-                                ))
-                            ) : (
-                                <div className="col-span-full py-16 text-center border-2 border-dashed border-stone-300 bg-stone-50">
-                                    <div className="inline-flex items-center justify-center w-16 h-16 bg-stone-200 text-stone-500 rounded-full mb-4">
-                                        <Search size={24} />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-stone-700 mb-2">Không tìm thấy hạng mục phù hợp</h3>
-                                    <p className="text-stone-500">Quý khách vui lòng thử lại với từ khóa khác hoặc liên hệ Hotline.</p>
-                                </div>
-                            )}
-                        </motion.div>
+                                    )}
+                                </motion.div>
+                            </section>
+                        </div>
                     )}
 
                     {/* Footer / CTA của Bảng Giá */}

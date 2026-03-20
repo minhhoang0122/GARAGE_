@@ -1,16 +1,22 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, Lock, UserCircle2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import Link from 'next/link';
 import { API_URL } from '@/lib/api';
+import { useSession } from 'next-auth/react';
 
 export default function BookingPage() {
+    const { data: session, status } = useSession();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [services, setServices] = useState<any[]>([]);
+
+    const roles = (session?.user as any)?.roles || [];
+    const isStaff = roles.some((r: string) => ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA', 'KE_TOAN'].includes(r));
+    const isCustomer = roles.includes('KHACH_HANG') || (!isStaff && roles.length > 0);
 
     const [formData, setFormData] = useState({
         hoTen: '',
@@ -29,7 +35,69 @@ export default function BookingPage() {
             .then(res => res.json())
             .then(data => setServices(data))
             .catch(err => console.error('Error fetching services:', err));
-    }, []);
+        
+        // Auto fill for customer
+        if (session?.user) {
+            setFormData(prev => ({
+                ...prev,
+                hoTen: session.user?.name || prev.hoTen,
+                soDienThoai: (session.user as any)?.phoneNumber || prev.soDienThoai,
+                email: session.user?.email || prev.email,
+            }));
+        }
+    }, [session]);
+
+    if (status === 'loading') {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-orange-600" />
+            </div>
+        );
+    }
+
+    if (status === 'unauthenticated') {
+        return (
+            <div className="min-h-screen bg-[#fafaf8] flex items-center justify-center p-4">
+                <div className="max-w-md w-full bg-white rounded-md shadow-sm border border-stone-200 p-10 text-center">
+                    <UserCircle2 className="w-16 h-16 mx-auto mb-6 text-stone-300" />
+                    <h2 className="text-2xl font-bold text-stone-800 mb-2">Yêu cầu đăng nhập</h2>
+                    <p className="text-stone-600 mb-8">
+                        Vui lòng đăng nhập tài khoản khách hàng để thực hiện đặt lịch hẹn dịch vụ.
+                    </p>
+                    <div className="flex flex-col gap-3">
+                        <Link href="/login" className="w-full bg-orange-600 text-white px-6 py-3 rounded text-sm font-medium hover:bg-orange-700 transition-colors">
+                            Đăng nhập ngay
+                        </Link>
+                        <Link href="/" className="text-stone-500 hover:text-stone-800 text-sm font-medium py-2">
+                            Tiếp tục xem trang chủ
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (isStaff) {
+        return (
+            <div className="min-h-screen bg-[#fafaf8] flex items-center justify-center p-4">
+                <div className="max-w-md w-full bg-white rounded-md shadow-sm border border-stone-200 p-10 text-center">
+                    <Lock className="w-16 h-16 mx-auto mb-6 text-orange-600/20" />
+                    <h2 className="text-2xl font-bold text-stone-800 mb-2">Truy cập bị chặn</h2>
+                    <p className="text-stone-600 mb-8 italic">
+                        Bạn đang đăng nhập bằng tài khoản nội bộ Gara. Vui lòng sử dụng hệ thống quản trị để tiếp nhận xe trực tiếp.
+                    </p>
+                    <div className="flex flex-col gap-3">
+                        <Link href="/sale/reception" className="w-full bg-stone-800 text-white px-6 py-3 rounded text-sm font-medium hover:bg-stone-900 transition-colors">
+                            Đến trang tiếp nhận xe
+                        </Link>
+                        <Link href="/" className="text-stone-500 hover:text-stone-800 text-sm font-medium py-2">
+                            Quay lại trang chủ
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -39,7 +107,10 @@ export default function BookingPage() {
             const res = await fetch(`${API_URL}/public/booking`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify({
+                    ...formData,
+                    userId: (session?.user as any)?.id // Send ID from session
+                })
             });
 
             const result = await res.json();

@@ -15,15 +15,20 @@ public class CacheConfig {
 
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager();
+        CaffeineCacheManager cacheManager = new CaffeineCacheManager(
+                "users_list",
+                "staff_users",
+                "customer_users",
+                "products_list",
+                "services_list",
+                "public_services"
+        );
         // Cấu hình chung cho mọi vùng cache (Caffeine)
         cacheManager.setCaffeine(Caffeine.newBuilder()
                 .initialCapacity(100)
                 .maximumSize(500)
                 .expireAfterAccess(10, TimeUnit.MINUTES)
                 .recordStats());
-        // QUAN TRỌNG: Cho phép tạo Cache động khi gặp tên mới (như users_list) 
-        // mà không cần khai báo trước trong application.yml
         cacheManager.setAllowNullValues(true);
         return cacheManager;
     }

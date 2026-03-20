@@ -144,13 +144,14 @@ public class CustomerController {
                 bookingDto = new PublicBookingDTO(
                         customer.getHoTen(),
                         customer.getSoDienThoai(),
-                        null, // email
-                        null, // diaChi
+                        customer.getEmail(), // use stored email
+                        customer.getDiaChi(), // use stored address
                         bookingDto.bienSoXe(),
                         bookingDto.modelXe(),
                         bookingDto.ngayHen(),
                         bookingDto.ghiChu(),
-                        bookingDto.selectedServiceIds());
+                        bookingDto.selectedServiceIds(),
+                        user.getId());
             }
             Integer receptionId = bookingService.createBooking(bookingDto);
             return ResponseEntity.ok(Map.of(
