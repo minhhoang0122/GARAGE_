@@ -14,6 +14,7 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Integer id;
 
     @Column(name = "ten_dang_nhap", unique = true, nullable = false)
@@ -44,7 +45,7 @@ public class User {
     private com.gara.entity.enums.MechanicLevel capBac;
 
     @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(name = "nguoidung_vaitro", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
+    @JoinTable(name = "nguoidung_vaitro", joinColumns = @JoinColumn(name = "nguoidung_id"), inverseJoinColumns = @JoinColumn(name = "vaitro_id"))
     private Set<Role> roles = new java.util.HashSet<>();
 
     // Getters and Setters
