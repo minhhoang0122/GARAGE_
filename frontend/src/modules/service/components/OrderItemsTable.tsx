@@ -206,7 +206,7 @@ function Row({
     const abortRef = useRef<AbortController | null>(null);
 
     const isRejected = localStatus === 'KHACH_TU_CHOI';
-    const isApproved = localStatus === 'KHACH_DONG_Y';
+    const isApproved = localStatus !== 'KHACH_TU_CHOI'; // Hiển thị checked cho cả DE_XUAT và KHACH_DONG_Y
 
     const formatCurrency = (val: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
@@ -222,8 +222,8 @@ function Row({
                         
                         // 1. UI update ngay lập tức (Snapshot for rollback)
                         const prevStatus = localStatus;
-                        const nextStatus = localStatus === 'KHACH_DONG_Y' ? 'DE_XUAT' : 'KHACH_DONG_Y';
-                              setIsOptimistic(true);
+                        const nextStatus = localStatus === 'KHACH_TU_CHOI' ? 'KHACH_DONG_Y' : 'KHACH_TU_CHOI';
+                        setIsOptimistic(true);
                         setIsUpdating(true);
                         setLocalStatus(nextStatus);
 
