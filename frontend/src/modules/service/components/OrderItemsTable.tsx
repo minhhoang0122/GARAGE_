@@ -131,24 +131,16 @@ export default function OrderItemsTable({ items, orderId, readOnly = false, toke
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden text-[13px]">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="data-table w-full text-left min-w-[850px] table-fixed">
-                        <colgroup>
-                            <col className="w-[50px]" />
-                            <col /> {/* Cột Hạng mục tự fit */}
-                            <col className="w-[70px]" />
-                            <col className="w-[150px]" />
-                            <col className="w-[180px]" />
-                            <col className="w-[80px]" />
-                        </colgroup>
                         <thead>
                             <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                                <th className="px-4 py-3.5 text-center">
+                                <th className="w-[50px] px-4 py-3.5 !text-center">
                                     <div className="w-3 h-3 rounded border border-slate-300 dark:border-slate-600 mx-auto" />
                                 </th>
-                                <th className="pl-6 pr-4 py-3.5 text-[10px] font-black text-slate-400 uppercase text-left">Hạng mục</th>
-                                <th className="px-4 py-3.5 text-right text-[10px] font-black text-slate-400 uppercase">SL</th>
-                                <th className="px-4 py-3.5 text-right text-[10px] font-black text-slate-400 uppercase">Đơn giá</th>
-                                <th className="px-4 py-3.5 text-right text-[10px] font-black text-slate-400 uppercase">Thành tiền</th>
-                                <th className="px-4 py-3.5 text-center text-[10px] font-black text-slate-400 uppercase">Xóa</th>
+                                <th className="pl-6 pr-4 py-3.5 text-[10px] font-black text-slate-400 uppercase !text-left">Hạng mục</th>
+                                <th className="w-[70px] px-4 py-3.5 !text-right text-[10px] font-black text-slate-400 uppercase">SL</th>
+                                <th className="w-[150px] px-4 py-3.5 !text-right text-[10px] font-black text-slate-400 uppercase">Đơn giá</th>
+                                <th className="w-[180px] px-4 py-3.5 !text-right text-[10px] font-black text-slate-400 uppercase">Thành tiền</th>
+                                <th className="w-[80px] px-4 py-3.5 !text-center text-[10px] font-black text-slate-400 uppercase">Xóa</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
