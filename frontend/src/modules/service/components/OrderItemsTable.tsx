@@ -8,6 +8,7 @@ import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { useToast } from '@/contexts/ToastContext';
 import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
+import { useOrderWorkspaceOptional } from './OrderWorkspaceProvider';
 
 interface OrderItemsTableProps {
     items: OrderDetailItem[];
@@ -22,7 +23,9 @@ interface OrderItemsTableProps {
  * - Chế độ chỉnh sửa tập trung (Global Edit) giúp quản lý báo giá chuyên nghiệp.
  * - Cột Xóa Sticky với hiệu ứng Glassmorphism tinh tế.
  */
-export default function OrderItemsTable({ items, orderId, readOnly = false, token }: OrderItemsTableProps) {
+export default function OrderItemsTable({ items: serverItems, orderId, readOnly = false, token }: OrderItemsTableProps) {
+    const workspace = useOrderWorkspaceOptional();
+    const displayItems = workspace ? workspace.items : serverItems;
     const router = useRouter();
     const confirm = useConfirm();
     const { showToast } = useToast();
@@ -36,8 +39,8 @@ export default function OrderItemsTable({ items, orderId, readOnly = false, toke
         const idKey = id.toString();
         setEditData(prev => {
             const current = prev[idKey] || { 
-                quantity: items.find(i => i.id === id)?.quantity || 1, 
-                discountPercent: items.find(i => i.id === id)?.discountPercent || 0 
+                quantity: displayItems.find(i => i.id === id)?.quantity || 1, 
+                discountPercent: displayItems.find(i => i.id === id)?.discountPercent || 0 
             };
             return {
                 ...prev,
@@ -69,7 +72,7 @@ export default function OrderItemsTable({ items, orderId, readOnly = false, toke
         setIsGlobalEditing(false);
     };
 
-    if (items.length === 0) {
+    if (displayItems.length === 0) {
         return (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-16 text-center shadow-sm">
                 <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -91,7 +94,7 @@ export default function OrderItemsTable({ items, orderId, readOnly = false, toke
                     <div className="w-1 h-6 bg-blue-600 rounded-full" />
                     <h2 className="text-[15px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
                         Hạng mục dịch vụ
-                        <span className="text-sm font-normal text-slate-400 lowercase italic">({items.length} món)</span>
+                        <span className="text-sm font-normal text-slate-400 lowercase italic">({displayItems.length} món)</span>
                     </h2>
                 </div>
                 
@@ -144,7 +147,7 @@ export default function OrderItemsTable({ items, orderId, readOnly = false, toke
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                            {items.map((item) => (
+                            {displayItems.map((item) => (
                                 <Row 
                                     key={item.id} 
                                     item={item} 
@@ -191,22 +194,25 @@ function Row({
     const router = useRouter();
     const confirm = useConfirm();
     const { showToast } = useToast();
+    const workspace = useOrderWorkspaceOptional();
 
     const [localStatus, setLocalStatus] = useState(item.itemStatus);
-    const [isOptimistic, setIsOptimistic] = useState(false);
-    const [isUpdating, setIsUpdating] = useState(false);
+    const [lastServerStatus, setLastServerStatus] = useState(item.itemStatus);
 
-    // Sync local state when server data changes, BUT lock it during active updates
-    useEffect(() => {
-        if (!isUpdating) {
-            setLocalStatus(item.itemStatus);
-        }
-    }, [item.itemStatus, isUpdating]);
+    // Đồng bộ lại local status MỘT CÁCH THÔNG MINH:
+    // Chỉ cập nhật localStatus khi thực sự server trả về dữ liệu MỚI (khác với lần cuối cùng chúng ta biết)
+    if (item.itemStatus !== lastServerStatus) {
+        setLocalStatus(item.itemStatus);
+        setLastServerStatus(item.itemStatus);
+    }
     
+    // Sửa dụng status từ Context nếu có
+    const currentStatus = workspace ? item.itemStatus : localStatus;
+
     const abortRef = useRef<AbortController | null>(null);
 
-    const isRejected = localStatus === 'KHACH_TU_CHOI';
-    const isApproved = localStatus !== 'KHACH_TU_CHOI'; // Hiển thị checked cho cả DE_XUAT và KHACH_DONG_Y
+    const isRejected = currentStatus === 'KHACH_TU_CHOI';
+    const isApproved = currentStatus !== 'KHACH_TU_CHOI'; // Hiển thị checked cho cả DE_XUAT và KHACH_DONG_Y
 
     const formatCurrency = (val: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
@@ -220,12 +226,20 @@ function Row({
                     onClick={() => {
                         if (readOnly) return;
                         
-                        // 1. UI update ngay lập tức (Snapshot for rollback)
-                        const prevStatus = localStatus;
-                        const nextStatus = localStatus === 'KHACH_TU_CHOI' ? 'KHACH_DONG_Y' : 'KHACH_TU_CHOI';
-                        setIsOptimistic(true);
-                        setIsUpdating(true);
-                        setLocalStatus(nextStatus);
+                        // 1. UI update NGAY LẬP TỨC 
+                        const prevStatus = currentStatus;
+                        const nextStatus = currentStatus === 'KHACH_TU_CHOI' ? 'KHACH_DONG_Y' : 'KHACH_TU_CHOI';
+                        
+                        // Cập nhật Workspace Context hoặc Local State fallback
+                        if (workspace) {
+                            workspace.updateItemStatusLocal(item.id, nextStatus);
+                        } else {
+                            setLocalStatus(nextStatus);
+                        }
+                        
+                        // Cập nhật mốc server giả định trước để lúc render nó không bị đè về trạng thái cũ 
+                        // trong khi chờ router.refresh() (đợi ~500ms -> 1s).
+                        setLastServerStatus(nextStatus);
 
                         // 2. Hủy request cũ nếu click quá nhanh
                         if (abortRef.current) {
@@ -234,36 +248,40 @@ function Row({
                         const controller = new AbortController();
                         abortRef.current = controller;
  
-                        // 3. API bắn ngay - Fire & Forget
+                        // 3. Chuẩn bị hàm gọi API cập nhật
                         if (!token) {
                             showToast('error', 'Phiên làm việc hết hạn. Vui lòng tải lại trang.');
-                            // Reset state immediately and unlock
-                            setLocalStatus(prevStatus);
-                            setIsOptimistic(false);
-                            setIsUpdating(false);
+                            if (workspace) workspace.updateItemStatusLocal(item.id, prevStatus);
+                            else setLocalStatus(prevStatus);
+                            setLastServerStatus(prevStatus);
                             return;
                         }
-                        
-                        api.patch(`/sale/items/${item.id}/status`, { status: nextStatus }, token, controller.signal)
-                            .then(() => {
-                                // 1. Thành công: Unlock ngay lập tức
-                                setIsOptimistic(false);
-                                setIsUpdating(false);
 
-                                // 2. Invalidate cache để các components khác (Header/Summary) cập nhật
-                                api.invalidateCache(`/sale/orders/${orderId}`);
-                                // 3. Refresh trang ngầm để cập nhật Tổng tiền
-                                router.refresh();
-                            })
-                            .catch(err => {
+                        const executeUpdate = async () => {
+                            try {
+                                await api.patch(`/sale/items/${item.id}/status`, { status: nextStatus }, token, controller.signal);
+                            } catch (err: any) {
                                 if (err.name === 'AbortError') return;
                                 
                                 // Lỗi thật: Rollback
-                                setLocalStatus(prevStatus);
-                                setIsOptimistic(false);
-                                setIsUpdating(false);
+                                if (workspace) {
+                                    workspace.updateItemStatusLocal(item.id, prevStatus);
+                                } else {
+                                    setLocalStatus(prevStatus);
+                                }
+                                setLastServerStatus(prevStatus);
                                 showToast('error', 'Đồng bộ trạng thái thất bại');
-                            });
+                                throw err; // Re-throw để startCalculation biết là fail
+                            }
+                        };
+
+                        // 4. Nếu có workspace context, uỷ quyền cho workspace hiển thị loading ở Summary và refresh state
+                        if (workspace) {
+                            workspace.startCalculation(executeUpdate);
+                        } else {
+                            // Fallback khi không có workspace
+                            executeUpdate().catch(() => {});
+                        }
                     }}
                     title={isApproved ? "Bỏ duyệt" : "Duyệt hạng mục"}
                     className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
@@ -271,14 +289,9 @@ function Row({
                     <div 
                         className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 
                         ${isApproved ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'}
-                        ${isUpdating ? 'opacity-70 scale-95' : 'hover:scale-105'}
-                        shadow-sm`}
+                        hover:scale-105 shadow-sm`}
                     >
-                        {isUpdating ? (
-                            <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                        ) : (
-                            isApproved ? <Check className="w-3 h-3 stroke-[3]" /> : null
-                        )}
+                        {isApproved ? <Check className="w-3 h-3 stroke-[3]" /> : null}
                     </div>
                 </button>
             </td>

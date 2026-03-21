@@ -12,6 +12,7 @@ import OrderSummary from '@/modules/service/components/OrderSummary';
 import InvoicePrint from '@/modules/service/components/InvoicePrint';
 import PaymentButton from '@/modules/service/components/PaymentButton';
 import TransactionHistory from '@/modules/service/components/TransactionHistory';
+import { OrderWorkspaceProvider } from '@/modules/service/components/OrderWorkspaceProvider';
 import { getTransactions } from '@/modules/finance/transaction';
 import { useToast } from '@/modules/shared/components/ui/use-toast';
 import ImageGallery from '@/modules/shared/components/common/ImageGallery';
@@ -83,147 +84,149 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                     </div>
                 )}
 
-                {/* Unified 12-Column Grid with intentional Gaps */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                    
-                    {/* Main Content Area (8/12) - Added min-w-0 to prevent overflow */}
-                    <div className="lg:col-span-8 space-y-6 min-w-0">
-                        {/* Thông tin chung - Card top aligned */}
-                        <div className="relative bg-white dark:bg-slate-900 p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
-                            {/* Background decoration with its own clipping */}
-                            <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-2xl">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/5 to-transparent blur-3xl rounded-full -mr-32 -mt-32"></div>
-                            </div>
-
-                            <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
-                                <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto">
-                                    {/* Realistic License Plate Visual */}
-                                    <div className="flex flex-col items-center shrink-0">
-                                        <div className="bg-white dark:bg-slate-50 border-2 border-slate-900 dark:border-white rounded-xl px-6 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] transform hover:-rotate-1 transition-all duration-300 group cursor-default">
-                                            <span className="text-3xl font-black text-slate-900 tracking-[0.15em] font-mono leading-none block truncate">
-                                                {order.plate}
-                                            </span>
+                        {/* Unified 12-Column Grid with intentional Gaps */}
+                        <OrderWorkspaceProvider initialItems={order.items}>
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                                
+                                {/* Main Content Area (8/12) - Added min-w-0 to prevent overflow */}
+                                <div className="lg:col-span-8 space-y-6 min-w-0">
+                                    {/* Thông tin chung - Card top aligned */}
+                                    <div className="relative bg-white dark:bg-slate-900 p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
+                                        {/* Background decoration with its own clipping */}
+                                        <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-2xl">
+                                            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/5 to-transparent blur-3xl rounded-full -mr-32 -mt-32"></div>
                                         </div>
-                                        <div className="mt-3 px-3 py-1 bg-slate-900 dark:bg-slate-800 text-white rounded text-[11px] font-bold uppercase tracking-[0.15em] max-w-[200px] truncate text-center">
-                                            {order.vehicleBrand || 'HÃNG XE'} {order.vehicleModel}
+
+                                        <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
+                                            <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto">
+                                                {/* Realistic License Plate Visual */}
+                                                <div className="flex flex-col items-center shrink-0">
+                                                    <div className="bg-white dark:bg-slate-50 border-2 border-slate-900 dark:border-white rounded-xl px-6 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] transform hover:-rotate-1 transition-all duration-300 group cursor-default">
+                                                        <span className="text-3xl font-black text-slate-900 tracking-[0.15em] font-mono leading-none block truncate">
+                                                            {order.plate}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-3 px-3 py-1 bg-slate-900 dark:bg-slate-800 text-white rounded text-[11px] font-bold uppercase tracking-[0.15em] max-w-[200px] truncate text-center">
+                                                        {order.vehicleBrand || 'HÃNG XE'} {order.vehicleModel}
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-center md:text-left space-y-2 min-w-0">
+                                                    <div className="space-y-1 min-w-0">
+                                                        <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Khách hàng</p>
+                                                        <h3 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center justify-center md:justify-start gap-2 truncate">
+                                                            {order.customerName}
+                                                        </h3>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                                                        {order.receptionOdo != null && order.receptionOdo > 0 && (
+                                                            <span className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-100 dark:border-blue-800">
+                                                                <Car className="w-4 h-4" /> {order.receptionOdo.toLocaleString()} KM
+                                                            </span>
+                                                        )}
+                                                        <span className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-700">
+                                                            <Clock className="w-4 h-4 text-indigo-500" /> {new Date(order.subTime).toLocaleString('vi-VN')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col md:flex-row items-center gap-8 pr-2">
+                                                <div className="w-44 shrink-0">
+                                                    <ImageGallery images={order.imageUrl} />
+                                                </div>
+                                                <div className="flex flex-col items-center md:items-end gap-3 shrink-0 min-w-fit">
+                                                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Trạng thái</p>
+                                                    <div className="flex items-center">
+                                                        {getStatusBadge(order.status)}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div className="text-center md:text-left space-y-2 min-w-0">
-                                        <div className="space-y-1 min-w-0">
-                                            <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Khách hàng</p>
-                                            <h3 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center justify-center md:justify-start gap-2 truncate">
-                                                {order.customerName}
-                                            </h3>
+                                    {/* Search & Add Section */}
+                                    {!isLocked && (
+                                        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-600">
+                                                    <PlusCircle className="w-6 h-6" />
+                                                </div>
+                                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Thêm hạng mục sửa chữa</h3>
+                                            </div>
+                                            <ProductSearch orderId={order.id} readOnly={isLocked} />
                                         </div>
-
-                                        <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                                            {order.receptionOdo != null && order.receptionOdo > 0 && (
-                                                <span className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-100 dark:border-blue-800">
-                                                    <Car className="w-4 h-4" /> {order.receptionOdo.toLocaleString()} KM
-                                                </span>
-                                            )}
-                                            <span className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-700">
-                                                <Clock className="w-4 h-4 text-indigo-500" /> {new Date(order.subTime).toLocaleString('vi-VN')}
-                                            </span>
-                                        </div>
+                                    )}
+                                    
+                                    {/* List Items Table Card */}
+                                    <div className="transition-all">
+                                        <OrderItemsTable items={order.items} orderId={order.id} readOnly={isLocked} token={token} />
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col md:flex-row items-center gap-8 pr-2">
-                                    <div className="w-44 shrink-0">
-                                        <ImageGallery images={order.imageUrl} />
-                                    </div>
-                                    <div className="flex flex-col items-center md:items-end gap-3 shrink-0 min-w-fit">
-                                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Trạng thái</p>
-                                        <div className="flex items-center">
-                                            {getStatusBadge(order.status)}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Search & Add Section */}
-                        {!isLocked && (
-                            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-600">
-                                        <PlusCircle className="w-6 h-6" />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Thêm hạng mục sửa chữa</h3>
-                                </div>
-                                <ProductSearch orderId={order.id} readOnly={isLocked} />
-                            </div>
-                        )}
-                        
-                        {/* List Items Table Card */}
-                        <div className="transition-all">
-                            <OrderItemsTable items={order.items} orderId={order.id} readOnly={isLocked} token={token} />
-                        </div>
-                    </div>
-
-                    {/* Summary Sidebar - Proximity maintained but with clear Gap */}
-                    <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-8 self-start">
-                        {/* Summary Card */}
-                        <OrderSummary
-                            orderId={order.id}
-                            totalParts={order.totalParts}
-                            totalLabor={order.totalLabor}
-                            totalDiscount={order.totalDiscount}
-                            vat={order.vat}
-                            vatPercent={order.vatPercent}
-                            grandTotal={order.grandTotal}
-                            isLocked={isLocked}
-                        />
-
-                        {/* Payment/Transactions Card */}
-                        <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800 uppercase tracking-tight">Thanh toán</h3>
-
-                            <div className="space-y-4 mb-6">
-                                <div className="flex justify-between items-center bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-800/50">
-                                    <span className="text-red-700 dark:text-red-400 font-medium">Còn nợ:</span>
-                                    <span className="font-bold text-red-700 dark:text-red-400 text-lg">
-                                        {formatCurrency(order.debt ?? (order.grandTotal - order.amountPaid))}
-                                    </span>
-                                </div>
-
-                                {!isCompleted && (
-                                    <PaymentButton
+                                {/* Summary Sidebar - Proximity maintained but with clear Gap */}
+                                <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-8 self-start">
+                                    {/* Summary Card */}
+                                    <OrderSummary
                                         orderId={order.id}
+                                        totalParts={order.totalParts}
+                                        totalLabor={order.totalLabor}
+                                        totalDiscount={order.totalDiscount}
+                                        vat={order.vat}
+                                        vatPercent={order.vatPercent}
                                         grandTotal={order.grandTotal}
-                                        remainAmount={order.debt ?? (order.grandTotal - order.amountPaid)}
-                                        amountPaid={order.amountPaid ?? 0}
-                                        orderStatus={order.status}
-                                        disabled={['BAO_GIA', 'CHO_KH_DUYET', 'HUY', 'DONG'].includes(order.status)}
-                                        items={order.items}
+                                        isLocked={isLocked}
                                     />
-                                )}
-                            </div>
 
-                            {/* History */}
-                            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Lịch sử giao dịch</h4>
-                            <TransactionHistory transactions={transactions} />
-                        </div>
+                                    {/* Payment/Transactions Card */}
+                                    <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
+                                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800 uppercase tracking-tight">Thanh toán</h3>
 
-                        {/* Completed info */}
-                        {isCompleted && (
-                            <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-6 rounded-2xl border border-emerald-200 dark:border-emerald-800 transition-colors">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                                        <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                        <div className="space-y-4 mb-6">
+                                            <div className="flex justify-between items-center bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-800/50">
+                                                <span className="text-red-700 dark:text-red-400 font-medium">Còn nợ:</span>
+                                                <span className="font-bold text-red-700 dark:text-red-400 text-lg">
+                                                    {formatCurrency(order.debt ?? (order.grandTotal - order.amountPaid))}
+                                                </span>
+                                            </div>
+
+                                            {!isCompleted && (
+                                                <PaymentButton
+                                                    orderId={order.id}
+                                                    grandTotal={order.grandTotal}
+                                                    remainAmount={order.debt ?? (order.grandTotal - order.amountPaid)}
+                                                    amountPaid={order.amountPaid ?? 0}
+                                                    orderStatus={order.status}
+                                                    disabled={['BAO_GIA', 'CHO_KH_DUYET', 'HUY', 'DONG'].includes(order.status)}
+                                                    items={order.items}
+                                                />
+                                            )}
+                                        </div>
+
+                                        {/* History */}
+                                        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Lịch sử giao dịch</h4>
+                                        <TransactionHistory transactions={transactions} />
                                     </div>
-                                    <div>
-                                        <h3 className="font-semibold text-emerald-800 dark:text-emerald-300">Hoàn thành</h3>
-                                        <p className="text-xs text-emerald-600 dark:text-emerald-400">Đơn hàng đã thanh toán đủ</p>
-                                    </div>
+
+                                    {/* Completed info */}
+                                    {isCompleted && (
+                                        <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-6 rounded-2xl border border-emerald-200 dark:border-emerald-800 transition-colors">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                                                    <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-emerald-800 dark:text-emerald-300">Hoàn thành</h3>
+                                                    <p className="text-xs text-emerald-600 dark:text-emerald-400">Đơn hàng đã thanh toán đủ</p>
+                                                </div>
+                                            </div>
+                                            <InvoicePrint order={order} />
+                                        </div>
+                                    )}
                                 </div>
-                                <InvoicePrint order={order} />
                             </div>
-                        )}
-                    </div>
-                </div>
+                        </OrderWorkspaceProvider>
             </div>
         </DashboardLayout>
     );

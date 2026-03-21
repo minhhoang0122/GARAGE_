@@ -7,6 +7,7 @@ import { updateOrderTotals } from '@/modules/service/order';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import { usePermission } from '@/hooks/usePermission';
+import { useOrderWorkspaceOptional } from './OrderWorkspaceProvider';
 
 interface OrderSummaryProps {
     orderId: number;
@@ -25,21 +26,32 @@ interface OrderSummaryProps {
  */
 export default function OrderSummary({
     orderId,
-    totalParts,
-    totalLabor,
-    totalDiscount,
-    vat,
-    vatPercent,
-    grandTotal,
+    totalParts: serverTotalParts,
+    totalLabor: serverTotalLabor,
+    totalDiscount: serverTotalDiscount,
+    vat: serverVat,
+    vatPercent: serverVatPercent,
+    grandTotal: serverGrandTotal,
     isLocked
 }: OrderSummaryProps) {
     const router = useRouter();
     const { showToast } = useToast();
     const { hasRole, isAdmin } = usePermission();
+    const workspace = useOrderWorkspaceOptional();
+    
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     
     const canEditVat = isAdmin || !hasRole('SALE');
+
+    const totalParts = serverTotalParts;
+    const totalLabor = serverTotalLabor;
+    const totalDiscount = serverTotalDiscount;
+    const vat = serverVat;
+    const vatPercent = serverVatPercent;
+    const grandTotal = serverGrandTotal;
+
+    const isCalculating = workspace?.isCalculating || false;
 
     // Using simple state for editing
     const [editData, setEditData] = useState({
@@ -53,15 +65,25 @@ export default function OrderSummary({
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const res = await updateOrderTotals(orderId, {
-                discount: editData.discount,
-                vatPercent: editData.vatPercent
-            });
-            if (res.success) {
-                showToast('success', 'Đã cập nhật tổng hợp báo giá');
-                setIsEditing(false);
+            const apiCall = async () => {
+                const res = await updateOrderTotals(orderId, {
+                    discount: editData.discount,
+                    vatPercent: editData.vatPercent
+                });
+                if (res.success) {
+                    showToast('success', 'Đã cập nhật tổng hợp báo giá');
+                    setIsEditing(false);
+                } else {
+                    showToast('error', res.error || 'Lỗi khi cập nhật');
+                }
+            };
+
+            if (workspace) {
+                // startCalculation đã có sẵn router.refresh
+                await workspace.startCalculation(apiCall);
             } else {
-                showToast('error', res.error || 'Lỗi khi cập nhật');
+                await apiCall();
+                router.refresh(); // Fallback nếu không có workspace
             }
         } catch (error) {
             showToast('error', 'Lỗi hệ thống');
@@ -134,7 +156,7 @@ export default function OrderSummary({
                 )}
             </div>
 
-            <div className="space-y-4 font-medium relative z-10">
+            <div className={`space-y-4 font-medium relative z-10 ${isCalculating ? 'opacity-50 blur-[2px] pointer-events-none transition-all duration-300' : 'transition-all duration-300'}`}>
                 <div className="flex justify-between text-slate-500 dark:text-slate-400">
                     <span>Tiền hàng:</span>
                     <span className="text-slate-900 dark:text-slate-200 tabular-nums font-bold">{formatCurrency(totalParts)}</span>
@@ -143,7 +165,6 @@ export default function OrderSummary({
                     <span>Tiền công:</span>
                     <span className="text-slate-900 dark:text-slate-200 tabular-nums font-bold">{formatCurrency(totalLabor)}</span>
                 </div>
-
                 {/* Chiết khấu tổng */}
                 <div className="flex justify-between items-center text-slate-500 dark:text-slate-400">
                     <span>Chiết khấu tổng:</span>
