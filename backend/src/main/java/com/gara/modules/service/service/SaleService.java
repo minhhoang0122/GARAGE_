@@ -354,6 +354,10 @@ public class SaleService {
     // 4b. Update Item Status (Approve/Reject)
     @Transactional
     public void updateItemStatus(Integer itemId, ItemStatus status, User user) {
+        // First lock the item to prevent concurrent status updates from spam clicking
+        orderItemRepository.findByIdWithLock(itemId);
+
+        // Then fetch full details
         OrderItem item = orderItemRepository.findByIdWithFullDetails(itemId)
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 

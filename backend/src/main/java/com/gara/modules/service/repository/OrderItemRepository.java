@@ -21,6 +21,10 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
            "WHERE i.id = :id")
     java.util.Optional<OrderItem> findByIdWithFullDetails(@Param("id") Integer id);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT i FROM OrderItem i WHERE i.id = :id")
+    java.util.Optional<OrderItem> findByIdWithLock(@Param("id") Integer id);
+
     // Optimized: Calculate Total Order Value in DB (excluding Rejected items)
     @Query("SELECT COALESCE(SUM(i.thanhTien), 0) FROM OrderItem i WHERE i.donHangSuaChua.id = :orderId AND i.trangThai != 'KHACH_TU_CHOI'")
     java.math.BigDecimal sumTotalForOrder(@Param("orderId") Integer orderId);

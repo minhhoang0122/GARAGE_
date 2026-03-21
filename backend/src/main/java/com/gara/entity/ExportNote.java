@@ -7,10 +7,6 @@ import java.util.List;
 
 @Entity
 @Table(name = "exportnote")
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ExportNote {
 
     @Id
@@ -18,7 +14,6 @@ public class ExportNote {
     @Column(name = "id")
     private Integer id;
 
-    @Builder.Default
     @Column(name = "loai_xuat", length = 50)
     private String loaiXuat = "SUA_CHUA";
 
@@ -44,10 +39,36 @@ public class ExportNote {
     @OneToMany(mappedBy = "phieuXuatKho", cascade = CascadeType.ALL)
     private List<ExportDetail> chiTietXuatKho;
 
+    public ExportNote() {}
+
     @PrePersist
     protected void onCreate() {
         if (ngayXuat == null) {
             ngayXuat = LocalDateTime.now();
         }
     }
+
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+    
+    public String getLoaiXuat() { return loaiXuat; }
+    public void setLoaiXuat(String loaiXuat) { this.loaiXuat = loaiXuat; }
+
+    public LocalDateTime getNgayXuat() { return ngayXuat; }
+    public void setNgayXuat(LocalDateTime ngayXuat) { this.ngayXuat = ngayXuat; }
+
+    public Integer getNguoiTaoId() { return nguoiTaoId; }
+    public void setNguoiTaoId(Integer nguoiTaoId) { this.nguoiTaoId = nguoiTaoId; }
+
+    public Integer getDonHangSuaChuaId() { return donHangSuaChuaId; }
+    public void setDonHangSuaChuaId(Integer donHangSuaChuaId) { this.donHangSuaChuaId = donHangSuaChuaId; }
+
+    public User getNguoiTao() { return nguoiTao; }
+    public void setNguoiTao(User nguoiTao) { this.nguoiTao = nguoiTao; }
+
+    public RepairOrder getDonHangSuaChua() { return donHangSuaChua; }
+    public void setDonHangSuaChua(RepairOrder donHangSuaChua) { this.donHangSuaChua = donHangSuaChua; }
+
+    public List<ExportDetail> getChiTietXuatKho() { return chiTietXuatKho; }
+    public void setChiTietXuatKho(List<ExportDetail> chiTietXuatKho) { this.chiTietXuatKho = chiTietXuatKho; }
 }

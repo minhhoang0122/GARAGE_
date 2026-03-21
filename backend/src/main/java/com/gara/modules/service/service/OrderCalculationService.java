@@ -79,8 +79,8 @@ public class OrderCalculationService {
      */
     @Transactional
     public void updateTotalsIncrementally(Integer orderId, BigDecimal delta, boolean isLabor) {
-        // Fetch order basic info (No items)
-        RepairOrder order = orderRepository.findById(orderId)
+        // Fetch order basic info with pessimistic write lock to prevent race conditions during rapid concurrent clicks
+        RepairOrder order = orderRepository.findByIdWithLock(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
 
         BigDecimal currentParts = order.getTongTienHang() != null ? order.getTongTienHang() : BigDecimal.ZERO;

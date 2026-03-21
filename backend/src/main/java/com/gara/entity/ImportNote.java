@@ -8,10 +8,6 @@ import java.util.List;
 
 @Entity
 @Table(name = "importnote")
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ImportNote {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,7 +39,32 @@ public class ImportNote {
     @OneToMany(mappedBy = "phieuNhap", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ImportDetail> chiTietNhap;
 
+    public ImportNote() {}
+
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+
+    public String getMaPhieu() { return maPhieu; }
+    public void setMaPhieu(String maPhieu) { this.maPhieu = maPhieu; }
+
+    public String getNhaCungCap() { return nhaCungCap; }
+    public void setNhaCungCap(String nhaCungCap) { this.nhaCungCap = nhaCungCap; }
+
+    public LocalDateTime getNgayNhap() { return ngayNhap; }
+    public void setNgayNhap(LocalDateTime ngayNhap) { this.ngayNhap = ngayNhap; }
+
+    public User getNguoiNhap() { return nguoiNhap; }
+    public void setNguoiNhap(User nguoiNhap) { this.nguoiNhap = nguoiNhap; }
+
+    public BigDecimal getTongTien() { return tongTien; }
+    public void setTongTien(BigDecimal tongTien) { this.tongTien = tongTien; }
+
+    public String getGhiChu() { return ghiChu; }
+    public void setGhiChu(String ghiChu) { this.ghiChu = ghiChu; }
+
     public String getTrangThai() { return trangThai; }
     public void setTrangThai(String trangThai) { this.trangThai = trangThai; }
+    
     public List<ImportDetail> getChiTietNhap() { return chiTietNhap; }
+    public void setChiTietNhap(List<ImportDetail> chiTietNhap) { this.chiTietNhap = chiTietNhap; }
 }

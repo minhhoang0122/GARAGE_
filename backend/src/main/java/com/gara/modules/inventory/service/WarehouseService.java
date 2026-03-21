@@ -140,12 +140,11 @@ public class WarehouseService {
                 .collect(java.util.stream.Collectors.toSet());
 
         // 3. Create Export Note Builder
-        ExportNote exportNote = ExportNote.builder()
-                .loaiXuat("SUA_CHUA")
-                .nguoiTao(user)
-                .donHangSuaChua(order)
-                .chiTietXuatKho(new ArrayList<>())
-                .build();
+        ExportNote exportNote = new ExportNote();
+        exportNote.setLoaiXuat("SUA_CHUA");
+        exportNote.setNguoiTao(user);
+        exportNote.setDonHangSuaChua(order);
+        exportNote.setChiTietXuatKho(new ArrayList<>());
 
         // 4. Process Items with Row-level Locking (Rule 13)
         for (OrderItem item : items) {
@@ -195,13 +194,12 @@ public class WarehouseService {
             productRepository.save(product);
 
             // Add Detail
-            ExportDetail detail = ExportDetail.builder()
-                    .phieuXuatKho(exportNote)
-                    .hangHoa(product)
-                    .soLuong(item.getSoLuong())
-                    .donGiaXuat(item.getDonGiaGoc())
-                    .thanhTien(item.getThanhTien())
-                    .build();
+            ExportDetail detail = new ExportDetail();
+            detail.setPhieuXuatKho(exportNote);
+            detail.setHangHoa(product);
+            detail.setSoLuong(item.getSoLuong());
+            detail.setDonGiaXuat(item.getDonGiaGoc());
+            detail.setThanhTien(item.getThanhTien());
 
             exportNote.getChiTietXuatKho().add(detail);
 
@@ -456,15 +454,14 @@ public class WarehouseService {
         // Rule: All imports must be approved by Admin regardless of who creates it
         String status = "PENDING";
 
-        ImportNote note = ImportNote.builder()
-                .maPhieu("PN" + System.currentTimeMillis())
-                .nguoiNhap(user)
-                .ngayNhap(java.time.LocalDateTime.now())
-                .nhaCungCap(req.supplierName())
-                .ghiChu(req.note())
-                .trangThai(status)
-                .chiTietNhap(new ArrayList<>())
-                .build();
+        ImportNote note = new ImportNote();
+        note.setMaPhieu("PN" + System.currentTimeMillis());
+        note.setNguoiNhap(user);
+        note.setNgayNhap(java.time.LocalDateTime.now());
+        note.setNhaCungCap(req.supplierName());
+        note.setGhiChu(req.note());
+        note.setTrangThai(status);
+        note.setChiTietNhap(new ArrayList<>());
 
         BigDecimal totalImportValue = BigDecimal.ZERO;
 
@@ -494,16 +491,15 @@ public class WarehouseService {
             // Stock update is deferred to approveImport method
             // Only prepare details for the pending note
 
-            ImportDetail detail = ImportDetail.builder()
-                    .phieuNhap(note)
-                    .hangHoa(product)
-                    .soLuong(importQty)
-                    .donGiaNhap(importCost)
-                    .thueVAT(importVat) 
-                    .thanhTien(newImportValue) 
-                    .hanSuDung(item.expiryDate())
-                    .soLuongConLai(importQty)
-                    .build();
+            ImportDetail detail = new ImportDetail();
+            detail.setPhieuNhap(note);
+            detail.setHangHoa(product);
+            detail.setSoLuong(importQty);
+            detail.setDonGiaNhap(importCost);
+            detail.setThueVAT(importVat); 
+            detail.setThanhTien(newImportValue); 
+            detail.setHanSuDung(item.expiryDate());
+            detail.setSoLuongConLai(importQty);
 
             note.getChiTietNhap().add(detail);
             detailsToSave.add(detail);
@@ -654,25 +650,23 @@ public class WarehouseService {
         User user = userRepository.findById(userId).orElseThrow();
         Product product = batch.getHangHoa();
 
-        ExportNote exportNote = ExportNote.builder()
-                .loaiXuat("HUY_HANG")
-                .nguoiTao(user)
-                .ngayXuat(java.time.LocalDateTime.now())
-                .chiTietXuatKho(new ArrayList<>())
-                .build();
+        ExportNote exportNote = new ExportNote();
+        exportNote.setLoaiXuat("HUY_HANG");
+        exportNote.setNguoiTao(user);
+        exportNote.setNgayXuat(java.time.LocalDateTime.now());
+        exportNote.setChiTietXuatKho(new ArrayList<>());
 
         exportNote = exportNoteRepository.save(exportNote);
 
         product.setSoLuongTon(product.getSoLuongTon() - batch.getSoLuongConLai());
         productRepository.save(product);
 
-        ExportDetail detail = ExportDetail.builder()
-                .phieuXuatKho(exportNote)
-                .hangHoa(product)
-                .soLuong(batch.getSoLuongConLai())
-                .donGiaXuat(BigDecimal.ZERO)
-                .thanhTien(BigDecimal.ZERO)
-                .build();
+        ExportDetail detail = new ExportDetail();
+        detail.setPhieuXuatKho(exportNote);
+        detail.setHangHoa(product);
+        detail.setSoLuong(batch.getSoLuongConLai());
+        detail.setDonGiaXuat(BigDecimal.ZERO);
+        detail.setThanhTien(BigDecimal.ZERO);
 
         exportNote.getChiTietXuatKho().add(detail);
         exportNoteRepository.save(exportNote);

@@ -2,7 +2,7 @@
 
 import { formatCurrency } from '@/lib/utils';
 import { FileText, Save, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { updateOrderTotals } from '@/modules/service/order';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
@@ -44,23 +44,56 @@ export default function OrderSummary({
     
     const canEditVat = isAdmin || !hasRole('SALE');
 
-    const totalParts = serverTotalParts;
-    const totalLabor = serverTotalLabor;
-    const totalDiscount = serverTotalDiscount;
-    const vat = serverVat;
-    const vatPercent = serverVatPercent;
-    const grandTotal = serverGrandTotal;
-
     const isCalculating = workspace?.isCalculating || false;
 
     // Using simple state for editing
     const [editData, setEditData] = useState({
-        discount: totalDiscount,
-        vatPercent: vatPercent
+        discount: serverTotalDiscount,
+        vatPercent: serverVatPercent
     });
 
     // Local state for formatted VND display (with dots)
-    const [displayDiscount, setDisplayDiscount] = useState(totalDiscount.toLocaleString('vi-VN'));
+    const [displayDiscount, setDisplayDiscount] = useState(serverTotalDiscount.toLocaleString('vi-VN'));
+
+    useEffect(() => {
+        if (!isEditing) {
+            setEditData({
+                discount: serverTotalDiscount,
+                vatPercent: serverVatPercent
+            });
+            setDisplayDiscount(serverTotalDiscount.toLocaleString('vi-VN'));
+        }
+    }, [serverTotalDiscount, serverVatPercent, isEditing]);
+
+    // Dữ liệu hiển thị (kết hợp Server & Local Workspace)
+    const activeItems = workspace?.items.filter(i => i.itemStatus !== 'KHACH_TU_CHOI' && i.itemStatus !== 'HUY') || [];
+
+    // Tính toán lại theo Frontend (nếu có workspace) hoặc dùng server data
+    const totalParts = workspace 
+        ? activeItems.filter(i => !i.isService).reduce((sum, item) => sum + (item.total || 0), 0)
+        : serverTotalParts;
+
+    const totalLabor = workspace
+        ? activeItems.filter(i => i.isService).reduce((sum, item) => sum + (item.total || 0), 0)
+        : serverTotalLabor;
+
+    const currentVatPercent = isEditing ? editData.vatPercent : serverVatPercent;
+    const currentDiscount = isEditing ? editData.discount : serverTotalDiscount;
+
+    const subtotal = totalParts + totalLabor - currentDiscount;
+    const finalSubtotal = subtotal > 0 ? subtotal : 0;
+    
+    // Thuế VAT
+    const vat = workspace || isEditing 
+        ? Math.round(finalSubtotal * currentVatPercent / 100)
+        : serverVat;
+
+    // Thành tiền
+    const grandTotal = workspace || isEditing
+        ? finalSubtotal + vat
+        : serverGrandTotal;
+
+
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -94,10 +127,10 @@ export default function OrderSummary({
 
     const handleCancel = () => {
         setEditData({
-            discount: totalDiscount,
-            vatPercent: vatPercent
+            discount: serverTotalDiscount,
+            vatPercent: serverVatPercent
         });
-        setDisplayDiscount(totalDiscount.toLocaleString('vi-VN'));
+        setDisplayDiscount(serverTotalDiscount.toLocaleString('vi-VN'));
         setIsEditing(false);
     };
 
@@ -145,7 +178,7 @@ export default function OrderSummary({
                             <button
                                 onClick={() => {
                                     setIsEditing(true);
-                                    setDisplayDiscount(totalDiscount.toLocaleString('vi-VN'));
+                                    setDisplayDiscount(currentDiscount.toLocaleString('vi-VN'));
                                 }}
                                 className="px-3 py-1.5 bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-600 text-slate-600 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95"
                             >
@@ -180,12 +213,12 @@ export default function OrderSummary({
                             <span className="absolute right-2 top-2 text-[11px] font-bold text-slate-400">đ</span>
                         </div>
                     ) : (
-                        <span className="text-rose-500 font-bold px-2 py-0.5 bg-rose-50 dark:bg-rose-900/20 rounded-lg tabular-nums">-{formatCurrency(totalDiscount)}</span>
+                        <span className="text-rose-500 font-bold px-2 py-0.5 bg-rose-50 dark:bg-rose-900/20 rounded-lg tabular-nums">-{formatCurrency(currentDiscount)}</span>
                     )}
                 </div>
 
                 {/* Thuế VAT - Chỉ hiện nếu có phần trăm thuế hoặc đang chỉnh sửa */}
-                {(isEditing || vatPercent > 0) && (
+                {(isEditing || currentVatPercent > 0) && (
                     <div className="flex justify-between items-center text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-50 dark:border-slate-800">
                         <span className="flex items-center gap-1">Thuế VAT:</span>
                         {isEditing ? (
@@ -209,7 +242,7 @@ export default function OrderSummary({
                         ) : (
                             <div className="flex flex-col items-end">
                                 <span className="text-slate-900 dark:text-slate-200 tabular-nums font-bold">{formatCurrency(vat)}</span>
-                                <span className="text-[10px] text-slate-400">({vatPercent}%)</span>
+                                <span className="text-[10px] text-slate-400">({currentVatPercent}%)</span>
                             </div>
                         )}
                     </div>
