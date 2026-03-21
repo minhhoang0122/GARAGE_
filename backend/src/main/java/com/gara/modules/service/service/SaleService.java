@@ -354,7 +354,7 @@ public class SaleService {
     // 4b. Update Item Status (Approve/Reject)
     @Transactional
     public void updateItemStatus(Integer itemId, ItemStatus status, User user) {
-        OrderItem item = orderItemRepository.findById(itemId)
+        OrderItem item = orderItemRepository.findByIdWithFullDetails(itemId)
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 
         checkOwnership(item.getDonHangSuaChua(), user);

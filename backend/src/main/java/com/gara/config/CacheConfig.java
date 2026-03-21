@@ -20,6 +20,7 @@ public class CacheConfig {
                 "staff_users",
                 "customer_users",
                 "products_list",
+                "products",
                 "services_list",
                 "public_services"
         );

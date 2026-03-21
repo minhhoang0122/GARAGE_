@@ -14,6 +14,13 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
             "WHERE i.donHangSuaChua.id = :orderId AND h.laDichVu = false")
     List<OrderItem> findByRepairOrderIdAndIsServiceFalse(@Param("orderId") Integer orderId);
 
+    @Query("SELECT i FROM OrderItem i " +
+           "JOIN FETCH i.donHangSuaChua dh " +
+           "LEFT JOIN FETCH dh.nguoiPhuTrach " +
+           "LEFT JOIN FETCH i.hangHoa " +
+           "WHERE i.id = :id")
+    java.util.Optional<OrderItem> findByIdWithFullDetails(@Param("id") Integer id);
+
     // Optimized: Calculate Total Order Value in DB (excluding Rejected items)
     @Query("SELECT COALESCE(SUM(i.thanhTien), 0) FROM OrderItem i WHERE i.donHangSuaChua.id = :orderId AND i.trangThai != 'KHACH_TU_CHOI'")
     java.math.BigDecimal sumTotalForOrder(@Param("orderId") Integer orderId);

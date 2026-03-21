@@ -33,6 +33,7 @@ export default function Topbar({ title, subtitle, onMenuClick }: TopbarProps) {
             mechanic: 'Kỹ thuật',
             tasks: 'Công việc',
             quotes: 'Báo giá',
+            accounts: 'Tài khoản khách',
         };
         return map[path] || path;
     };
