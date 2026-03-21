@@ -119,26 +119,16 @@ export default function OrderListPage() {
                         {/* Desktop Table */}
                         <div className="hidden md:block overflow-x-auto">
                             <table className="data-table w-full text-left min-w-[800px] table-fixed">
-                                <colgroup>
-                                    <col className="w-[80px]" />
-                                    <col className="w-[110px]" />
-                                    <col className="w-[120px]" />
-                                    <col /> {/* Khách hàng tự fit */}
-                                    <col className="w-[150px]" />
-                                    <col className="w-[140px]" />
-                                    <col className="w-[140px]" />
-                                    <col className="w-[80px]" />
-                                </colgroup>
                                 <thead>
                                     <tr className="bg-stone-100 dark:bg-slate-900 border-b border-stone-200 dark:border-slate-800 text-[10px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-widest transition-colors">
-                                        <th className="px-3 py-4">Mã đơn</th>
-                                        <th className="px-3 py-4">Thời gian</th>
-                                        <th className="px-3 py-4">Biển số</th>
-                                        <th className="px-3 py-4">Khách hàng</th>
-                                        <th className="px-3 py-4">Trạng thái</th>
-                                        <th className="px-3 py-4 text-right">Tổng tiền</th>
-                                        <th className="px-3 py-4 text-right">Còn nợ</th>
-                                        <th className="px-3 py-4 text-right">Chi tiết</th>
+                                        <th className="w-[80px] px-3 py-4 !text-left">Mã đơn</th>
+                                        <th className="w-[110px] px-3 py-4 !text-left">Thời gian</th>
+                                        <th className="w-[120px] px-3 py-4 !text-left">Biển số</th>
+                                        <th className="px-3 py-4 !text-left">Khách hàng</th>
+                                        <th className="w-[150px] px-3 py-4 !text-left">Trạng thái</th>
+                                        <th className="w-[140px] px-3 py-4 !text-right">Tổng tiền</th>
+                                        <th className="w-[140px] px-3 py-4 !text-right">Còn nợ</th>
+                                        <th className="w-[80px] px-3 py-4 !text-right">Chi tiết</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white dark:bg-transparent">

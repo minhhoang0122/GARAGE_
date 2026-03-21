@@ -48,24 +48,15 @@ export default async function QuotesListPage() {
                 ) : (
                 <div className="overflow-x-auto">
                     <table className="data-table w-full text-left min-w-[800px] table-fixed">
-                        <colgroup>
-                            <col className="w-[80px]" />
-                            <col className="w-[160px]" />
-                            <col className="w-[120px]" />
-                            <col /> {/* Khách hàng tự fit */}
-                            <col className="w-[150px]" />
-                            <col className="w-[150px]" />
-                            <col className="w-[100px]" />
-                        </colgroup>
                         <thead>
                             <tr className="bg-stone-100 dark:bg-slate-900 border-b border-stone-200 dark:border-slate-800 text-[10px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-widest transition-colors">
-                                <th className="px-4 py-4">Mã</th>
-                                <th className="px-4 py-4">Thời gian tạo</th>
-                                <th className="px-4 py-4">Biển số</th>
-                                <th className="px-4 py-4">Khách hàng</th>
-                                <th className="px-4 py-4">Trạng thái</th>
-                                <th className="px-4 py-4 text-right">Tổng dự toán</th>
-                                <th className="px-4 py-4 text-right">Hành động</th>
+                                <th className="w-[80px] px-4 py-4 !text-left">Mã</th>
+                                <th className="w-[160px] px-4 py-4 !text-left">Thời gian tạo</th>
+                                <th className="w-[120px] px-4 py-4 !text-left">Biển số</th>
+                                <th className="px-4 py-4 !text-left">Khách hàng</th>
+                                <th className="w-[150px] px-4 py-4 !text-left">Trạng thái</th>
+                                <th className="w-[150px] px-4 py-4 !text-right">Tổng dự toán</th>
+                                <th className="w-[100px] px-4 py-4 !text-right">Hành động</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-transparent">
