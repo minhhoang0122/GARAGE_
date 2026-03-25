@@ -10,8 +10,7 @@ import OrderItemsTable from '@/modules/service/components/OrderItemsTable';
 import OrderActions from '@/modules/service/components/OrderActions';
 import OrderSummary from '@/modules/service/components/OrderSummary';
 import InvoicePrint from '@/modules/service/components/InvoicePrint';
-import PaymentButton from '@/modules/service/components/PaymentButton';
-import TransactionHistory from '@/modules/service/components/TransactionHistory';
+import OrderPaymentSection from '@/modules/service/components/OrderPaymentSection';
 import { OrderWorkspaceProvider } from '@/modules/service/components/OrderWorkspaceProvider';
 import { getTransactions } from '@/modules/finance/transaction';
 import { useToast } from '@/modules/shared/components/ui/use-toast';
@@ -72,6 +71,7 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                             amountPaid={order.amountPaid ?? 0}
                             depositAmount={order.amountPaid ?? 0}
                             thoChanDoanId={order.thoChanDoanId}
+                            nguoiPhuTrachId={order.nguoiPhuTrachId}
                         />
                     </div>
                 </div>
@@ -86,10 +86,10 @@ export default async function OrderDetailPage({ params, searchParams }: { params
 
                         {/* Unified 12-Column Grid with intentional Gaps */}
                         <OrderWorkspaceProvider initialItems={order.items}>
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
                                 
                                 {/* Main Content Area (8/12) - Added min-w-0 to prevent overflow */}
-                                <div className="lg:col-span-8 space-y-6 min-w-0">
+                                <div className="xl:col-span-8 space-y-6 min-w-0">
                                     {/* Thông tin chung - Card top aligned */}
                                     <div className="relative bg-white dark:bg-slate-900 p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
                                         {/* Background decoration with its own clipping */}
@@ -97,12 +97,12 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                                             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/5 to-transparent blur-3xl rounded-full -mr-32 -mt-32"></div>
                                         </div>
 
-                                        <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
-                                            <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto">
+                                        <div className="flex flex-col xl:flex-row flex-wrap justify-between items-center xl:items-start gap-8 relative z-10 w-full">
+                                            <div className="flex flex-col md:flex-row flex-wrap items-center gap-6 w-full xl:w-auto xl:max-w-[65%]">
                                                 {/* Realistic License Plate Visual */}
                                                 <div className="flex flex-col items-center shrink-0">
                                                     <div className="bg-white dark:bg-slate-50 border-2 border-slate-900 dark:border-white rounded-xl px-6 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] transform hover:-rotate-1 transition-all duration-300 group cursor-default">
-                                                        <span className="text-3xl font-black text-slate-900 tracking-[0.15em] font-mono leading-none block truncate">
+                                                        <span className="text-2xl md:text-3xl font-black text-slate-900 tracking-[0.15em] font-mono leading-none block">
                                                             {order.plate}
                                                         </span>
                                                     </div>
@@ -111,34 +111,34 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                                                     </div>
                                                 </div>
 
-                                                <div className="text-center md:text-left space-y-2 min-w-0">
-                                                    <div className="space-y-1 min-w-0">
+                                                <div className="text-center md:text-left space-y-2 min-w-[200px] flex-1">
+                                                    <div className="space-y-1">
                                                         <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Khách hàng</p>
-                                                        <h3 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center justify-center md:justify-start gap-2 truncate">
+                                                        <h3 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white flex items-center justify-center md:justify-start gap-2 break-words">
                                                             {order.customerName}
                                                         </h3>
                                                     </div>
 
                                                     <div className="flex flex-wrap justify-center md:justify-start gap-3">
                                                         {order.receptionOdo != null && order.receptionOdo > 0 && (
-                                                            <span className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-100 dark:border-blue-800">
+                                                            <span className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-100 dark:border-blue-800 whitespace-nowrap">
                                                                 <Car className="w-4 h-4" /> {order.receptionOdo.toLocaleString()} KM
                                                             </span>
                                                         )}
-                                                        <span className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-700">
+                                                        <span className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-700 whitespace-nowrap">
                                                             <Clock className="w-4 h-4 text-indigo-500" /> {new Date(order.subTime).toLocaleString('vi-VN')}
                                                         </span>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="flex flex-col md:flex-row items-center gap-8 pr-2">
-                                                <div className="w-44 shrink-0">
+                                            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center xl:justify-end gap-6 sm:gap-8 w-full xl:w-auto xl:max-w-[35%] shrink-0">
+                                                <div className="w-40 sm:w-44 shrink-0 flex justify-center">
                                                     <ImageGallery images={order.imageUrl} />
                                                 </div>
-                                                <div className="flex flex-col items-center md:items-end gap-3 shrink-0 min-w-fit">
-                                                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Trạng thái</p>
-                                                    <div className="flex items-center">
+                                                <div className="flex flex-col items-center sm:items-end gap-3 shrink-0 min-w-fit">
+                                                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] text-center sm:text-right">Trạng thái</p>
+                                                    <div className="flex items-center justify-center sm:justify-end w-full">
                                                         {getStatusBadge(order.status)}
                                                     </div>
                                                 </div>
@@ -166,7 +166,7 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                                 </div>
 
                                 {/* Summary Sidebar - Proximity maintained but with clear Gap */}
-                                <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-8 self-start">
+                                <div className="xl:col-span-4 space-y-8 xl:sticky xl:top-8 self-start">
                                     {/* Summary Card */}
                                     <OrderSummary
                                         orderId={order.id}
@@ -180,34 +180,11 @@ export default async function OrderDetailPage({ params, searchParams }: { params
                                     />
 
                                     {/* Payment/Transactions Card */}
-                                    <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 transition-all">
-                                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 pb-2 border-b border-slate-100 dark:border-slate-800 uppercase tracking-tight">Thanh toán</h3>
-
-                                        <div className="space-y-4 mb-6">
-                                            <div className="flex justify-between items-center bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-800/50">
-                                                <span className="text-red-700 dark:text-red-400 font-medium">Còn nợ:</span>
-                                                <span className="font-bold text-red-700 dark:text-red-400 text-lg">
-                                                    {formatCurrency(order.debt ?? (order.grandTotal - order.amountPaid))}
-                                                </span>
-                                            </div>
-
-                                            {!isCompleted && (
-                                                <PaymentButton
-                                                    orderId={order.id}
-                                                    grandTotal={order.grandTotal}
-                                                    remainAmount={order.debt ?? (order.grandTotal - order.amountPaid)}
-                                                    amountPaid={order.amountPaid ?? 0}
-                                                    orderStatus={order.status}
-                                                    disabled={['BAO_GIA', 'CHO_KH_DUYET', 'HUY', 'DONG'].includes(order.status)}
-                                                    items={order.items}
-                                                />
-                                            )}
-                                        </div>
-
-                                        {/* History */}
-                                        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Lịch sử giao dịch</h4>
-                                        <TransactionHistory transactions={transactions} />
-                                    </div>
+                                    <OrderPaymentSection 
+                                        order={order} 
+                                        transactions={transactions} 
+                                        isCompleted={isCompleted} 
+                                    />
 
                                     {/* Completed info */}
                                     {isCompleted && (

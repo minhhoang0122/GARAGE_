@@ -1,9 +1,9 @@
-// Middleware bảo vệ routes theo vai trò
+// Proxy bảo vệ routes theo vai trò
 // Admin có thể truy cập sale và warehouse, nhưng KHÔNG thể truy cập mechanic
 
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { ROUTE_PERMISSIONS, ROLE_ROUTES, getHomeRoute } from '@/lib/routes';
+import { auth } from './lib/auth';
+import { ROUTE_PERMISSIONS, ROLE_ROUTES, getHomeRoute } from './lib/routes';
 
 // Routes không cần đăng nhập
 const publicRoutes = ['/login', '/api/auth', '/', '/services', '/tra-cuu', '/booking', '/customer/login', '/customer/register'];

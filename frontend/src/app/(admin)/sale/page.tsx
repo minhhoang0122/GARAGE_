@@ -74,32 +74,27 @@ function OrderRow({ id, plate, amount, status }: {
     );
 }
 
-// CLIENT COMPONENT with SWR Cache
+import { useQuery } from '@tanstack/react-query';
+
+// CLIENT COMPONENT with TanStack Query
 export default function SaleDashboard() {
     const { data: session } = useSession();
     const router = useRouter(); // Added router
-    const [stats, setStats] = useState({
+    // @ts-ignore
+    const token = session?.user?.accessToken;
+
+    const { data: stats = {
         countWaiting: 0,
         countPendingQuotes: 0,
         countPendingPayment: 0,
         countWarranty: 0,
-        waitingVehicles: [] as any[],
-        recentOrders: [] as any[]
+        waitingVehicles: [],
+        recentOrders: []
+    } } = useQuery({
+        queryKey: ['sale', 'stats'],
+        queryFn: () => api.get('/sale/stats', token),
+        enabled: !!token
     });
-
-    useEffect(() => {
-        // @ts-ignore
-        const token = session?.user?.accessToken;
-        if (token) {
-            // Use cached API with onUpdate for seamless refresh
-            api.getCached('/sale/stats', token, (freshData) => {
-                // Auto-update UI when fresh data arrives from background
-                setStats(freshData);
-            })
-                .then(setStats)
-                .catch(console.error);
-        }
-    }, [session?.user]);
 
     const {
         countWaiting,

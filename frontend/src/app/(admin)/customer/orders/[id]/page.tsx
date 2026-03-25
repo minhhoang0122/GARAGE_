@@ -8,16 +8,15 @@ import { ArrowLeft, Car, CheckCircle, XCircle, Loader2, AlertCircle, Clock, Shie
 import { useToast } from '@/contexts/ToastContext';
 import { getCustomerOrderDetails, approveQuote, rejectQuote, requestRevision } from '@/modules/customer/customer';
 
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 export default function CustomerOrderDetailPage() {
     const { data: session, status: authStatus } = useSession();
     const router = useRouter();
     const params = useParams();
     const orderId = Number(params.id);
     const { showToast } = useToast();
-    
-    const [order, setOrder] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
+    const queryClient = useQueryClient();
     
     // Modals state
     const [showRejectModal, setShowRejectModal] = useState(false);
@@ -25,87 +24,78 @@ export default function CustomerOrderDetailPage() {
     const [reason, setReason] = useState('');
     const [note, setNote] = useState('');
 
-    useEffect(() => {
-        if (authStatus === 'unauthenticated') { router.push('/customer/login'); return; }
-        if (authStatus !== 'authenticated') return;
-        fetchOrder();
-    }, [authStatus, orderId]);
+    const { data: order, isLoading } = useQuery({
+        queryKey: ['customer', 'orders', orderId],
+        queryFn: () => getCustomerOrderDetails(orderId),
+        enabled: authStatus === 'authenticated' && !!orderId
+    });
 
-    const fetchOrder = async () => {
-        setLoading(true);
-        try {
-            const data = await getCustomerOrderDetails(orderId);
-            setOrder(data);
-        } catch (error) {
-            showToast('error', 'Không thể tải thông tin đơn hàng');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleApprove = async () => {
-        if (!confirm('Bạn đồng ý với báo giá này?')) return;
-        setSubmitting(true);
-        try {
-            const result = await approveQuote(orderId);
-            if (result.success) {
+    const approveMutation = useMutation({
+        mutationFn: () => approveQuote(orderId),
+        onSuccess: (res) => {
+            if (res.success) {
                 showToast('success', 'Đã duyệt báo giá thành công');
-                fetchOrder();
+                queryClient.invalidateQueries({ queryKey: ['customer', 'orders', orderId] });
             } else {
-                showToast('error', result.error || 'Duyệt thất bại');
+                showToast('error', res.error || 'Duyệt thất bại');
             }
-        } catch (error) {
-            showToast('error', 'Lỗi kết nối');
-        } finally {
-            setSubmitting(false);
         }
+    });
+
+    const rejectMutation = useMutation({
+        mutationFn: (reason: string) => rejectQuote(orderId, reason),
+        onSuccess: (res) => {
+            if (res.success) {
+                showToast('success', 'Đã từ chối báo giá');
+                setShowRejectModal(false);
+                queryClient.invalidateQueries({ queryKey: ['customer', 'orders', orderId] });
+            } else {
+                showToast('error', res.error || 'Thao tác thất bại');
+            }
+        }
+    });
+
+    const revisionMutation = useMutation({
+        mutationFn: (note: string) => requestRevision(orderId, note),
+        onSuccess: (res) => {
+            if (res.success) {
+                showToast('success', 'Đã gửi yêu cầu chỉnh sửa');
+                setShowRevisionModal(false);
+                queryClient.invalidateQueries({ queryKey: ['customer', 'orders', orderId] });
+            } else {
+                showToast('error', res.error || 'Gửi yêu cầu thất bại');
+            }
+        }
+    });
+
+    useEffect(() => {
+        if (authStatus === 'unauthenticated') { router.push('/customer/login'); }
+    }, [authStatus]);
+
+    const handleApprove = () => {
+        if (!confirm('Bạn đồng ý với báo giá này?')) return;
+        approveMutation.mutate();
     };
 
-    const handleReject = async () => {
+    const handleReject = () => {
         if (!reason.trim()) {
             showToast('error', 'Vui lòng nhập lý do từ chối');
             return;
         }
-        setSubmitting(true);
-        try {
-            const result = await rejectQuote(orderId, reason);
-            if (result.success) {
-                showToast('success', 'Đã từ chối báo giá');
-                setShowRejectModal(false);
-                fetchOrder();
-            } else {
-                showToast('error', result.error || 'Thao tác thất bại');
-            }
-        } catch (error) {
-            showToast('error', 'Lỗi kết nối');
-        } finally {
-            setSubmitting(false);
-        }
+        rejectMutation.mutate(reason);
     };
 
-    const handleRequestRevision = async () => {
+    const handleRequestRevision = () => {
         if (!note.trim()) {
             showToast('error', 'Vui lòng nhập ghi chú yêu cầu');
             return;
         }
-        setSubmitting(true);
-        try {
-            const result = await requestRevision(orderId, note);
-            if (result.success) {
-                showToast('success', 'Đã gửi yêu cầu chỉnh sửa');
-                setShowRevisionModal(false);
-                fetchOrder();
-            } else {
-                showToast('error', result.error || 'Gửi yêu cầu thất bại');
-            }
-        } catch (error) {
-            showToast('error', 'Lỗi kết nối');
-        } finally {
-            setSubmitting(false);
-        }
+        revisionMutation.mutate(note);
     };
 
-    if (authStatus === 'loading' || loading) {
+    const submitting = approveMutation.isPending || rejectMutation.isPending || revisionMutation.isPending;
+
+    if (authStatus === 'loading' || isLoading) {
         return <div className="min-h-screen bg-stone-950 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={32} /></div>;
     }
 

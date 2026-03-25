@@ -96,7 +96,7 @@ export default async function ExportDetailPage({ params }: { params: Promise<{ i
                             <p className="text-sm">(Đơn hàng chỉ có dịch vụ)</p>
                         </div>
                     ) : (
-                        <table className="w-full min-w-[900px]">
+                        <table className="w-full ">
                             <thead>
                                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
                                     <th className="px-6 py-3 text-left">STT</th>

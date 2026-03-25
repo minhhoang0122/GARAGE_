@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Badge } from '@/modules/shared/components/ui/badge';
 import { api } from '@/lib/api';
@@ -22,43 +22,28 @@ interface JobHistory {
     vehicleModel?: string;
 }
 
+import { useQuery } from '@tanstack/react-query';
+
 export default function MechanicHistoryPage() {
     const { data: session } = useSession();
     const { hasPermission } = usePermission();
 
-    const [jobs, setJobs] = useState<JobHistory[]>([]);
-    const [loading, setLoading] = useState(true);
-
     const isDiagnostic = hasPermission('CREATE_PROPOSAL');
+    
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
-    async function loadHistory() {
-        setLoading(true);
-        try {
-            const user = session?.user as any;
-            const token = user?.accessToken;
-            if (!token) return;
-
+    const { data: jobs = [], isLoading } = useQuery({
+        queryKey: ['mechanic-history', isDiagnostic],
+        queryFn: async () => {
             if (isDiagnostic) {
-                // Get history of receptions inspected (even if not finished)
-                const res = await api.get('/mechanic/inspect/history', token);
-                setJobs(res || []);
+                return await api.get('/mechanic/inspect/history', token);
             } else {
-                // Get completed orders for Repair Mechanic
-                const res = await api.get('/mechanic/jobs/history', token);
-                setJobs(res || []);
+                return await api.get('/mechanic/jobs/history', token);
             }
-        } catch (error) {
-            console.error('Failed to load history', error);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    useEffect(() => {
-        if (session) {
-            loadHistory();
-        }
-    }, [session, isDiagnostic]);
+        },
+        enabled: !!token
+    });
 
     return (
         <DashboardLayout
@@ -66,7 +51,7 @@ export default function MechanicHistoryPage() {
             subtitle={isDiagnostic ? "Các xe bạn đã từng khám và chẩn đoán" : "Các công việc bạn đã hoàn thành"}
         >
             <div className="max-w-4xl mx-auto space-y-6">
-                {loading ? (
+                {isLoading ? (
                     <div className="text-center py-12">
                         <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-600" />
                         <p className="mt-2 text-slate-500">Đang tải...</p>
@@ -78,7 +63,7 @@ export default function MechanicHistoryPage() {
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        {jobs.map((job) => (
+                        {jobs.map((job: any) => (
                             <div key={job.id} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 hover:shadow-md transition-shadow">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">

@@ -5,6 +5,8 @@ import { ToastProvider } from '@/contexts/ToastContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ConfirmProvider } from '@/modules/shared/components/ui/ConfirmModal';
 import { Inter } from 'next/font/google';
+import QueryProvider from '@/providers/QueryProvider';
+import { SSEProvider } from '@/modules/common/contexts/SSEContext';
 
 const font = Inter({ subsets: ['latin'] });
 
@@ -22,13 +24,17 @@ export default function PublicLayout({
         <html lang="vi">
             <body className={font.className}>
                 <SessionProvider refetchOnWindowFocus={false}>
-                    <ToastProvider>
-                        <ThemeProvider>
-                            <ConfirmProvider>
-                                {children}
-                            </ConfirmProvider>
-                        </ThemeProvider>
-                    </ToastProvider>
+                    <QueryProvider>
+                        <ToastProvider>
+                            <ThemeProvider>
+                                <ConfirmProvider>
+                                    <SSEProvider>
+                                        {children}
+                                    </SSEProvider>
+                                </ConfirmProvider>
+                            </ThemeProvider>
+                        </ToastProvider>
+                    </QueryProvider>
                 </SessionProvider>
             </body>
         </html>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Shield, Clock, Car, Phone, Eye, CheckCircle, AlertCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useSession } from 'next-auth/react';
@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { Card } from '@/modules/shared/components/ui/card';
 import { EmptyState } from '@/modules/shared/components/ui/empty-state';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 
 const statusMap: Record<string, { label: string; color: string }> = {
     TIEP_NHAN: { label: 'Tiếp nhận', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
@@ -18,23 +19,23 @@ const statusMap: Record<string, { label: string; color: string }> = {
     DONG: { label: 'Đã đóng', color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400' },
 };
 
+
 export default function SaleWarrantyClaimsPage() {
     const { data: session } = useSession();
-    const [claims, setClaims] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<number | null>(null);
 
-    useEffect(() => {
-        const token = (session?.user as any)?.accessToken;
-        if (!token) return;
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
-        api.get('/sale/warranty-claims', token)
-            .then((data: any) => setClaims(data || []))
-            .catch(() => setClaims([]))
-            .finally(() => setLoading(false));
-    }, [session?.user]);
+    const { data: claims = [], isLoading } = useQuery({
+        queryKey: ['warranty-claims'],
+        queryFn: async () => {
+            return await api.get('/sale/warranty-claims', token);
+        },
+        enabled: !!token
+    });
 
-    if (loading) {
+    if (isLoading) {
         return (
             <DashboardLayout title="Quản lý bảo hành" subtitle="Yêu cầu bảo hành từ khách hàng">
                 <div className="flex items-center justify-center h-64">

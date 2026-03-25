@@ -3,6 +3,7 @@ package com.gara.modules.customer.controller;
 import com.gara.dto.CustomerOrderDTO;
 import com.gara.entity.*;
 import com.gara.modules.customer.repository.*;
+import com.gara.modules.identity.service.UserService;
 import com.gara.modules.service.repository.*;
 import com.gara.modules.service.service.SaleService;
 import com.gara.modules.public_api.service.BookingService;
@@ -23,24 +24,31 @@ public class CustomerController {
     private final VehicleRepository vehicleRepository;
     private final SaleService saleService;
     private final BookingService bookingService;
+    private final UserService userService;
 
     public CustomerController(RepairOrderRepository orderRepository,
             CustomerRepository customerRepository,
             VehicleRepository vehicleRepository,
             SaleService saleService,
-            BookingService bookingService) {
+            BookingService bookingService,
+            UserService userService) {
         this.orderRepository = orderRepository;
         this.customerRepository = customerRepository;
         this.vehicleRepository = vehicleRepository;
         this.saleService = saleService;
         this.bookingService = bookingService;
+        this.userService = userService;
     }
 
     /**
      * Get vehicles for the logged-in customer
      */
     @GetMapping("/my-vehicles")
-    public ResponseEntity<?> getMyVehicles(@AuthenticationPrincipal User user) {
+    public ResponseEntity<?> getMyVehicles(@AuthenticationPrincipal Object principal) {
+        User user = userService.getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
         Customer customer = customerRepository.findByUserId(user.getId()).orElse(null);
         if (customer == null) {
             return ResponseEntity.ok(Collections.emptyList());
@@ -58,7 +66,11 @@ public class CustomerController {
      * Get orders for the logged-in customer
      */
     @GetMapping("/orders")
-    public ResponseEntity<?> getMyOrders(@AuthenticationPrincipal User user) {
+    public ResponseEntity<?> getMyOrders(@AuthenticationPrincipal Object principal) {
+        User user = userService.getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
         Customer customer = customerRepository.findByUserId(user.getId()).orElse(null);
         if (customer == null) {
             return ResponseEntity.ok(Collections.emptyList());
@@ -81,7 +93,11 @@ public class CustomerController {
      * Get order details for customer view
      */
     @GetMapping("/orders/{orderId}")
-    public ResponseEntity<?> getOrderDetails(@PathVariable Integer orderId, @AuthenticationPrincipal User user) {
+    public ResponseEntity<?> getOrderDetails(@PathVariable Integer orderId, @AuthenticationPrincipal Object principal) {
+        User user = userService.getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
@@ -102,7 +118,11 @@ public class CustomerController {
      * Generate VietQR payment info for an order
      */
     @GetMapping("/qr-payment/{orderId}")
-    public ResponseEntity<?> getQrPayment(@PathVariable Integer orderId, @AuthenticationPrincipal User user) {
+    public ResponseEntity<?> getQrPayment(@PathVariable Integer orderId, @AuthenticationPrincipal Object principal) {
+        User user = userService.getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
@@ -137,8 +157,12 @@ public class CustomerController {
      */
     @PostMapping("/booking")
     public ResponseEntity<?> createBooking(@RequestBody PublicBookingDTO bookingDto,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal Object principal) {
         try {
+            User user = userService.getCurrentUser();
+            if (user == null) {
+                return ResponseEntity.status(401).build();
+            }
             Customer customer = customerRepository.findByUserId(user.getId()).orElse(null);
             if (customer != null) {
                 bookingDto = new PublicBookingDTO(
@@ -169,7 +193,11 @@ public class CustomerController {
      * Approve quote - Customer accepts the quote
      */
     @PostMapping("/orders/{orderId}/approve")
-    public ResponseEntity<?> approveQuote(@PathVariable Integer orderId, @AuthenticationPrincipal User user) {
+    public ResponseEntity<?> approveQuote(@PathVariable Integer orderId, @AuthenticationPrincipal Object principal) {
+        User user = userService.getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         Customer customer = customerRepository.findByUserId(user.getId()).orElse(null);
@@ -190,7 +218,11 @@ public class CustomerController {
      */
     @PostMapping("/orders/{orderId}/reject")
     public ResponseEntity<?> rejectQuote(@PathVariable Integer orderId, @RequestBody Map<String, String> body,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal Object principal) {
+        User user = userService.getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         Customer customer = customerRepository.findByUserId(user.getId()).orElse(null);
@@ -212,7 +244,11 @@ public class CustomerController {
      */
     @PostMapping("/orders/{orderId}/request-revision")
     public ResponseEntity<?> requestRevision(@PathVariable Integer orderId, @RequestBody Map<String, String> body,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal Object principal) {
+        User user = userService.getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         Customer customer = customerRepository.findByUserId(user.getId()).orElse(null);
@@ -233,7 +269,11 @@ public class CustomerController {
      * Get warranty info: list items still under warranty for the customer
      */
     @GetMapping("/warranty")
-    public ResponseEntity<?> getWarrantyItems(@AuthenticationPrincipal User user) {
+    public ResponseEntity<?> getWarrantyItems(@AuthenticationPrincipal Object principal) {
+        User user = userService.getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
         Customer customer = customerRepository.findByUserId(user.getId()).orElse(null);
         if (customer == null) {
             return ResponseEntity.ok(Collections.emptyList());
@@ -329,8 +369,12 @@ public class CustomerController {
      */
     @PostMapping("/warranty-claim")
     public ResponseEntity<?> submitWarrantyClaim(@RequestBody Map<String, Object> body,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal Object principal) {
         try {
+            User user = userService.getCurrentUser();
+            if (user == null) {
+                return ResponseEntity.status(401).build();
+            }
             Integer orderId = (Integer) body.get("orderId");
             @SuppressWarnings("unchecked")
             List<Integer> itemIds = (List<Integer>) body.get("itemIds");

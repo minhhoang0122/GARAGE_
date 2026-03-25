@@ -28,7 +28,7 @@ export default async function ExportListPage() {
                             <p>Không có đơn hàng nào cần xuất kho</p>
                         </div>
                     ) : (
-                        <table className="w-full text-left border-collapse min-w-[900px]">
+                        <table className="w-full text-left border-collapse ">
                             <thead>
                                 <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
                                     <th className="px-6 py-3 text-left">Mã đơn</th>

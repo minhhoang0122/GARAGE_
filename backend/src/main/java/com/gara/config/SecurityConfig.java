@@ -53,7 +53,7 @@ public class SecurityConfig {
 
                         // Warehouse (§5: Kho)
                         .requestMatchers("/api/warehouse/**")
-                        .hasAnyAuthority("MANAGE_INVENTORY", "EXPORT_ORDER_WAREHOUSE", "ADMIN")
+                        .hasAnyAuthority("MANAGE_INVENTORY", "EXPORT_ORDER_WAREHOUSE", "CREATE_PROPOSAL", "ADMIN")
 
                         // Inventory Check (§5.4: Kiểm soát lệch kho)
                         .requestMatchers("/api/inventory-check/**").hasAnyAuthority("MANAGE_INVENTORY", "ADMIN")
@@ -75,7 +75,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/transactions/**")
                         .hasAnyAuthority("ISSUE_INVOICE", "FINANCIAL_REPORT", "ADMIN")
 
-                        // Debts (§6.2: Công nợ - Admin + Kế toán)
+                        // Debts (§6.2: Công nợ - Admin + Thu ngân)
                         .requestMatchers("/api/debts/**").hasAnyAuthority("FINANCIAL_REPORT", "ADMIN")
 
                         // Customer portal

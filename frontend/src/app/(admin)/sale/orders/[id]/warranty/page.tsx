@@ -137,7 +137,7 @@ export default function CreateWarrantyPage({ params }: { params: Promise<{ id: s
                         </div>
 
                         {/* ODO Input */}
-                        <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-blue-200 dark:border-blue-700 shadow-sm min-w-[200px]">
+                        <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-blue-200 dark:border-blue-700 shadow-sm ">
                             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Số ODO hiện tại</label>
                             <input
                                 type="number"

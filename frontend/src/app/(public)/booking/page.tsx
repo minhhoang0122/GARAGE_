@@ -15,7 +15,7 @@ export default function BookingPage() {
     const [services, setServices] = useState<any[]>([]);
 
     const roles = (session?.user as any)?.roles || [];
-    const isStaff = roles.some((r: string) => ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA', 'KE_TOAN'].includes(r));
+    const isStaff = roles.some((r: string) => ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA'].includes(r));
     const isCustomer = roles.includes('KHACH_HANG') || (!isStaff && roles.length > 0);
 
     const [formData, setFormData] = useState({

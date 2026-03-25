@@ -20,10 +20,20 @@ export type OrderDetailItem = {
     proposedById: number | null;
     proposedByName: string | null;
     proposedByRole: string | null;
+    isTechnicalAddition: boolean;
+    proposedAt: string | null;
+    assignments: {
+        id: number;
+        mechanicId: number;
+        mechanicName: string;
+        isMain: boolean;
+    }[];
     vatRate: number;
     floorPrice: number;
     warrantyMonths: number;
     warrantyKm: number;
+    stock: number;
+    version: number;
 };
 
 export type OrderData = {
@@ -50,6 +60,9 @@ export type OrderData = {
     vehicleBrand?: string;
     vehicleModel?: string;
     thoChanDoanId?: number | null;
+    nguoiPhuTrachId?: number | null;
+    nguoiPhuTrachName?: string | null;
+    version: number;
 };
 
 // 1. Get Order Details
@@ -77,10 +90,15 @@ export async function getOrder(orderId: number) {
             proposedById: item.proposedById || null,
             proposedByName: item.proposedByName || null,
             proposedByRole: item.proposedByRole || null,
+            isTechnicalAddition: item.isTechnicalAddition || false,
+            proposedAt: item.proposedAt || null,
+            assignments: item.assignments || [],
             vatRate: item.vatRate || 10,
             floorPrice: 0,
             warrantyMonths: item.warrantyMonths || 0,
-            warrantyKm: item.warrantyKm || 0
+            warrantyKm: item.warrantyKm || 0,
+            stock: item.stock || 0,
+            version: item.version || 0
         }));
         // Calculate totals from items
         let totalParts = 0;
@@ -116,7 +134,10 @@ export async function getOrder(orderId: number) {
             imageUrl: order.receptionImage,
             vehicleBrand: order.carBrand || order.vehicleBrand,
             vehicleModel: order.carModel || order.vehicleModel,
-            thoChanDoanId: order.thoChanDoanId || order.thoChanDoan?.id || null
+            thoChanDoanId: order.thoChanDoanId || order.thoChanDoan?.id || null,
+            nguoiPhuTrachId: order.nguoiPhuTrachId || order.nguoiPhuTrach?.id || null,
+            nguoiPhuTrachName: order.nguoiPhuTrachName || order.nguoiPhuTrach?.hoTen || null,
+            version: order.version || 0
         };
     } catch (e) {
         console.error('Error fetching order:', e);
@@ -165,19 +186,18 @@ export async function addItemToOrder(orderId: number, productId: number, quantit
 }
 
 // 4. Update Item
-export async function updateOrderItem(itemId: number, data: { quantity?: number, discountPercent?: number, itemStatus?: string }) {
+export async function updateOrderItem(itemId: number, data: { quantity?: number, discountPercent?: number, itemStatus?: string, version?: number }) {
     try {
         const session = await auth();
         const token = (session?.user as any)?.accessToken;
 
-        // Backend only supports quantity update via simple patch for now. Discount update todo.
-        // We use /api/items/{id} as per SaleController
-        await api.patch(`/sale/items/${itemId}`, { quantity: data.quantity }, token);
+        // Backend supports quantity and version check for optimistic locking
+        await api.patch(`/sale/items/${itemId}`, { 
+            quantity: data.quantity, 
+            discountPercent: data.discountPercent,
+            version: data.version 
+        }, token);
 
-        // We don't have orderId here to revalidate easily unless we pass it.
-        // Frontend typically revalidates path.
-        // Or we assume the page will refresh.
-        // To be safe, UI should call router.refresh().
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -354,6 +374,22 @@ export async function updateOrderTotals(orderId: number, data: { discount?: numb
         await api.patch(`/sale/orders/${orderId}/totals`, data, token);
 
         revalidatePath(`/sale/orders/${orderId}`);
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+// 15. Claim Order (Sale/Service Advisor)
+export async function claimOrder(orderId: number) {
+    try {
+        const session = await auth();
+        const token = (session?.user as any)?.accessToken;
+
+        await api.post(`/sale/orders/${orderId}/claim`, {}, token);
+
+        revalidatePath(`/sale/orders/${orderId}`);
+        revalidatePath('/sale/orders');
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };

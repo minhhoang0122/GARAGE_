@@ -31,6 +31,10 @@ export type JobItem = {
     completedById: number | null;
     completedByName: string | null;
     maxMechanics?: number;
+    proposedByName?: string;
+    proposedByRole?: string;
+    isTechnicalAddition?: boolean;
+    proposedAt?: string;
     assignments: Assignment[];
 };
 
@@ -96,6 +100,56 @@ export async function assignJob(orderId: number, mechanicId: number) {
         revalidatePath('/mechanic/jobs');
         revalidatePath('/mechanic/assign');
         revalidatePath(`/mechanic/jobs/${orderId}`);
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+// Quản đốc gán Thợ trực tiếp vào Hạng Mục (Drag & Drop)
+export async function adminAssignItem(itemId: number, mechanicId: number) {
+    try {
+        const session = await auth();
+        const token = (session?.user as any)?.accessToken;
+        if (!session?.user || !token) {
+            return { success: false, error: 'Chưa đăng nhập' };
+        }
+        await api.post(`/mechanic/items/${itemId}/assign-direct?mechanicId=${mechanicId}`, {}, token);
+        revalidatePath('/mechanic/assign');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+// Quản đốc gỡ Thợ khỏi Hạng Mục (Drag ra ngoài)
+export async function adminUnassignItem(taskId: number) {
+    try {
+        const session = await auth();
+        const token = (session?.user as any)?.accessToken;
+        if (!session?.user || !token) {
+            return { success: false, error: 'Chưa đăng nhập' };
+        }
+        await api.delete(`/mechanic/items/assign-direct/${taskId}`, token);
+        revalidatePath('/mechanic/assign');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+// Quản đốc "Xác nhận phân công" → chuyển DANG_SUA + notify thợ
+export async function submitAssignments(orderId: number) {
+    try {
+        const session = await auth();
+        const token = (session?.user as any)?.accessToken;
+        if (!session?.user || !token) {
+            return { success: false, error: 'Chưa đăng nhập' };
+        }
+        await api.post(`/mechanic/jobs/${orderId}/submit-assignments`, {}, token);
+        revalidatePath('/mechanic/jobs');
+        revalidatePath('/mechanic/assign');
+        revalidatePath(`/mechanic/assign/${orderId}`);
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };

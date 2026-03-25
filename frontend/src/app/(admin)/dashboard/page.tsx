@@ -4,6 +4,7 @@ import RevenueChart from '@/modules/admin/components/RevenueChart';
 import { Users, DollarSign, TrendingUp, Calendar, Package, AlertTriangle } from 'lucide-react';
 import IndustrialStatCard from '@/modules/shared/components/common/IndustrialStatCard';
 import { Card } from '@/modules/shared/components/ui/card';
+import { RealtimeRefresh } from '@/modules/common/components/layout/RealtimeRefresh';
 
 export default async function DashboardPage() {
     // Default to current month
@@ -34,6 +35,9 @@ export default async function DashboardPage() {
 
     return (
         <DashboardLayout title="Tổng quan" subtitle="Báo cáo hoạt động kinh doanh">
+            {/* Tự động làm mới khi có dữ liệu mới */}
+            <RealtimeRefresh events={['payment_updated', 'reception_created', 'order_updated', 'inventory_updated']} />
+            
             <div className="space-y-6">
                 {/* Stats Cards Row 1 (Financials) - Industrial Redesign */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

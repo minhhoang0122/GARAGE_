@@ -11,7 +11,15 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignment, 
 
     List<TaskAssignment> findByChiTietDonHangIdIn(java.util.Collection<Integer> orderItemIds);
 
-    // Optimized: Calculate Mechanic Performance in DB
+    // Count active assignments per mechanic (for workload display)
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT t.tho.id as mechanicId, COUNT(DISTINCT t.chiTietDonHang.donHangSuaChua.id) as orderCount " +
+        "FROM TaskAssignment t " +
+        "JOIN t.chiTietDonHang i " +
+        "JOIN i.donHangSuaChua r " +
+        "WHERE r.trangThai IN ('DANG_SUA', 'CHO_SUA_CHUA') " +
+        "GROUP BY t.tho.id")
+    List<Object[]> countActiveOrdersPerMechanic();
     @org.springframework.data.jpa.repository.Query("SELECT new map(t.tho.id as mechanicId, t.tho.hoTen as mechanicName, COUNT(t) as taskCount, SUM(i.thanhTien * t.phanTramCong / 100) as revenue) "
             +
             "FROM TaskAssignment t " +

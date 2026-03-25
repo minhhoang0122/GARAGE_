@@ -3,7 +3,9 @@
 import { ReactNode, memo, useState, useCallback, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useSSE } from '@/hooks/useSSE';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface DashboardLayoutProps {
     children: ReactNode;
@@ -18,7 +20,18 @@ const MemoizedTopbar = memo(Topbar);
 export default function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const pathname = usePathname();
-
+    const router = useRouter();
+ 
+    const queryClient = useQueryClient();
+ 
+    // Lắng nghe sự kiện để tự động refresh dữ liệu (Real-time Sync)
+    useSSE('notification', () => {
+        // Refresh Server Components
+        router.refresh();
+        // Invalidate all TanStack Queries for Client Components
+        queryClient.invalidateQueries();
+    });
+ 
     // Close mobile menu when route changes (backup safety)
     useEffect(() => {
         setIsMobileMenuOpen(false);

@@ -1,10 +1,11 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { api } from '@/lib/api';
 import { useSession } from 'next-auth/react';
-import { Search, Save, RefreshCw, AlertCircle, CheckCircle2, Info, Plus, FileSpreadsheet, Percent, CircleDollarSign, Package } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Search, Save, RefreshCw, AlertCircle, CheckCircle2, Info, Plus, FileSpreadsheet, Percent, CircleDollarSign, Package, Loader2 } from 'lucide-react';
 import { formatCurrency, removeAccents } from '@/lib/utils';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { Switch } from '@/modules/shared/components/ui/Switch';
@@ -45,31 +46,26 @@ export default function ServicesPage() {
 
 function ServicesContent() {
     const { data: session } = useSession();
-    const [products, setProducts] = useState<Product[]>([]);
-    const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+    const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState<'service' | 'part'>('service');
     const [isPricingMode, setIsPricingMode] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
     const [pendingChanges, setPendingChanges] = useState<Record<number, PendingChange>>({});
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const confirm = useConfirm();
+    const { showToast } = useToast();
 
     // @ts-ignore
     const token = session?.user?.accessToken;
 
-    useEffect(() => {
-        if (!token) return;
-        loadProducts();
-    }, [token]);
-
-    const loadProducts = async () => {
-        setIsLoading(true);
-        try {
+    // Queries
+    const { data: products = [], isLoading, refetch } = useQuery({
+        queryKey: ['products'],
+        queryFn: async () => {
+            if (!token) return [];
             const res = await api.get('/products', token);
-            const mapped = res.map((p: any) => ({
+            return res.map((p: any) => ({
                 id: p.id,
                 code: p.maHang,
                 maHang: p.maHang,
@@ -83,29 +79,34 @@ function ServicesContent() {
                 baoHanhKm: p.baoHanhKm || 0,
                 soLuongTon: p.soLuongTon || 0
             }));
-            setProducts(mapped);
-        } catch (error) {
-            console.error(error);
-            setMessage({ type: 'error', text: 'Lỗi tải dữ liệu. Vui lòng thử lại.' });
-        } finally {
-            setIsLoading(false);
+        },
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+
+    // Mutations
+    const batchUpdateMutation = useMutation({
+        mutationFn: async (items: any[]) => {
+            return await api.post('/products/batch-update', items, token);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['products'] });
+            setMessage({ type: 'success', text: 'Cập nhật thành công!' });
+            setPendingChanges({});
+        },
+        onError: (error: any) => {
+            setMessage({ type: 'error', text: 'Lỗi: ' + (error.message || 'Không thể lưu') });
         }
-    };
+    });
 
-    useEffect(() => {
-        filterProducts(products, activeTab, searchTerm);
-    }, [searchTerm, products, activeTab]);
-
-    const filterProducts = (list: Product[], tab: 'service' | 'part', term: string) => {
-        const normalizedTerm = removeAccents(term.toLowerCase());
-        const filtered = list.filter((p) => {
-            const matchesTab = (tab === 'service') === !!p.laDichVu;
+    const filteredProducts = useMemo(() => {
+        const normalizedTerm = removeAccents(searchTerm.toLowerCase());
+        return products.filter((p: Product) => {
+            const matchesTab = (activeTab === 'service') === !!p.laDichVu;
             const matchesSearch = removeAccents(p.tenHang.toLowerCase()).includes(normalizedTerm) ||
                 removeAccents(p.maHang.toLowerCase()).includes(normalizedTerm);
             return matchesTab && matchesSearch;
         });
-        setFilteredProducts(filtered);
-    };
+    }, [products, activeTab, searchTerm]);
 
     const handlePriceChange = (id: number, val: string) => {
         const num = parseInt(val.replace(/\D/g, ''), 10) || 0;
@@ -135,25 +136,12 @@ function ServicesContent() {
         });
         if (!confirmed) return;
 
-        setIsSaving(true);
-        setMessage(null);
+        const items = Object.entries(pendingChanges).map(([id, changes]) => ({
+            id: parseInt(id),
+            ...changes
+        }));
 
-        try {
-            const items = Object.entries(pendingChanges).map(([id, changes]) => ({
-                id: parseInt(id),
-                ...changes
-            }));
-
-            await api.post('/products/batch-update', items, token);
-
-            setMessage({ type: 'success', text: 'Cập nhật thành công!' });
-            setPendingChanges({});
-            loadProducts();
-        } catch (error: any) {
-            setMessage({ type: 'error', text: 'Lỗi: ' + (error.message || 'Không thể lưu') });
-        } finally {
-            setIsSaving(false);
-        }
+        batchUpdateMutation.mutate(items);
     };
 
     const handleExportExcel = () => {
@@ -162,7 +150,7 @@ function ServicesContent() {
         const fileName = `BangGia_${activeTab}_${dateStr}.csv`;
         const headers = ["Mã Hàng", "Tên Hàng", "Phân loại", "Tồn Kho", "Giá Vốn", "Giá Bán", "Lợi Nhuận (%)", "BH (Tháng)", "BH (Km)"];
 
-        const rows = filteredProducts.map(p => {
+        const rows = filteredProducts.map((p: Product) => {
             const currentPrice = pendingChanges[p.id]?.price !== undefined ? pendingChanges[p.id].price! : (p.giaBanNiemYet || 0);
             const costPrice = p.giaVon || 0;
             const profitPercent = costPrice > 0 ? ((currentPrice - costPrice) / costPrice) * 100 : 100;
@@ -269,7 +257,7 @@ function ServicesContent() {
                     )}
 
                     <button
-                        onClick={loadProducts}
+                        onClick={() => refetch()}
                         className="p-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
                         title="Tải lại"
                     >
@@ -278,14 +266,14 @@ function ServicesContent() {
 
                     <button
                         onClick={handleSave}
-                        disabled={!hasChanges || isSaving}
+                        disabled={!hasChanges || batchUpdateMutation.isPending}
                         className={`flex items-center gap-2 px-5 py-2 rounded-lg font-bold shadow-sm transition-all ${hasChanges
                             ? 'bg-emerald-600 hover:bg-emerald-700 text-white hover:shadow'
                             : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600 cursor-not-allowed'
                             }`}
                     >
                         <Save className="w-4 h-4" />
-                        {isSaving ? 'Lưu...' : `Lưu (${Object.keys(pendingChanges).length})`}
+                        {batchUpdateMutation.isPending ? 'Lưu...' : `Lưu (${Object.keys(pendingChanges).length})`}
                     </button>
                 </div>
             </div>
@@ -374,7 +362,7 @@ function ServicesContent() {
                             ) : filteredProducts.length === 0 ? (
                                 <tr><td colSpan={10} className="p-12 text-center text-slate-500 dark:text-slate-400">Không tìm thấy dữ liệu phù hợp</td></tr>
                             ) : (
-                                filteredProducts.map(p => {
+                                filteredProducts.map((p: Product) => {
                                     const changes = pendingChanges[p.id] || {};
                                     const isPriceChanged = changes.price !== undefined && changes.price !== p.giaBanNiemYet;
                                     const isMonthChanged = changes.warrantyMonths !== undefined && changes.warrantyMonths !== p.baoHanhSoThang;
@@ -477,7 +465,7 @@ function ServicesContent() {
                     onClose={() => setIsCreating(false)}
                     onSuccess={() => {
                         setIsCreating(false);
-                        loadProducts();
+                        queryClient.invalidateQueries({ queryKey: ['products'] });
                         setMessage({ type: 'success', text: 'Thêm mới thành công' });
                     }}
                     type={activeTab}

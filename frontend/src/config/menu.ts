@@ -18,7 +18,7 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
     ADMIN: [
         {
             items: [
-                { label: 'Dashboard', href: '/admin', icon: 'LayoutDashboard' },
+                { label: 'Tổng quan', href: '/admin', icon: 'LayoutDashboard' },
                 { label: 'Dịch vụ & Giá', href: '/admin/services', icon: 'Tag' },
                 { label: 'Tài chính', href: '/admin/finance', icon: 'Wallet' },
                 { label: 'Khách hàng', href: '/sale/customers', icon: 'Users' },
@@ -33,33 +33,20 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
     SALE: [
         {
             items: [
-                { label: 'Dashboard', href: '/sale', icon: 'LayoutDashboard' },
+                { label: 'Tổng quan', href: '/sale', icon: 'LayoutDashboard' },
                 { label: 'Tiếp nhận xe', href: '/sale/reception', icon: 'Car' },
-                { label: 'Báo giá', href: '/sale/quotes', icon: 'FileText' },
+                { label: 'Đơn hàng', href: '/sale/orders', icon: 'FileText' },
                 { label: 'Khách hàng', href: '/sale/customers', icon: 'Users' },
                 { label: 'Thu ngân', href: '/sale/checkout', icon: 'CreditCard' },
-            ],
-        },
-        {
-            title: 'Khách hàng',
-            items: [
                 { label: 'Bảo hành', href: '/sale/warranty-claims', icon: 'ShieldCheck' },
                 { label: 'Lịch hẹn', href: '/sale/bookings', icon: 'ClipboardCheck' },
-            ],
-        },
-    ],
-    KE_TOAN: [
-        {
-            items: [
-                { label: 'Dashboard', href: '/sale', icon: 'LayoutDashboard' },
-                { label: 'Thu ngân', href: '/sale/checkout', icon: 'CreditCard' },
             ],
         },
     ],
     KHO: [
         {
             items: [
-                { label: 'Dashboard', href: '/warehouse', icon: 'LayoutDashboard' },
+                { label: 'Tổng quan', href: '/warehouse', icon: 'LayoutDashboard' },
                 { label: 'Nhập kho', href: '/warehouse/import', icon: 'PackagePlus' },
                 { label: 'Quản lý nhập', href: '/warehouse/import/management', icon: 'ClipboardCheck' },
                 { label: 'Xuất kho', href: '/warehouse/export', icon: 'PackageMinus' },
@@ -71,10 +58,10 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
     QUAN_LY_XUONG: [
         {
             items: [
-                { label: 'Dashboard', href: '/mechanic', icon: 'LayoutDashboard' },
+                { label: 'Tổng quan', href: '/mechanic', icon: 'LayoutDashboard' },
                 { label: 'Khám xe', href: '/mechanic/inspect', icon: 'ClipboardCheck' },
-                { label: 'Chia việc', href: '/mechanic/assign', icon: 'UserPlus' },
-                { label: 'Danh sách việc', href: '/mechanic/jobs', icon: 'ClipboardList' },
+                { label: 'Điều phối', href: '/mechanic/assign', icon: 'Wrench' },
+                { label: 'Đội thợ', href: '/mechanic/team', icon: 'Users' },
                 { label: 'Nghiệm thu', href: '/mechanic/qc', icon: 'ShieldCheck' },
                 { label: 'Lịch sử', href: '/mechanic/history', icon: 'History' },
             ],
@@ -83,9 +70,8 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
     THO_SUA_CHUA: [
         {
             items: [
-                { label: 'Dashboard', href: '/mechanic', icon: 'LayoutDashboard' },
                 { label: 'Việc của tôi', href: '/mechanic/jobs', icon: 'ClipboardList' },
-                { label: 'Lịch sử sửa', href: '/mechanic/history', icon: 'History' },
+                { label: 'Lịch sử', href: '/mechanic/history', icon: 'History' },
             ],
         },
     ],
@@ -98,5 +84,5 @@ export const ROLE_DISPLAY_NAMES: Record<string, string> = {
     KHO: 'Nhân viên Kho',
     QUAN_LY_XUONG: 'Quản Đốc Xưởng',
     THO_SUA_CHUA: 'Thợ Sửa chữa',
-    KE_TOAN: 'Kế toán',
+    KE_TOAN: 'Thu ngân',
 };

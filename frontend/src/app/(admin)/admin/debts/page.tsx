@@ -116,7 +116,7 @@ function DebtsContent() {
             )}
 
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-x-auto transition-colors">
-                <table className="w-full text-sm text-left min-w-[800px]">
+                <table className="w-full text-sm text-left ">
                     <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800">
                         <tr>
                             <th className="px-6 py-4">Khách Hàng</th>

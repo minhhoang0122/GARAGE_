@@ -1,30 +1,36 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import React, { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/modules/shared/components/ui/card';
 import { Button } from '@/modules/shared/components/ui/button';
 import { Input } from '@/modules/shared/components/ui/input';
 import { SearchInput } from '@/modules/shared/components/ui/search-input';
-import { Search, Plus, MapPin, Phone, Mail, User, RefreshCw, ChevronRight } from 'lucide-react';
+import { Search, Plus, MapPin, Phone, Mail, User, RefreshCw, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { createCustomer } from '@/modules/service/sale';
-import { X, Loader2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+interface Customer {
+    id: number;
+    hoTen: string;
+    soDienThoai: string;
+    email?: string;
+    diaChi?: string;
+    ngayTao: string;
+}
 
 export default function SaleCustomersPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const pathname = usePathname();
+    const queryClient = useQueryClient();
     const { data: session } = useSession();
 
-    const [customers, setCustomers] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
     const keyword = searchParams.get('q') || '';
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const { showToast } = useToast();
     const [formData, setFormData] = useState({
         hoTen: '',
@@ -33,47 +39,34 @@ export default function SaleCustomersPage() {
         diaChi: ''
     });
 
-    async function loadCustomers(search = '') {
-        setLoading(true);
-        try {
-            // @ts-ignore
-            const token = session?.user?.accessToken;
-            if (!token) return;
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
-            const res = await api.get(`/sale/customers?search=${search}`, token);
-            setCustomers(res || []);
-        } catch (error) {
-            console.error('Failed to load customers', error);
-        } finally {
-            setLoading(false);
+    const { data: customers = [], isFetching, refetch } = useQuery({
+        queryKey: ['customers', keyword],
+        queryFn: async () => {
+            return await api.get(`/sale/customers?search=${keyword}`, token);
+        },
+        enabled: !!token
+    });
+
+    const createMutation = useMutation({
+        mutationFn: createCustomer,
+        onSuccess: (res) => {
+            if (res.success) {
+                setIsModalOpen(false);
+                setFormData({ hoTen: '', soDienThoai: '', email: '', diaChi: '' });
+                showToast('success', 'Thêm khách hàng thành công!');
+                queryClient.invalidateQueries({ queryKey: ['customers'] });
+            } else {
+                showToast('error', res.error || 'Có lỗi xảy ra');
+            }
         }
-    }
-
-    // Effect: Load data when Session OR URL Search Params change
-    useEffect(() => {
-        if (session) {
-            const search = searchParams.get('q') || '';
-            loadCustomers(search);
-        }
-    }, [session, searchParams]);
-
-    // Handle Search: Update URL instead of calling API directly
-
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsSubmitting(true);
-        const res = await createCustomer(formData);
-        setIsSubmitting(false);
-
-        if (res.success) {
-            setIsModalOpen(false);
-            setFormData({ hoTen: '', soDienThoai: '', email: '', diaChi: '' });
-            showToast('success', 'Thêm khách hàng thành công!');
-            loadCustomers(keyword);
-        } else {
-            showToast('error', res.error || 'Có lỗi xảy ra');
-        }
+        createMutation.mutate(formData);
     };
 
     return (
@@ -88,8 +81,8 @@ export default function SaleCustomersPage() {
                                     placeholder="Tìm kiếm theo tên hoặc số điện thoại..."
                                 />
                             </div>
-                            <Button variant="outline" type="button" onClick={() => loadCustomers(searchParams.get('q') || '')} disabled={loading}>
-                                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                            <Button variant="outline" type="button" onClick={() => refetch()} disabled={isFetching}>
+                                <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                             </Button>
                         </div>
                         <Button
@@ -106,7 +99,7 @@ export default function SaleCustomersPage() {
                 <div className="space-y-4">
                     {/* Desktop Grid View */}
                     <div className="hidden md:grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {customers.map((customer) => (
+                        {customers.map((customer: Customer) => (
                             <Card key={customer.id} className="hover:shadow-md transition-shadow border-slate-200 dark:border-slate-800 dark:bg-slate-900">
                                 <CardHeader className="flex flex-row items-center gap-4 pb-2 px-6 pt-6">
                                     <div className="w-12 h-12 flex-shrink-0 rounded border-2 border-slate-900 dark:border-white bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-900 dark:text-white font-black text-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] group-hover:-translate-y-1 transition-transform">
@@ -134,7 +127,7 @@ export default function SaleCustomersPage() {
                                     )}
                                     <div className="pt-3 flex justify-between items-center text-[10px] text-slate-400 border-t border-slate-100 dark:border-slate-800 mt-2 uppercase tracking-widest font-black">
                                         <span>ID: #{customer.id}</span>
-                                        <span>Gia nhập: {new Date(customer.ngayTao).toLocaleDateString()}</span>
+                                        <span>Gia nhập: {new Date(customer.ngayTao).toLocaleDateString('vi-VN')}</span>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -143,7 +136,7 @@ export default function SaleCustomersPage() {
 
                     {/* Mobile List View */}
                     <div className="md:hidden space-y-3">
-                        {customers.map((customer) => (
+                        {customers.map((customer: Customer) => (
                             <div key={customer.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4">
                                 <div className="w-10 h-10 flex-shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-700">
                                     {customer.hoTen ? customer.hoTen.substring(0, 1).toUpperCase() : 'K'}
@@ -166,7 +159,7 @@ export default function SaleCustomersPage() {
                     </div>
                 </div>
 
-                {!loading && customers.length === 0 && (
+                {!isFetching && customers.length === 0 && (
                     <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 transition-colors">
                         <User className="w-16 h-16 mx-auto mb-4 text-slate-200 dark:text-slate-700" />
                         <h3 className="text-lg font-bold text-slate-400">Chưa có khách hàng nào</h3>
@@ -237,10 +230,10 @@ export default function SaleCustomersPage() {
                                 </Button>
                                 <Button
                                     type="submit"
-                                    disabled={isSubmitting}
+                                    disabled={createMutation.isPending}
                                     className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg dark:bg-white dark:text-slate-900"
                                 >
-                                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Lưu khách hàng'}
+                                    {createMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Lưu khách hàng'}
                                 </Button>
                             </div>
                         </form>

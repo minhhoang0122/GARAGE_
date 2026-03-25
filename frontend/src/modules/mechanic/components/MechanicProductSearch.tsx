@@ -154,26 +154,41 @@ export default function MechanicProductSearch({ orderId, disabled = false }: Mec
                                 <p>Không tìm thấy kết quả phù hợp</p>
                             </div>
                         ) : (
-                            results.map((product) => (
-                                <button
-                                    key={product.ID}
-                                    onClick={() => handleReportItem(product)}
-                                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-amber-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0 text-left group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-lg ${product.LaDichVu ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400'}`}>
-                                            {product.LaDichVu ? <Wrench className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                            results.map((product) => {
+                                const isOutOfStock = !product.LaDichVu && product.SoLuongTon <= 0;
+                                return (
+                                    <button
+                                        key={product.ID}
+                                        onClick={() => !isOutOfStock && handleReportItem(product)}
+                                        disabled={isOutOfStock}
+                                        className={`w-full px-4 py-3 flex items-center justify-between transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0 text-left group ${isOutOfStock ? 'opacity-50 cursor-not-allowed bg-slate-50 dark:bg-slate-900' : 'hover:bg-amber-50 dark:hover:bg-slate-800'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-lg ${product.LaDichVu ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400'}`}>
+                                                {product.LaDichVu ? <Wrench className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                                            </div>
+                                            <div>
+                                                <p className={`font-medium transition-colors ${isOutOfStock ? 'text-slate-500 dark:text-slate-500' : 'text-slate-800 dark:text-white group-hover:text-amber-700 dark:group-hover:text-amber-400'}`}>{product.TenHang}</p>
+                                                <p className="text-sm text-slate-500 dark:text-slate-400 flex gap-2">
+                                                    <span>{product.MaHang}</span>
+                                                    {!product.LaDichVu && (
+                                                        <span className={isOutOfStock ? 'text-red-500 font-bold' : 'text-slate-400'}>
+                                                            | Tồn: {product.SoLuongTon}
+                                                        </span>
+                                                    )}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="font-medium text-slate-800 dark:text-white group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">{product.TenHang}</p>
-                                            <p className="text-sm text-slate-500 dark:text-slate-400">{product.MaHang}</p>
+                                        <div className="text-right">
+                                            {isOutOfStock ? (
+                                                <span className="text-xs text-red-500 font-bold tracking-tighter uppercase">HẾT HÀNG</span>
+                                            ) : (
+                                                <span className="text-xs text-amber-600 dark:text-amber-400 font-bold px-2 py-1 bg-amber-50 dark:bg-amber-900/20 rounded-full border border-amber-100 dark:border-amber-900/30">Báo phát sinh</span>
+                                            )}
                                         </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <span className="text-xs text-amber-600 dark:text-amber-400 font-bold px-2 py-1 bg-amber-50 dark:bg-amber-900/20 rounded-full border border-amber-100 dark:border-amber-900/30">Báo phát sinh</span>
-                                    </div>
-                                </button>
-                            ))
+                                    </button>
+                                );
+                            })
                         )}
                     </div>
                 </div>

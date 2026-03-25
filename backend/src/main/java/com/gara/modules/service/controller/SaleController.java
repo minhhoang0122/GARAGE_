@@ -70,6 +70,20 @@ public class SaleController {
         return ResponseEntity.ok(saleService.searchProducts(search));
     }
 
+    @PostMapping("/orders/{id}/claim")
+    public ResponseEntity<?> claimOrder(@PathVariable Integer id, @AuthenticationPrincipal Object principal) {
+        try {
+            User user = userService.getCurrentUser();
+            if (user == null)
+                return handleUnauthorized();
+
+            saleService.claimOrder(id, user);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/orders/{id}/items")
     public ResponseEntity<?> addItem(@PathVariable Integer id, @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal Object principal) {
@@ -99,8 +113,9 @@ public class SaleController {
             Double discountPercent = body.containsKey("discountPercent")
                     ? Double.parseDouble(body.get("discountPercent").toString())
                     : null;
+            Integer version = body.containsKey("version") ? Integer.parseInt(body.get("version").toString()) : null;
 
-            saleService.updateItem(id, quantity, discountPercent, user);
+            saleService.updateItem(id, quantity, discountPercent, version, user);
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));

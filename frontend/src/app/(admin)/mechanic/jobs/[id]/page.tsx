@@ -1,19 +1,15 @@
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { getJobDetails } from '@/modules/service/mechanic';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Car, User, Phone, Wrench, Package } from 'lucide-react';
+import { ArrowLeft, Car, User, Phone, Wrench, Package, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import JobItemCheckbox from './JobItemCheckbox';
 import CompleteJobButton from './CompleteJobButton';
 import UnclaimJobButton from './UnclaimJobButton';
 import ClaimJobButton from './ClaimJobButton';
 import MechanicProductSearch from '@/modules/mechanic/components/MechanicProductSearch';
-import JoinItemButton from './JoinItemButton';
-import AssignmentList from './AssignmentList';
 import DepositWarning from '@/modules/mechanic/components/DepositWarning';
 import { auth } from '@/lib/auth';
-import ParticipationSummary from './ParticipationSummary';
-import MechanicLimitSelector from './MechanicLimitSelector';
 
 export default async function JobDetailPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
     const { id } = await params;
@@ -50,6 +46,15 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
                         <ArrowLeft className="w-4 h-4" /> {backText}
                     </Link>
                     <div className="flex items-center gap-3">
+                        {/* Chỉ Quản đốc mới thấy nút phân công */}
+                        {session?.user?.roles?.includes('QUAN_LY_XUONG') && (
+                            <Link
+                                href={`/mechanic/assign/${job.id}`}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-bold transition-all border border-blue-200"
+                            >
+                                <Wrench className="w-4 h-4" /> Chia việc
+                            </Link>
+                        )}
                         {isJobActive && (
                             <ClaimJobButton
                                 orderId={job.id}
@@ -137,99 +142,199 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
 
                 </div>
 
-                {/* Participation Summary */}
-                <ParticipationSummary
-                    items={job.items}
-                    jobLead={job.claimedByName}
-                    isLead={isClaimedByMe}
-                    currentUserId={currentUserId}
-                />
+
 
                 {/* Danh sách hạng mục */}
                 {/* Deposit Warning */}
                 <DepositWarning deposit={job.tienCoc} total={job.tongCong} />
 
-                {/* Danh sách hạng mục */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    {/* Alert Info for Unclaimed Job - Only show if Active */}
-                    {!isClaimedByMe && isJobActive && (
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-6 py-4 rounded-xl mb-6 shadow-sm flex items-center gap-3">
-                            <Wrench className="w-5 h-5 text-slate-400 dark:text-slate-500" />
-                            <div>
-                                <p className="font-medium">Bạn chưa nhận công việc này.</p>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Vui lòng bấm nút "Nhận việc này" ở góc trên bên phải để bắt đầu làm việc.</p>
-                            </div>
-                        </div>
-                    )}
+                {/* Danh sách hạng mục - Tách 3 bảng riêng biệt */}
+                <div className="space-y-6">
+                    {(() => {
+                        const diagnosticItems = job.items.filter(i => !i.isTechnicalAddition && i.proposedByRole !== 'SALE');
+                        const additionItems = job.items.filter(i => i.isTechnicalAddition || i.proposedByRole === 'SALE');
 
-                    <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                        <div>
-                            <h2 className="font-semibold text-slate-800 dark:text-slate-100">Danh sách công việc</h2>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                                Đánh dấu hoàn thành khi thực hiện xong từng hạng mục
-                            </p>
-                        </div>
-                    </div>
+                        // Tổng hợp danh sách thợ tham gia
+                        const allAssignmentsMap = new Map<number, {
+                            mechanicId: number;
+                            mechanicName: string;
+                            tasks: string[];
+                            isMain: boolean;
+                        }>();
 
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {job.items.map((item, idx) => {
-                            const isAssignedToMe = item.assignments.some(a => a.mechanicId === currentUserId);
-                            const canJoin = job.claimedById && !isAssignedToMe && !item.isCompleted && isJobActive;
+                        job.items.forEach((item: any) => {
+                            item.assignments?.forEach((a: any) => {
+                                if (!allAssignmentsMap.has(a.mechanicId)) {
+                                    allAssignmentsMap.set(a.mechanicId, {
+                                        mechanicId: a.mechanicId,
+                                        mechanicName: a.mechanicName,
+                                        tasks: [item.productName],
+                                        isMain: a.isMain
+                                    });
+                                } else {
+                                    const record = allAssignmentsMap.get(a.mechanicId)!;
+                                    if (!record.tasks.includes(item.productName)) {
+                                        record.tasks.push(item.productName);
+                                    }
+                                    if (a.isMain) record.isMain = true;
+                                }
+                            });
+                        });
 
-                            // Check deposit safe for actions
+                        const mechanicList = Array.from(allAssignmentsMap.values());
+
+                        const renderItem = (item: any) => {
+                            const isAssignedToMe = item.assignments.some((a: any) => a.mechanicId === currentUserId);
                             const depositSafe = !job.tongCong || job.tongCong <= 5000000 || (job.tienCoc >= job.tongCong * 0.3);
 
                             return (
                                 <div
                                     key={item.id}
-                                    className={`px-6 py-4 ${item.isCompleted ? 'bg-emerald-50 dark:bg-emerald-900/10' : ''} ${!isClaimedByMe && !isAssignedToMe ? 'bg-slate-50 dark:bg-slate-800/50' : ''}`}
+                                    className={`px-6 py-4 transition-colors ${item.isCompleted ? 'bg-emerald-50/50 dark:bg-emerald-900/10' : ''} ${!isClaimedByMe && !isAssignedToMe ? 'bg-slate-50/50 dark:bg-slate-800/50' : ''}`}
                                 >
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="flex items-start gap-4 flex-1">
                                             <JobItemCheckbox
                                                 itemId={item.id}
                                                 isCompleted={item.isCompleted}
-                                                disabled={(!isClaimedByMe && !isAssignedToMe) || !depositSafe || !isJobActive}
+                                                disabled={!isAssignedToMe || !depositSafe || !isJobActive}
                                             />
                                             <div className="flex-1">
-                                                <p className={`font-medium ${item.isCompleted ? 'text-emerald-800 dark:text-emerald-400 line-through decoration-emerald-500' : 'text-slate-800 dark:text-slate-200'}`}>
-                                                    {item.productName}
-                                                </p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className={`font-bold ${item.isCompleted ? 'text-emerald-800 dark:text-emerald-400 line-through decoration-emerald-500' : 'text-slate-800 dark:text-slate-200'}`}>
+                                                        {item.productName}
+                                                    </p>
+                                                    {item.isTechnicalAddition && (
+                                                        <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[9px] font-black uppercase rounded border border-purple-200">Phát sinh</span>
+                                                    )}
+                                                </div>
                                                 <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
                                                     <span>Mã: {item.productCode}</span>
                                                     <span>•</span>
                                                     <span>SL: {item.quantity}</span>
+                                                    {item.proposedByName && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span className="italic text-[11px]">Đề xuất: <span className="font-bold text-slate-600 dark:text-slate-300">{item.proposedByRole === 'AI' ? 'AI Chẩn đoán' : item.proposedByName}</span></span>
+                                                        </>
+                                                    )}
                                                 </p>
                                             </div>
                                         </div>
 
-                                        {/* Action Buttons */}
                                         <div className="flex flex-col items-end gap-2">
-                                            {/* Completed By Badge */}
-                                            {item.isCompleted && item.completedByName && (
-                                                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-2 py-1 rounded-full border border-slate-100 dark:border-slate-700 shadow-sm">
-                                                    <div
-                                                        className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold"
-                                                        title={item.completedByName}
-                                                    >
-                                                        {item.completedByName.charAt(0)}
-                                                    </div>
-                                                    <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                                                        {item.completedById === currentUserId ? 'Bạn' : item.completedByName}
-                                                    </span>
+                                            {/* Completed Badge */}
+                                            {item.isCompleted && (
+                                                <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mt-1">
+                                                    <CheckCircle2 className="w-3 h-3" /> Đã xong
                                                 </div>
-                                            )}
-
-                                            {/* Join Button */}
-                                            {canJoin && (
-                                                <JoinItemButton itemId={item.id} disabled={!depositSafe} isLead={isClaimedByMe} />
                                             )}
                                         </div>
                                     </div>
                                 </div>
-                            )
-                        })}
-                    </div>
+                            );
+                        };
+
+                        const renderSection = (items: any[], title: string, icon: any, color: string, description: string) => (
+                            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <div className={`px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between ${color === 'amber' ? 'bg-amber-50/30' : 'bg-slate-50/30'}`}>
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-1.5 rounded-lg ${color === 'amber' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                                                {icon}
+                                            </div>
+                                            <h2 className="font-black text-[12px] uppercase tracking-wider text-slate-800 dark:text-slate-100">{title} ({items.length})</h2>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 font-medium ml-10">{description}</p>
+                                    </div>
+                                </div>
+                                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {items.map(renderItem)}
+                                </div>
+                            </div>
+                        );
+
+                        return (
+                            <>
+                                {diagnosticItems.length > 0 && renderSection(
+                                    diagnosticItems, 
+                                    "1. Chẩn đoán chuyên môn", 
+                                    <Package className="w-4 h-4" />, 
+                                    "blue",
+                                    "Các hạng mục do Quản đốc hoặc AI đề xuất ban đầu"
+                                )}
+                                {additionItems.length > 0 && renderSection(
+                                    additionItems, 
+                                    "2. Yêu cầu bổ sung & Sale", 
+                                    <Wrench className="w-4 h-4" />, 
+                                    "amber",
+                                    "Các hạng mục do khách hàng yêu cầu thêm hoặc phát sinh kỹ thuật"
+                                )}
+
+                                {mechanicList.length > 0 && (
+                                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+                                        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <User className="w-5 h-5 text-slate-600" />
+                                                <h3 className="font-black text-slate-800 dark:text-slate-100 uppercase text-[11px] tracking-widest">
+                                                    3. Nhân sự thực hiện ({mechanicList.length})
+                                                </h3>
+                                            </div>
+                                            {(session?.user?.roles?.includes('ADMIN') || session?.user?.roles?.includes('QUAN_LY_XUONG')) && (
+                                                <Link
+                                                    href={`/mechanic/assign/${orderId}`}
+                                                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-sm"
+                                                >
+                                                    <Wrench className="w-3.5 h-3.5" /> Điều phối ngay
+                                                </Link>
+                                            )}
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm">
+                                                <thead>
+                                                    <tr className="bg-slate-50/30 border-b border-slate-100 dark:border-slate-800">
+                                                        <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Nhân viên</th>
+                                                        <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Hạng mục đảm nhận</th>
+                                                        <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-32">Vai trò</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                    {mechanicList.map(m => (
+                                                        <tr key={m.mechanicId}>
+                                                            <td className="px-6 py-4">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 font-bold text-xs border border-slate-200 dark:border-slate-700">
+                                                                        {m.mechanicName.charAt(0)}
+                                                                    </div>
+                                                                    <span className={`font-bold ${m.mechanicId === currentUserId ? 'text-blue-600 dark:text-blue-400 underline decoration-2' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                                        {m.mechanicId === currentUserId ? 'BẠN' : m.mechanicName}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    {m.tasks.map((t, idx) => (
+                                                                        <span key={idx} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold border border-blue-100/50 dark:border-blue-800/50">
+                                                                            {t}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm border ${m.isMain ? 'bg-blue-600 text-white border-blue-700' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'}`}>
+                                                                    {m.isMain ? 'Thợ chính' : 'Hỗ trợ'}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        );
+                    })()}
                 </div>
 
                 {/* Báo phát sinh (Chỉ cho thợ đã nhận việc và đang sửa chữa) */}

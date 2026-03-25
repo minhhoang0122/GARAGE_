@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Button } from '@/modules/shared/components/ui/button';
@@ -13,6 +13,7 @@ import {
     Calendar, User, History, Layers
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface Batch {
     id: number;
@@ -32,83 +33,76 @@ interface Movement {
     user: string;
 }
 
+// Helper to handle both flat and wrapped (OData/Custom) responses
+const unwrap = (res: any) => {
+    if (!res) return null;
+    if (res.value !== undefined && Array.isArray(res.value)) return res.value;
+    if (res.value !== undefined) return res.value;
+    if (res.items !== undefined && Array.isArray(res.items)) return res.items;
+    return res;
+};
+
 export default function BatchDetailsPage() {
     const params = useParams();
     const router = useRouter();
+    const queryClient = useQueryClient();
     const { data: session } = useSession();
     const productId = params.id as string;
-
-    const [product, setProduct] = useState<any>(null);
-    const [batches, setBatches] = useState<Batch[]>([]);
-    const [movements, setMovements] = useState<Movement[]>([]);
-    const [activeTab, setActiveTab] = useState<'batches' | 'movements'>('batches');
-    const [loading, setLoading] = useState(true);
-    const [isDisposing, setIsDisposing] = useState<number | null>(null);
     const { showToast } = useToast();
 
-    useEffect(() => {
-        // @ts-ignore
-        if (session?.user?.accessToken && productId) {
-            loadData();
-        }
-    }, [session, productId]);
+    const [activeTab, setActiveTab] = useState<'batches' | 'movements'>('batches');
+    
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            // @ts-ignore
-            const token = session?.user?.accessToken;
+    const { data: product, isLoading: loadingProduct } = useQuery({
+        queryKey: ['warehouse-product', productId],
+        queryFn: async () => {
+            const res = await api.get(`/warehouse/inventory/product/${productId}`, token);
+            return unwrap(res);
+        },
+        enabled: !!token && !!productId
+    });
 
-            // Parallel fetch
-            const [rawProduct, rawBatches, rawMovements] = await Promise.all([
-                api.get(`/warehouse/inventory/product/${productId}`, token),
-                api.get(`/warehouse/inventory/${productId}/batches`, token),
-                api.get(`/warehouse/inventory/${productId}/movements`, token)
-            ]);
+    const { data: batches = [], isLoading: loadingBatches } = useQuery({
+        queryKey: ['warehouse-batches', productId],
+        queryFn: async () => {
+            const res = await api.get(`/warehouse/inventory/${productId}/batches`, token);
+            const data = unwrap(res);
+            return Array.isArray(data) ? data : [];
+        },
+        enabled: !!token && !!productId
+    });
 
-            // Helper to handle both flat and wrapped (OData/Custom) responses
-            const unwrap = (res: any) => {
-                if (!res) return null;
-                // If it's explicitly wrapped in a 'value' property
-                if (res.value !== undefined && Array.isArray(res.value)) return res.value;
-                if (res.value !== undefined) return res.value; // Single object wrapped
+    const { data: movements = [], isLoading: loadingMovements } = useQuery({
+        queryKey: ['warehouse-movements', productId],
+        queryFn: async () => {
+            const res = await api.get(`/warehouse/inventory/${productId}/movements`, token);
+            const data = unwrap(res);
+            return Array.isArray(data) ? data : [];
+        },
+        enabled: !!token && !!productId
+    });
 
-                // If it's explicitly wrapped in 'items'
-                if (res.items !== undefined && Array.isArray(res.items)) return res.items;
-
-                return res; // Otherwise assume it's the raw object/array
-            };
-
-            const productData = unwrap(rawProduct);
-            const batchesData = unwrap(rawBatches);
-            const movementsData = unwrap(rawMovements);
-
-            setProduct(productData);
-            setBatches(Array.isArray(batchesData) ? batchesData : []);
-            setMovements(Array.isArray(movementsData) ? movementsData : []);
-        } catch (error) {
-            console.error('Failed to load batch data', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleDispose = async (batchId: number) => {
-        if (!confirm('Xác nhận thanh lý lô hàng hết hạn này?')) return;
-
-        setIsDisposing(batchId);
-        try {
-            // @ts-ignore
-            const token = session?.user?.accessToken;
-            await api.post(`/warehouse/inventory/batch/${batchId}/dispose`, {}, token);
+    const disposeMutation = useMutation({
+        mutationFn: (batchId: number) => api.post(`/warehouse/inventory/batch/${batchId}/dispose`, {}, token),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['warehouse-product', productId] });
+            queryClient.invalidateQueries({ queryKey: ['warehouse-batches', productId] });
+            queryClient.invalidateQueries({ queryKey: ['warehouse-movements', productId] });
             showToast('success', 'Thanh lý lô hàng thành công');
-            await loadData(); // Reload all
-        } catch (error) {
+        },
+        onError: () => {
             showToast('error', 'Thanh lý thất bại');
-        } finally {
-            setIsDisposing(null);
         }
+    });
+
+    const handleDispose = (batchId: number) => {
+        if (!confirm('Xác nhận thanh lý lô hàng hết hạn này?')) return;
+        disposeMutation.mutate(batchId);
     };
+
+    const loading = loadingProduct || loadingBatches || loadingMovements;
 
     const getActionBadge = (action: string) => {
         switch (action) {
@@ -214,7 +208,7 @@ export default function BatchDetailsPage() {
                                             <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">Không có lô hàng nào.</td>
                                         </tr>
                                     ) : (
-                                        batches.map(batch => {
+                                        batches.map((batch: any) => {
                                             const expiryDate = new Date(batch.expiryDate);
                                             const today = new Date();
                                             const oneMonthFromNow = new Date();
@@ -244,9 +238,9 @@ export default function BatchDetailsPage() {
                                                                 size="sm"
                                                                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                                                 onClick={() => handleDispose(batch.id)}
-                                                                disabled={isDisposing === batch.id}
+                                                                disabled={disposeMutation.isPending && disposeMutation.variables === batch.id}
                                                             >
-                                                                {isDisposing === batch.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                                                {disposeMutation.isPending && disposeMutation.variables === batch.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                                                 <span className="ml-1.5 hidden md:inline">Thanh lý</span>
                                                             </Button>
                                                         )}
@@ -276,7 +270,7 @@ export default function BatchDetailsPage() {
                                             <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Chưa có lịch sử biến động.</td>
                                         </tr>
                                     ) : (
-                                        movements.map((move, idx) => (
+                                        movements.map((move: any, idx: number) => (
                                             <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex flex-col">

@@ -5,7 +5,7 @@ export const VaiTro = {
     KHO: 'KHO',
     QUAN_LY_XUONG: 'QUAN_LY_XUONG',
     THO_SUA_CHUA: 'THO_SUA_CHUA',
-    KE_TOAN: 'KE_TOAN',
+    THU_NGAN: 'KE_TOAN',
     KHACH_HANG: 'KHACH_HANG',
 } as const;
 
@@ -18,7 +18,7 @@ export const ROLE_ROUTES: Record<string, string> = {
     KHO: '/warehouse',
     QUAN_LY_XUONG: '/mechanic',
     THO_SUA_CHUA: '/mechanic',
-    KE_TOAN: '/sale',
+    THU_NGAN: '/sale',
     KHACH_HANG: '/customer/home',
 };
 

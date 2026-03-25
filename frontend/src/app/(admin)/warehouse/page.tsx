@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Package, PackageMinus, AlertTriangle, TrendingDown, History } from 'lucide-react';
 import Link from 'next/link';
@@ -8,35 +8,35 @@ import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import IndustrialStatCard from '@/modules/shared/components/common/IndustrialStatCard';
 import { Card } from '@/modules/shared/components/ui/card';
+import { useQuery } from '@tanstack/react-query';
 
 export default function WarehouseDashboard() {
     const { data: session } = useSession();
-    const [pendingOrders, setPendingOrders] = useState<any[]>([]);
-    const [lowStockItems, setLowStockItems] = useState<any[]>([]);
-    const [stats, setStats] = useState<any>({
-        pendingOrders: 0,
-        lowStockItems: 0,
-        recentExports: 0,
-        recentImports: 0
+    // @ts-ignore
+    const token = session?.user?.accessToken;
+
+    const { data: stats = { pendingOrders: 0, lowStockItems: 0, recentExports: 0, recentImports: 0 } } = useQuery({
+        queryKey: ['warehouse', 'stats'],
+        queryFn: () => api.get('/warehouse/stats', token),
+        enabled: !!token
     });
 
-    useEffect(() => {
-        // @ts-ignore
-        const token = session?.user?.accessToken;
-        if (token) {
-            api.get('/warehouse/stats', token).then(setStats).catch(console.error);
+    const { data: pendingOrders = [] } = useQuery({
+        queryKey: ['warehouse', 'pending'],
+        queryFn: () => api.get('/warehouse/pending', token),
+        enabled: !!token
+    });
 
-            Promise.all([
-                api.getCached('/warehouse/pending', token),
-                api.getCached('/warehouse/products', token)
-            ]).then(([pending, products]) => {
-                setPendingOrders(pending || []);
-                const lowStock = (products || [])
-                    .filter((p: any) => !p.isService && p.stock <= (p.minStock || 10));
-                setLowStockItems(lowStock);
-            }).catch(console.error);
-        }
-    }, [session?.user]);
+    const { data: products = [] } = useQuery({
+        queryKey: ['warehouse', 'products'],
+        queryFn: () => api.get('/warehouse/products', token),
+        enabled: !!token
+    });
+
+    const lowStockItems = useMemo(() => 
+        products.filter((p: any) => !p.isService && p.stock <= (p.minStock || 10)),
+        [products]
+    );
 
     const pendingCount = stats.pendingOrders;
 

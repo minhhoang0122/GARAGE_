@@ -3,6 +3,7 @@ import { getAssignedJobs } from '@/modules/service/mechanic';
 import { Wrench } from 'lucide-react';
 import { EmptyState } from '@/modules/shared/components/ui/empty-state';
 import JobCard from './JobCard';
+import { RealtimeRefresh } from '@/modules/common/components/layout/RealtimeRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,9 @@ export default async function JobsListPage() {
 
     return (
         <DashboardLayout title="Danh sách việc" subtitle="Các xe được phân công sửa chữa">
+            {/* Tự động làm mới khi có việc mới được phân công */}
+            <RealtimeRefresh events={['notification', 'order_updated']} />
+            
             {/* Background Pattern for depth */}
             <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
 

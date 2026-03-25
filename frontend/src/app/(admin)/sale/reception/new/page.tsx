@@ -11,38 +11,82 @@ import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import ImageCapture from '@/modules/shared/components/common/ImageCapture';
 import { useToast } from '@/contexts/ToastContext';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { receptionSchema, ReceptionSchema } from '@/lib/schemas';
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function ReceptionPage() {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const { showToast } = useToast();
-    const [vehicleType, setVehicleType] = useState<'CAR' | 'MOTO'>('CAR');
-    const [plate, setPlate] = useState('');
-    const debouncedPlate = useDebounce(plate, 500);
+    const { register, handleSubmit: handleFormSubmit, setValue, watch, formState: { errors: zodErrors } } = useForm<ReceptionSchema>({
+        resolver: zodResolver(receptionSchema),
+        defaultValues: {
+            vehicleType: 'CAR',
+            odo: 0,
+            fuel: 50,
+            bodyStatus: 'Nguyên vẹn',
+            bienSo: ''
+        }
+    });
 
-    // ... existing state ...
-
-    // Update handleSubmit to include loaiXe
-    // ...
-
+    const vehicleType = watch('vehicleType');
+    const plate = watch('bienSo');
+    const odo = watch('odo');
+    const fuel = watch('fuel');
 
     const [segments, setSegments] = useState({ s1: '', s2: '', s3: '' });
+    const debouncedPlate = useDebounce(plate, 500);
+
+    const [bodyStatus, setBodyStatus] = useState<string[]>([]);
+    const [bodyStatusNote, setBodyStatusNote] = useState('');
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [error, setError] = useState('');
+
+    const handleBodyStatusToggle = (status: string) => {
+        setBodyStatus(prev => {
+            const next = prev.includes(status)
+                ? prev.filter(s => s !== status)
+                : [...prev, status];
+            
+            // Sync to form bodyStatus string
+            let text = next.join(', ');
+            if (bodyStatusNote) {
+                text = text ? `${text}. Ghi chú: ${bodyStatusNote}` : bodyStatusNote;
+            }
+            setValue('bodyStatus', text || 'Nguyên vẹn');
+            return next;
+        });
+    };
+
+    // Update form when note changes
+    useEffect(() => {
+        let text = bodyStatus.join(', ');
+        if (bodyStatusNote) {
+            text = text ? `${text}. Ghi chú: ${bodyStatusNote}` : bodyStatusNote;
+        }
+        setValue('bodyStatus', text || 'Nguyên vẹn');
+    }, [bodyStatusNote, bodyStatus, setValue]);
+
+    const { data: session } = useSession();
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
     // Sync segments to plate string
     useEffect(() => {
         let formatted = '';
         if (vehicleType === 'CAR') {
-            // Car: 30K-123.45
             if (segments.s1 && segments.s2) {
                 const s2Formatted = segments.s2.length === 5
                     ? `${segments.s2.slice(0, 3)}.${segments.s2.slice(3)}`
                     : segments.s2;
-
                 formatted = `${segments.s1}-${s2Formatted}`;
             } else {
                 formatted = segments.s1 + (segments.s2 ? '-' + segments.s2 : '');
             }
         } else {
-            // Moto: 29-X1 123.45
             if (segments.s1 && segments.s2 && segments.s3) {
                 const s3Formatted = segments.s3.length === 5
                     ? `${segments.s3.slice(0, 3)}.${segments.s3.slice(3)}`
@@ -52,124 +96,59 @@ export default function ReceptionPage() {
                 formatted = [segments.s1, segments.s2, segments.s3].filter(Boolean).join('-');
             }
         }
+        formatted = formatted.replace(/[-.\s]*$/, '').toUpperCase();
+        setValue('bienSo', formatted);
+    }, [segments, vehicleType, setValue]);
 
-        // Remove trailing separators for clean partials
-        formatted = formatted.replace(/[-.\s]*$/, '');
-
-        setPlate(formatted.toUpperCase());
-    }, [segments, vehicleType]);
-
-    // Validate segments individually
-    // Validate segments individually
-    useEffect(() => {
-        const errs: Record<string, string> = {};
-        if (vehicleType === 'CAR') {
-            if (segments.s1 && !/^[0-9]{2}[A-Z]$/.test(segments.s1)) errs.s1 = 'Sai (VD: 30K)';
-            if (segments.s2 && !/^[0-9]{4,5}$/.test(segments.s2)) errs.s2 = '4-5 số';
-        } else {
-            if (segments.s1 && !/^[0-9]{2}$/.test(segments.s1)) errs.s1 = 'Sai (VD: 29)';
-            if (segments.s2 && !/^[A-Z0-9]{2}$/.test(segments.s2)) errs.s2 = 'Sai (VD: X1)';
-            if (segments.s3 && !/^[0-9]{4,5}$/.test(segments.s3)) errs.s3 = '4-5 số';
-        }
-
-        setFormErrors(prev => {
-            const next = { ...prev };
-            // Clear old segment errors
-            delete next.s1;
-            delete next.s2;
-            delete next.s3;
-
-            // Apply new errors
-            return { ...next, ...errs };
-        });
-    }, [segments, vehicleType]);
-
-    const [isPending, startTransition] = useTransition();
-    const [searchResult, setSearchResult] = useState<VehicleSearchResult | null>(null);
-
-    // Form states
-    const [odo, setOdo] = useState<number | string>(0);
-    const [fuel, setFuel] = useState(50);
-    const [bodyStatus, setBodyStatus] = useState<string[]>([]);
-    const [bodyStatusNote, setBodyStatusNote] = useState('');
-    const [request, setRequest] = useState('');
-
-    // New Customer/Car states
-    const [newCarInfo, setNewCarInfo] = useState({ brand: '', model: '', vin: '', engine: '' });
-    const [newCustomerInfo, setNewCustomerInfo] = useState({ name: '', phone: '', address: '', email: '' });
-    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-
-    // Loading & submit states
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const { data: session } = useSession();
-    const [error, setError] = useState('');
-    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-    const isSubmittingRef = useRef(false);
-
-    // Dirty check for unsaved changes
-    useEffect(() => {
-        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (plate || request || Number(odo) > 0 || newCustomerInfo.name) {
-                e.preventDefault();
-                e.returnValue = '';
+    const { data: searchResult = null, isFetching: isSearching } = useQuery({
+        queryKey: ['sale', 'search', debouncedPlate],
+        queryFn: async () => {
+            if (debouncedPlate.length < 3) return null;
+            const res = await searchVehicle(debouncedPlate);
+            if (res.exists && res.vehicle) {
+                setValue('odo', res.vehicle.ODO_HienTai);
+                setValue('nhanHieu', res.vehicle.NhanHieu);
+                setValue('model', res.vehicle.Model);
+                setValue('tenKhach', res.customer.HoTen);
+                setValue('sdtKhach', res.customer.SoDienThoai);
             }
-        };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [plate, request, odo, newCustomerInfo]);
+            return res;
+        },
+        enabled: debouncedPlate.length >= 3 && !!token,
+        staleTime: 60000
+    });
 
-    // Effect để search khi nhập biển số
-    useEffect(() => {
-        if (debouncedPlate.length >= 3) {
-            startTransition(async () => {
-                const result = await searchVehicle(debouncedPlate);
-                setSearchResult(result);
-
-                // Auto fill ODO nếu xe đã tồn tại
-                if (result.exists && result.vehicle) {
-                    setOdo(result.vehicle.ODO_HienTai);
-                }
-            });
-        } else {
-            setSearchResult(null);
+    const createMutation = useMutation({
+        mutationFn: async (payload: any) => {
+            const result = await createReception(payload);
+            if (!result.success) throw new Error(result.error);
+            return result;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['sale'] });
+            queryClient.invalidateQueries({ queryKey: ['reception'] });
+            queryClient.invalidateQueries({ queryKey: ['mechanic'] });
+            queryClient.invalidateQueries({ queryKey: ['warehouse'] });
+            showToast('success', 'Đã tiếp nhận xe thành công!');
+            router.replace('/sale');
+            router.refresh();
+        },
+        onError: (error: any) => {
+            setError(error.message || 'Có lỗi xảy ra');
+            showToast('error', error.message || 'Có lỗi xảy ra khi tạo phiếu tiếp nhận');
         }
-    }, [debouncedPlate]);
+    });
 
-    const validateForm = () => {
-        const errors: Record<string, string> = {};
-        const phoneRegex = /^(0[3|5|7|8|9])+([0-9]{8})$/;
-
-        if (!plate) errors.plate = 'Vui lòng nhập biển số xe';
-        if (Number(odo) < 0) errors.odo = 'Số ODO không hợp lệ';
-        if (searchResult?.vehicle && Number(odo) < searchResult.vehicle.ODO_HienTai) {
-            errors.odo = `ODO mới (${odo}) không thể nhỏ hơn ODO cũ (${searchResult.vehicle.ODO_HienTai})`;
-        }
-
-        if (!searchResult?.exists) {
-            if (!newCustomerInfo.name) errors.name = 'Tên khách hàng là bắt buộc';
-            if (!newCustomerInfo.phone) errors.phone = 'Số điện thoại là bắt buộc';
-            else if (!phoneRegex.test(newCustomerInfo.phone)) errors.phone = 'Số điện thoại không đúng định dạng (VN)';
-
-            if (!newCarInfo.brand) errors.brand = 'Nhãn hiệu xe là bắt buộc';
-            if (!newCarInfo.model) errors.model = 'Model xe là bắt buộc';
-        }
-
-        setFormErrors(errors);
-        return Object.keys(errors).length === 0;
-    };
-
-    const handleSubmit = async () => {
-        if (isSubmittingRef.current) return;
-        if (!validateForm()) {
-            setError('Vui lòng kiểm tra lại thông tin nhập liệu');
+    const onSubmit = async (data: ReceptionSchema) => {
+        if (createMutation.isPending) return;
+        
+        // Additional business logic validation
+        if (searchResult?.vehicle && data.odo < searchResult.vehicle.ODO_HienTai) {
+            setError(`ODO mới (${data.odo}) không thể nhỏ hơn ODO cũ (${searchResult.vehicle.ODO_HienTai})`);
             return;
         }
 
-        isSubmittingRef.current = true;
-        setIsSubmitting(true);
         setError('');
-
-        // Gom dữ liệu body status
         let bodyStatusText = bodyStatus.join(', ');
         if (bodyStatusNote) {
             bodyStatusText = bodyStatusText ? `${bodyStatusText}. Ghi chú: ${bodyStatusNote}` : bodyStatusNote;
@@ -178,73 +157,31 @@ export default function ReceptionPage() {
 
         try {
             let finalImageUrl = '';
-
-            // 1. Upload nhiều ảnh nếu có
-            if (selectedFiles.length > 0) {
-                // @ts-ignore
-                const token = session?.user?.accessToken;
-                if (token) {
-                    const uploadPromises = selectedFiles.map(file => {
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        formData.append('folder', 'receptions');
-                        return api.upload('/images/upload', formData, token);
-                    });
-
-                    const uploadResults = await Promise.all(uploadPromises);
-                    finalImageUrl = uploadResults.map(res => res.url).join(',');
-                }
+            if (selectedFiles.length > 0 && token) {
+                const uploadPromises = selectedFiles.map(file => {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('folder', 'receptions');
+                    return api.upload('/images/upload', formData, token);
+                });
+                const uploadResults = await Promise.all(uploadPromises);
+                finalImageUrl = uploadResults.map(res => res.url).join(',');
             }
 
-            const result = await createReception({
-                bienSo: plate,
-                odo: Number(odo),
-                mucXang: fuel / 100,
+            createMutation.mutate({
+                ...data,
                 tinhTrangVo: bodyStatusText,
-                yeuCauKhach: request,
-                loaiXe: vehicleType, // Add vehicle type
-                nhanHieu: newCarInfo.brand,
-                model: newCarInfo.model,
-                soKhung: newCarInfo.vin,
-                soMay: newCarInfo.engine,
-                tenKhach: newCustomerInfo.name,
-                sdtKhach: newCustomerInfo.phone,
-                diaChiKhach: newCustomerInfo.address,
-                emailKhach: newCustomerInfo.email,
-                hinhAnh: finalImageUrl
+                hinhAnh: finalImageUrl,
+                mucXang: data.fuel / 100,
             });
-
-            if (result.success) {
-                // Invalidate cache for dashboards
-                api.invalidateCache('/sale/stats');
-                api.invalidateCache('/reception');
-                api.invalidateCache('/mechanic/inspect');
-                api.invalidateCache('/warehouse/stats');
-                api.invalidateCache('/warehouse/pending');
-
-                showToast('success', 'Đã tiếp nhận xe thành công!');
-                router.replace('/sale');
-                router.refresh();
-            } else {
-                setError(result.error || 'Có lỗi xảy ra');
-                showToast('error', result.error || 'Có lỗi xảy ra khi tạo phiếu tiếp nhận');
-            }
         } catch (e) {
             setError('Lỗi kết nối');
             showToast('error', 'Lỗi kết nối đến máy chủ');
-        } finally {
-            isSubmittingRef.current = false;
-            setIsSubmitting(false);
         }
     };
 
-    const handleBodyStatusToggle = (status: string) => {
-        setBodyStatus(prev =>
-            prev.includes(status)
-                ? prev.filter(s => s !== status)
-                : [...prev, status]
-        );
-    };
+    const isSearchingActive = isSearching;
+    const isSubmitting = createMutation.isPending;
 
     return (
         <DashboardLayout title="Tiếp nhận xe" subtitle="Tạo phiếu tiếp nhận mới">
@@ -261,10 +198,8 @@ export default function ReceptionPage() {
                             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg mb-4">
                                 <button
                                     onClick={() => {
-                                        setVehicleType('CAR');
-                                        setPlate('');
+                                        setValue('vehicleType', 'CAR');
                                         setSegments({ s1: '', s2: '', s3: '' });
-                                        setFormErrors(prev => { const n = { ...prev }; delete n.plate; return n; });
                                     }}
                                     className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${vehicleType === 'CAR'
                                         ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
@@ -275,10 +210,8 @@ export default function ReceptionPage() {
                                 </button>
                                 <button
                                     onClick={() => {
-                                        setVehicleType('MOTO');
-                                        setPlate('');
+                                        setValue('vehicleType', 'MOTO');
                                         setSegments({ s1: '', s2: '', s3: '' });
-                                        setFormErrors(prev => { const n = { ...prev }; delete n.plate; return n; });
                                     }}
                                     className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${vehicleType === 'MOTO'
                                         ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
@@ -302,27 +235,16 @@ export default function ReceptionPage() {
                                                     value={segments.s1}
                                                     onChange={(e) => {
                                                         let val = e.target.value.toUpperCase();
-                                                        // Enforce format: 2 Digits + 1 Letter (e.g., 30K)
-
-                                                        // Split into parts to validate per character position if possible, 
-                                                        // but simplistic approach:
-                                                        // 1. Keep only allowed chars globally first to avoid confusing jumps? 
-                                                        // No, strict per position is better.
-
                                                         const chars = val.split('');
                                                         const newChars: string[] = [];
-
                                                         for (let i = 0; i < chars.length; i++) {
                                                             const c = chars[i];
                                                             if (i < 2) {
-                                                                // First 2 chars: Digits only
                                                                 if (/[0-9]/.test(c)) newChars.push(c);
                                                             } else if (i === 2) {
-                                                                // 3rd char: Letter only
                                                                 if (/[A-Z]/.test(c)) newChars.push(c);
                                                             }
                                                         }
-
                                                         val = newChars.join('').slice(0, 3);
                                                         setSegments(prev => ({ ...prev, s1: val }));
                                                         if (val.length === 3) document.getElementById('plate-s2')?.focus();
@@ -330,7 +252,6 @@ export default function ReceptionPage() {
                                                     className="w-full text-center text-xl font-bold p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none uppercase"
                                                 />
                                                 <span className="absolute -right-3 top-1/2 -translate-y-[60%] text-slate-400 font-bold text-3xl">-</span>
-                                                {formErrors.s1 && <p className="absolute -bottom-5 left-0 text-[10px] text-red-500">{formErrors.s1}</p>}
                                             </div>
                                             <div className="w-2/3 relative">
                                                 <input
@@ -344,7 +265,6 @@ export default function ReceptionPage() {
                                                     }}
                                                     className="w-full text-center text-xl font-bold p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none tracking-widest"
                                                 />
-                                                {formErrors.s2 && <p className="absolute -bottom-5 left-0 text-[10px] text-red-500">{formErrors.s2}</p>}
                                             </div>
                                         </>
                                     ) : (
@@ -363,7 +283,6 @@ export default function ReceptionPage() {
                                                     className="w-full text-center text-xl font-bold p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                                 />
                                                 <span className="absolute -right-2 top-1/2 -translate-y-[60%] text-slate-400 font-bold text-3xl">-</span>
-                                                {formErrors.s1 && <p className="absolute -bottom-5 left-0 text-[10px] text-red-500 whitespace-nowrap">{formErrors.s1}</p>}
                                             </div>
                                             <div className="w-1/4 relative">
                                                 <input
@@ -378,7 +297,6 @@ export default function ReceptionPage() {
                                                     }}
                                                     className="w-full text-center text-xl font-bold p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                                 />
-                                                {formErrors.s2 && <p className="absolute -bottom-5 left-0 text-[10px] text-red-500 whitespace-nowrap">{formErrors.s2}</p>}
                                             </div>
                                             <div className="w-2/4 relative">
                                                 <input
@@ -392,12 +310,11 @@ export default function ReceptionPage() {
                                                     }}
                                                     className="w-full text-center text-xl font-bold p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none tracking-widest"
                                                 />
-                                                {formErrors.s3 && <p className="absolute -bottom-5 left-0 text-[10px] text-red-500">{formErrors.s3}</p>}
                                             </div>
                                         </>
                                     )}
 
-                                    {isPending && (
+                                    {isSearchingActive && (
                                         <div className="absolute right-[-30px] top-1/2 -translate-y-1/2">
                                             <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                         </div>
@@ -414,7 +331,7 @@ export default function ReceptionPage() {
                                         </span>
                                     )}
                                 </div>
-                                {formErrors.plate && <p className="text-xs text-red-500 mt-1">{formErrors.plate}</p>}
+                                {zodErrors.bienSo && <p className="text-xs text-red-500 mt-1">{zodErrors.bienSo.message}</p>}
                             </div>
 
                             {/* Hiển thị thông tin xe nếu tìm thấy */}
@@ -507,7 +424,7 @@ export default function ReceptionPage() {
                             )}
 
                             {/* Form đăng ký khách mới nếu KHÔNG tìm thấy */}
-                            {debouncedPlate.length >= 3 && !isPending && !searchResult?.exists && (
+                            {debouncedPlate.length >= 3 && !isSearchingActive && !searchResult?.exists && (
                                 <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
                                     <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-xl transition-colors">
                                         <div className="flex items-center gap-2 mb-3 text-amber-700 dark:text-amber-400">
@@ -518,46 +435,42 @@ export default function ReceptionPage() {
                                             <div>
                                                 <input
                                                     placeholder="Tên khách hàng *"
-                                                    className={`w-full p-2 border rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${formErrors.name ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-700 focus:ring-amber-500'}`}
-                                                    value={newCustomerInfo.name}
-                                                    onChange={e => setNewCustomerInfo({ ...newCustomerInfo, name: e.target.value })}
+                                                    className={`w-full p-2 border rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${zodErrors.tenKhach ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-700 focus:ring-amber-500'}`}
+                                                    {...register('tenKhach')}
                                                 />
-                                                {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
+                                                {zodErrors.tenKhach && <p className="text-xs text-red-500 mt-1">{zodErrors.tenKhach.message}</p>}
                                             </div>
                                             <div>
                                                 <input
                                                     placeholder="Số điện thoại *"
-                                                    className={`w-full p-2 border rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${formErrors.phone ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-700 focus:ring-amber-500'}`}
-                                                    value={newCustomerInfo.phone}
-                                                    onChange={e => setNewCustomerInfo({ ...newCustomerInfo, phone: e.target.value })}
+                                                    className={`w-full p-2 border rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${zodErrors.sdtKhach ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-700 focus:ring-amber-500'}`}
+                                                    {...register('sdtKhach')}
                                                 />
-                                                {formErrors.phone && <p className="text-xs text-red-500 mt-1">{formErrors.phone}</p>}
+                                                {zodErrors.sdtKhach && <p className="text-xs text-red-500 mt-1">{zodErrors.sdtKhach.message}</p>}
                                             </div>
                                             <div>
                                                 <input
                                                     placeholder="Nhãn hiệu (VD: Toyota) *"
-                                                    className={`w-full p-2 border rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${formErrors.brand ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-700 focus:ring-amber-500'}`}
-                                                    value={newCarInfo.brand}
-                                                    onChange={e => setNewCarInfo({ ...newCarInfo, brand: e.target.value })}
+                                                    className={`w-full p-2 border rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${zodErrors.nhanHieu ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-700 focus:ring-amber-500'}`}
+                                                    {...register('nhanHieu')}
                                                 />
-                                                {formErrors.brand && <p className="text-xs text-red-500 mt-1">{formErrors.brand}</p>}
+                                                {zodErrors.nhanHieu && <p className="text-xs text-red-500 mt-1">{zodErrors.nhanHieu.message}</p>}
                                             </div>
                                             <div>
                                                 <input
                                                     placeholder="Model (VD: Vios) *"
-                                                    className={`w-full p-2 border rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${formErrors.model ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-700 focus:ring-amber-500'}`}
-                                                    value={newCarInfo.model}
-                                                    onChange={e => setNewCarInfo({ ...newCarInfo, model: e.target.value })}
+                                                    className={`w-full p-2 border rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${zodErrors.model ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-700 focus:ring-amber-500'}`}
+                                                    {...register('model')}
                                                 />
-                                                {formErrors.model && <p className="text-xs text-red-500 mt-1">{formErrors.model}</p>}
+                                                {zodErrors.model && <p className="text-xs text-red-500 mt-1">{zodErrors.model.message}</p>}
                                             </div>
                                             <input
                                                 placeholder="Email (để gửi hóa đơn)"
                                                 type="email"
-                                                className="w-full p-2 border rounded bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                                value={newCustomerInfo.email}
-                                                onChange={e => setNewCustomerInfo({ ...newCustomerInfo, email: e.target.value })}
+                                                className={`w-full p-2 border rounded bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 ${zodErrors.emailKhach ? 'border-red-500' : ''}`}
+                                                {...register('emailKhach')}
                                             />
+                                            {zodErrors.emailKhach && <p className="text-xs text-red-500 mt-1">{zodErrors.emailKhach.message}</p>}
                                         </div>
                                     </div>
                                 </div>
@@ -575,15 +488,11 @@ export default function ReceptionPage() {
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Số ODO hiện tại (km)</label>
                                     <input
                                         type="number"
-                                        value={odo}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setOdo(val === '' ? '' : Number(val));
-                                        }}
                                         placeholder="0"
-                                        className={`w-full p-3 bg-slate-50 dark:bg-slate-950 border rounded-lg font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${formErrors.odo ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 dark:border-slate-700 focus:ring-blue-500'}`}
+                                        className={`w-full p-3 bg-slate-50 dark:bg-slate-950 border rounded-lg font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${zodErrors.odo ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 dark:border-slate-700 focus:ring-blue-500'}`}
+                                        {...register('odo', { valueAsNumber: true })}
                                     />
-                                    {formErrors.odo && <p className="text-xs text-red-500 mt-1">{formErrors.odo}</p>}
+                                    {zodErrors.odo && <p className="text-xs text-red-500 mt-1">{zodErrors.odo.message}</p>}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex justify-between">
@@ -596,7 +505,7 @@ export default function ReceptionPage() {
                                             type="range"
                                             min="0" max="100"
                                             value={fuel}
-                                            onChange={(e) => setFuel(Number(e.target.value))}
+                                            onChange={(e) => setValue('fuel', Number(e.target.value))}
                                             className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
                                         />
                                     </div>
@@ -637,8 +546,7 @@ export default function ReceptionPage() {
                                 <textarea
                                     className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-lg h-32 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
                                     placeholder="Ví dụ: Xe có tiếng kêu lạ khi đạp phanh, thay nhớt..."
-                                    value={request}
-                                    onChange={(e) => setRequest(e.target.value)}
+                                    {...register('request')}
                                 ></textarea>
                             </div>
 
@@ -650,7 +558,10 @@ export default function ReceptionPage() {
 
                             <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
                                 <button
-                                    onClick={handleSubmit}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        handleFormSubmit(onSubmit)(e);
+                                    }}
                                     disabled={isSubmitting || !plate}
                                     className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-white shadow-lg transition-all ${isSubmitting || !plate
                                         ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed'

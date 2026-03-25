@@ -10,30 +10,32 @@ import { formatCurrency } from '@/lib/utils';
 import { getUsers } from '@/modules/identity/user';
 import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 
+import { useQuery } from '@tanstack/react-query';
+
 export default function AdminDashboard() {
     const { data: session } = useSession();
-    const [staff, setStaff] = useState<any[]>([]);
-    const [stats, setStats] = useState<any>({
+    // @ts-ignore
+    const token = session?.user?.accessToken;
+
+    const { data: stats = {
         waitingVehicles: 0,
         inProgressJobs: 0,
         todayRevenue: 0,
         lowStockCount: 0
+    } } = useQuery({
+        queryKey: ['reports', 'dashboard-stats'],
+        queryFn: () => api.get('/reports/dashboard-stats', token),
+        enabled: !!token
     });
-    const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        // @ts-ignore
-        const token = session?.user?.accessToken;
-        if (token) {
-            api.get('/reports/dashboard-stats', token)
-                .then(setStats)
-                .catch((err: any) => console.warn('Dashboard stats unavailable:', err.message));
-            getUsers().then((data: any) => {
-                if (Array.isArray(data)) setStaff(data.slice(0, 10));
-                setIsLoading(false);
-            });
-        }
-    }, [session?.user]);
+    const { data: staff = [], isLoading } = useQuery({
+        queryKey: ['admin', 'users'],
+        queryFn: async () => {
+            const data = await getUsers();
+            return Array.isArray(data) ? data.slice(0, 10) : [];
+        },
+        enabled: !!token
+    });
 
     return (
         <DashboardLayout title="Dashboard" subtitle="Tổng quan hoạt động xưởng">

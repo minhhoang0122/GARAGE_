@@ -28,6 +28,10 @@ public class RepairOrder {
     @Enumerated(EnumType.STRING)
     @Column(name = "trang_thai", length = 30)
     private OrderStatus trangThai = OrderStatus.TIEP_NHAN;
+    
+    @Version
+    @Column(name = "version")
+    private Integer version;
 
     @Column(name = "tien_coc", precision = 18, scale = 2)
     private BigDecimal tienCoc = BigDecimal.ZERO;
@@ -159,6 +163,14 @@ public class RepairOrder {
         this.chiTietDonHang = chiTietDonHang;
         this.phieuXuatKho = phieuXuatKho;
         this.vatPhanTram = vatPhanTram != null ? vatPhanTram : BigDecimal.ZERO;
+    }
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
     }
 
     // Getters and Setters

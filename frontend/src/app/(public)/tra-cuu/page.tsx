@@ -1,26 +1,27 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Search, CarFront, FileText, Wrench, Settings, CheckCircle2 } from 'lucide-react';
+import { Search, Info, Tag, Clock, ArrowRight, ArrowLeft, CarFront, FileText, Wrench, Settings, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
+import { useSSEContext } from '@/modules/common/contexts/SSEContext';
 
 export default function TraCuuPage() {
+    const { addListener, removeListener } = useSSEContext();
     const [trackingPlate, setTrackingPlate] = useState('');
     const [trackingResult, setTrackingResult] = useState<any>(null);
     const [isTracking, setIsTracking] = useState(false);
     const [trackError, setTrackError] = useState('');
 
-    const handleTrack = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!trackingPlate.trim()) return;
+    const handleTrack = useCallback(async (plateToTrack?: string) => {
+        const plate = plateToTrack || trackingPlate;
+        if (!plate.trim()) return;
+        
         setIsTracking(true);
         setTrackError('');
         try {
-            // Use SWR for public tracking
-            const data = await api.getCached(`/public/tracking?bienSo=${trackingPlate}`);
-
+            const data = await api.getCached(`/public/tracking?bienSo=${plate}`);
             if (data && data.success) {
                 setTrackingResult(data);
             } else {
@@ -32,6 +33,34 @@ export default function TraCuuPage() {
         } finally {
             setIsTracking(false);
         }
+    }, [trackingPlate]);
+
+    // SSE Listener cho cập nhật tiến độ
+    useEffect(() => {
+        const handleOrderUpdate = (data: any) => {
+            console.log('[Public SSE] Order Update received:', data);
+            // Nếu biển số khớp với xe đang tra cứu, cập nhật lại dữ liệu
+            if (trackingResult && (data.plate === trackingResult.bienSo || data.orderId === trackingResult.id)) {
+                handleTrack(trackingResult.bienSo);
+            }
+        };
+
+        addListener('order_updated', handleOrderUpdate);
+        addListener('order_item_status_changed', handleOrderUpdate);
+        addListener('order_qc_passed', handleOrderUpdate);
+        addListener('order_qc_failed', handleOrderUpdate);
+
+        return () => {
+            removeListener('order_updated', handleOrderUpdate);
+            removeListener('order_item_status_changed', handleOrderUpdate);
+            removeListener('order_qc_passed', handleOrderUpdate);
+            removeListener('order_qc_failed', handleOrderUpdate);
+        };
+    }, [trackingResult, addListener, removeListener, handleTrack]);
+
+    const onSearchSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        handleTrack();
     }
 
     const mechanicalSpring = {
@@ -72,14 +101,13 @@ export default function TraCuuPage() {
                         <p className="text-stone-600 text-lg">Hệ thống tra cứu tiến độ sửa chữa chuẩn Gara. Minh bạch thông tin, cập nhật theo thời gian thực.</p>
                     </motion.div>
 
-                    {/* Vùng tra cứu */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.1, ...mechanicalSpring }}
                         className="bg-white p-8 md:p-12 shadow-2xl border-t-4 border-stone-800 relative z-10"
                     >
-                        <form onSubmit={handleTrack} className="mb-8">
+                        <form onSubmit={onSearchSubmit} className="mb-8">
                             <label className="block text-sm font-bold text-stone-700 uppercase tracking-widest mb-3">Nhập biển số xe của Quý khách</label>
                             <div className="flex bg-[#fafa-f8] border-2 border-stone-200 focus-within:border-orange-500 transition-colors p-1">
                                 <input

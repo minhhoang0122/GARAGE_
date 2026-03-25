@@ -30,21 +30,20 @@ function formatDate(date: string) {
     });
 }
 
+import { useQuery } from '@tanstack/react-query';
+
 export default function CustomerOrdersPage() {
     const router = useRouter();
-    const [orders, setOrders] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function loadOrders() {
+    const { data: orders = [], isLoading } = useQuery({
+        queryKey: ['customer', 'orders'],
+        queryFn: async () => {
             const data = await getMyOrders();
-            setOrders(data || []);
-            setLoading(false);
+            return data || [];
         }
-        loadOrders();
-    }, []);
+    });
 
-    if (loading) {
+    if (isLoading) {
         return (
             <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
                 <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>

@@ -120,39 +120,51 @@ export default function CompleteJobButton({
 
             {/* Confirm Modal */}
             {showConfirm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-slate-900 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl border border-slate-200 dark:border-slate-800">
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">
+                <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-300">
+                    <div className="bg-white/90 backdrop-blur-2xl rounded-[2rem] p-10 max-w-md w-full mx-4 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-white ring-1 ring-slate-200/50">
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-lg ${
+                            isQC && qcAction === 'fail' 
+                            ? 'bg-red-50 text-red-600 shadow-red-100' 
+                            : 'bg-emerald-50 text-emerald-600 shadow-emerald-100'
+                        }`}>
+                            {isQC ? (qcAction === 'pass' ? <ShieldCheck size={32} /> : <XCircle size={32} />) : <CheckCircle size={32} />}
+                        </div>
+
+                        <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">
                             {isQC ? (qcAction === 'pass' ? 'Duyệt Nghiệm Thu' : 'Từ Chối Nghiệm Thu') : 'Hoàn thành sửa chữa'}
                         </h3>
 
-                        {getConfirmMessage()}
+                        <div className="text-sm font-medium leading-relaxed text-slate-500 mb-8 border-l-2 border-slate-100 pl-4 py-1">
+                            {getConfirmMessage()}
+                        </div>
 
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={() => setShowConfirm(false)}
-                                disabled={isLoading}
-                                className="px-4 py-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-lg font-medium"
-                            >
-                                Hủy
-                            </button>
+                        <div className="flex flex-col gap-3">
                             <button
                                 onClick={handleAction}
                                 disabled={isLoading}
-                                className={`px-4 py-2 text-white rounded-lg font-medium flex items-center gap-2 ${isQC && qcAction === 'fail'
-                                    ? 'bg-red-600 hover:bg-red-700'
-                                    : 'bg-emerald-600 hover:bg-emerald-700'
-                                    }`}
+                                className={`w-full py-4 rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 ${
+                                    isQC && qcAction === 'fail'
+                                    ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-200'
+                                    : 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-200'
+                                }`}
                             >
                                 {isLoading ? (
                                     <>
-                                        <Loader2 className="w-4 h-4 animate-spin" /> Đang xử lý...
+                                        <Loader2 className="w-5 h-5 animate-spin" /> 
+                                        Đang xử lý...
                                     </>
                                 ) : (
                                     <>
-                                        {getIcon()} Xác nhận
+                                        {getIcon()} Xác nhận thao tác
                                     </>
                                 )}
+                            </button>
+                            <button
+                                onClick={() => setShowConfirm(false)}
+                                disabled={isLoading}
+                                className="w-full py-4 text-slate-400 hover:text-slate-600 font-black text-[10px] uppercase tracking-widest transition-colors"
+                            >
+                                Quay lại
                             </button>
                         </div>
                     </div>

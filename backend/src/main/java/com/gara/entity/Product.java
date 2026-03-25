@@ -52,6 +52,10 @@ public class Product {
     @Column(name = "ngay_tao")
     private LocalDateTime ngayTao;
 
+    @Version
+    @Column(name = "version")
+    private Integer version;
+
     @PrePersist
     protected void onCreate() {
         ngayTao = LocalDateTime.now();
@@ -193,6 +197,14 @@ public class Product {
         this.ngayTao = ngayTao;
     }
 
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
+
     public static ProductBuilder builder() {
         return new ProductBuilder();
     }
@@ -212,6 +224,7 @@ public class Product {
         private BigDecimal thueVAT = new BigDecimal("10.00");
         private Boolean choPhepBaoHanh = true;
         private LocalDateTime ngayTao;
+        private Integer version;
 
         public ProductBuilder id(Integer id) {
             this.id = id;
@@ -283,9 +296,16 @@ public class Product {
             return this;
         }
 
+        public ProductBuilder version(Integer version) {
+            this.version = version;
+            return this;
+        }
+
         public Product build() {
-            return new Product(id, maHang, tenHang, giaBanNiemYet, giaVon, giaSan, soLuongTon, dinhMucTonToiThieu,
+            Product product = new Product(id, maHang, tenHang, giaBanNiemYet, giaVon, giaSan, soLuongTon, dinhMucTonToiThieu,
                     baoHanhSoThang, baoHanhKm, laDichVu, thueVAT, choPhepBaoHanh, ngayTao);
+            product.setVersion(this.version);
+            return product;
         }
     }
 }

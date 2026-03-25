@@ -2,9 +2,10 @@
 
 import { Assignment, approveJoinTask } from '@/modules/service/mechanic';
 import { Button } from '@/modules/shared/components/ui/button';
-import { Check, Clock, User } from 'lucide-react';
+import { Check, Clock, User, Loader2 } from 'lucide-react';
 import { useToast } from '@/modules/shared/components/ui/use-toast';
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface AssignmentListProps {
     itemId: number;
@@ -17,35 +18,57 @@ interface AssignmentListProps {
 
 export default function AssignmentList({ itemId, assignments, maxLimit, isLead, currentUserId, isItemCompleted }: AssignmentListProps) {
     const { toast } = useToast();
-    const [approvingId, setApprovingId] = useState<number | null>(null);
+    const queryClient = useQueryClient();
+    const approveMutation = useMutation({
+        mutationFn: (id: number) => approveJoinTask(id),
+        onMutate: async (id) => {
+            // Cancel any outgoing refetches for this job
+            await queryClient.cancelQueries({ queryKey: ['job-details', itemId] });
 
-    const handleApprove = async (id: number) => {
-        // ... (keep logic same)
-        setApprovingId(id);
-        try {
-            const res = await approveJoinTask(id);
-            if (res.success) {
-                toast({
-                    title: "Đã phê duyệt",
-                    className: "bg-emerald-50 border-emerald-200 text-emerald-800"
-                });
-            } else {
-                toast({
-                    title: "Lỗi",
-                    description: res.error,
-                    variant: "destructive"
-                });
+            // Snapshot the previous value
+            const previousJob = queryClient.getQueryData(['job-details', itemId]);
+
+            // Optimistically update the assignment status
+            if (previousJob) {
+                queryClient.setQueryData(['job-details', itemId], (old: any) => ({
+                    ...old,
+                    items: old.items.map((item: any) => 
+                        item.id === itemId 
+                        ? {
+                            ...item,
+                            assignments: item.assignments.map((a: any) => 
+                                a.id === id ? { ...a, status: 'APPROVED' } : a
+                            )
+                          }
+                        : item
+                    )
+                }));
             }
-        } catch (error) {
+
+            return { previousJob };
+        },
+        onError: (err, id, context) => {
+            if (context?.previousJob) {
+                queryClient.setQueryData(['job-details', itemId], context.previousJob);
+            }
             toast({
                 title: "Lỗi",
-                description: "Không thể phê duyệt.",
+                description: "Không thể phê duyệt. Đã hoàn tác.",
                 variant: "destructive"
             });
-        } finally {
-            setApprovingId(null);
+        },
+        onSuccess: () => {
+            toast({
+                title: "Đã phê duyệt",
+                className: "bg-emerald-50 border-emerald-200 text-emerald-800"
+            });
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['job-details', itemId] });
         }
-    };
+    });
+
+    const isWorking = approveMutation.isPending;
 
     // Filter out pending assignments if item is completed
     const visibleAssignments = assignments.filter(a => !(isItemCompleted && a.status === 'PENDING'));
@@ -87,8 +110,8 @@ export default function AssignmentList({ itemId, assignments, maxLimit, isLead, 
                             size="icon"
                             variant="ghost"
                             className="h-6 w-6 rounded-full hover:bg-emerald-200 hover:text-emerald-800 -mr-1"
-                            onClick={() => handleApprove(assign.id)}
-                            disabled={approvingId === assign.id}
+                            onClick={() => approveMutation.mutate(assign.id)}
+                            disabled={isWorking}
                             title="Phê duyệt"
                         >
                             <Check className="w-4 h-4" />

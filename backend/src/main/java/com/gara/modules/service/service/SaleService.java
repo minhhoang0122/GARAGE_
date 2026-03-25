@@ -42,6 +42,7 @@ public class SaleService {
     private final OrderCalculationService orderCalculationService;
 
     private final com.gara.modules.inventory.service.WarehouseService warehouseService;
+    private final com.gara.modules.support.service.SseService sseService;
 
     public SaleService(RepairOrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
@@ -56,7 +57,8 @@ public class SaleService {
             com.gara.modules.support.service.AsyncNotificationService asyncNotificationService,
             jakarta.persistence.EntityManager entityManager,
             OrderCalculationService orderCalculationService,
-            com.gara.modules.inventory.service.WarehouseService warehouseService) {
+            com.gara.modules.inventory.service.WarehouseService warehouseService,
+            com.gara.modules.support.service.SseService sseService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.productRepository = productRepository;
@@ -71,6 +73,41 @@ public class SaleService {
         this.entityManager = entityManager;
         this.warehouseService = warehouseService;
         this.orderCalculationService = orderCalculationService;
+        this.sseService = sseService;
+    }
+
+    @Transactional
+    public void claimOrder(Integer orderId, User user) {
+        RepairOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId));
+
+        // Nếu đã có người phụ trách
+        if (order.getNguoiPhuTrach() != null) {
+            if (order.getNguoiPhuTrach().getId().equals(user.getId())) {
+                return; // Đã nhận trước đó rồi
+            }
+            throw new RuntimeException("Đơn hàng đã được nhân viên " + order.getNguoiPhuTrach().getHoTen() + " tiếp nhận.");
+        }
+
+        // Gán người phụ trách (Cố vấn dịch vụ)
+        order.setNguoiPhuTrach(user);
+        orderRepository.save(order);
+
+        // Audit Log
+        asyncAuditService.logAsync(AuditLog.builder()
+                .bang("DonHangSuaChua")
+                .banGhiId(orderId)
+                .hanhDong("CLAIM")
+                .lyDo("Cố vấn dịch vụ tiếp nhận đơn hàng")
+                .nguoiThucHienId(user.getId())
+                .build());
+
+        // Broadcast Real-time
+        Map<String, Object> sseData = new HashMap<>();
+        sseData.put("orderId", orderId);
+        sseData.put("claimedBy", user.getHoTen());
+        sseData.put("claimedById", user.getId());
+        sseService.broadcast("order_claimed", sseData);
     }
 
     // 7. Get Dashboard Stats
@@ -163,6 +200,7 @@ public class SaleService {
                         .discountPercent(i.getGiamGiaPhanTram())
                         .type(i.getHangHoa().getLaDichVu() ? "SERVICE" : "PRODUCT")
                         .itemStatus(i.getTrangThai().name())
+                        .stock(i.getHangHoa().getSoLuongTon())
                         .proposedById(i.getNguoiDeXuatId())
                         .proposedByName(i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getHoTen() : null)
                         .proposedByRole(i.getNguoiDeXuat() != null && i.getNguoiDeXuat().getRoles() != null
@@ -170,6 +208,16 @@ public class SaleService {
                                         .map(r -> r.getName()).findFirst().orElse(null)
                                 : null)
                         .isWarranty(i.getTrangThai() != null && i.getTrangThai().name().contains("WARRANTY"))
+                        .isTechnicalAddition(i.getLaPhatSinh())
+                        .proposedAt(i.getNgayDeXuat())
+                        .assignments(i.getPhanCongTho() != null ? i.getPhanCongTho().stream()
+                                .map(a -> new AssignmentDTO(
+                                        a.getId(),
+                                        a.getTho().getId(),
+                                        a.getTho().getHoTen(),
+                                        a.getLaThoChinh()))
+                                .collect(java.util.stream.Collectors.toList()) : new java.util.ArrayList<>())
+                        .version(i.getVersion())
                         .build())
                 .toList();
 
@@ -268,7 +316,9 @@ public class SaleService {
         OrderItem item = new OrderItem();
         item.setDonHangSuaChua(order);
         item.setHangHoa(product);
-        if (quantity <= 0) {
+        if (product.getLaDichVu()) {
+            quantity = 1;
+        } else if (quantity <= 0) {
             throw new RuntimeException("Số lượng phải lớn hơn 0");
         }
 
@@ -303,10 +353,13 @@ public class SaleService {
 
     // 4. Update Item
     @Transactional
-    public void updateItem(Integer itemId, Integer quantity, Double discountPercent, User user) {
+    public void updateItem(Integer itemId, Integer quantity, Double discountPercent, Integer version, User user) {
         OrderItem item = orderItemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 
+        if (version != null && !item.getVersion().equals(version)) {
+            throw new RuntimeException("Dữ liệu hạng mục đã được thay đổi bởi người khác. Vui lòng tải lại trang.");
+        }
         checkOwnership(item.getDonHangSuaChua(), user);
         validateOrderModifiable(item.getDonHangSuaChua());
 
@@ -320,7 +373,9 @@ public class SaleService {
 
         BigDecimal oldThanhTien = item.getThanhTien() != null ? item.getThanhTien() : BigDecimal.ZERO;
 
-        if (quantity != null && quantity > 0) {
+        if (item.getHangHoa().getLaDichVu()) {
+            item.setSoLuong(1);
+        } else if (quantity != null && quantity > 0) {
             item.setSoLuong(quantity);
         }
 
@@ -362,7 +417,15 @@ public class SaleService {
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 
         checkOwnership(item.getDonHangSuaChua(), user);
-        // Additional validation if needed
+        
+        // Security check: Items proposed by SALE cannot have their status toggled (Reserved for Technical Arising)
+        if (item.getNguoiDeXuat() != null && item.getNguoiDeXuat().getRoles() != null) {
+            boolean isSaleProposal = item.getNguoiDeXuat().getRoles().stream()
+                    .anyMatch(r -> r.getName().toUpperCase().contains("SALE"));
+            if (isSaleProposal) {
+                throw new RuntimeException("Hạng mục do nhân viên Sale đề xuất không thể thay đổi trạng thái duyệt.");
+            }
+        }
 
         ItemStatus oldStatus = item.getTrangThai();
         item.setTrangThai(status);
@@ -619,6 +682,31 @@ public class SaleService {
                 .duLieuMoi(OrderStatus.DA_DUYET.name())
                 .lyDo("Khách hàng đã duyệt báo giá")
                 .nguoiThucHienId(user.getId())
+                .build());
+
+        // Notify Sale Advisor if someone else (e.g., Manager) approved the quote
+        if (order.getNguoiPhuTrach() != null && !order.getNguoiPhuTrach().getId().equals(user.getId())) {
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
+                    .userId(order.getNguoiPhuTrach().getId())
+                    .role("SALE")
+                    .title("Báo giá được duyệt: " + order.getPhieuTiepNhan().getXe().getBienSo())
+                    .content(user.getHoTen() + " đã duyệt báo giá. Xe có thể bắt đầu sửa chữa.")
+                    .type("SUCCESS")
+                    .link("/sale/orders/" + order.getId())
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        }
+
+        // Notify Workshop Manager to assign/manage
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
+                .role("QUAN_LY_XUONG")
+                .title("Đơn hàng được duyệt: " + order.getPhieuTiepNhan().getXe().getBienSo())
+                .content("Khách hàng đã duyệt báo giá. Vui lòng phân công thợ sửa chữa.")
+                .type("SUCCESS")
+                .link("/manager/orders/" + order.getId())
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
                 .build());
 
         // Notify Repair Mechanic
@@ -914,6 +1002,28 @@ public class SaleService {
                 .nguoiThucHienId(user.getId())
                 .build());
 
+        // Notify Quản lý xưởng
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
+                .role("QUAN_LY_XUONG")
+                .title("Xe bảo hành chờ chẩn đoán: " + vehicle.getBienSo())
+                .content("Xe " + vehicle.getBienSo() + " vào bảo hành. Vui lòng xếp lịch/chẩn đoán.")
+                .type("WARNING")
+                .link("/mechanic/jobs")
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
+                .build());
+
+        // Notify Sale tạo lệnh
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
+                .role("SALE")
+                .title("Tạo lệnh bảo hành: " + vehicle.getBienSo())
+                .content("Lệnh bảo hành cho xe " + vehicle.getBienSo() + " đã được tạo.")
+                .type("INFO")
+                .link("/sale/orders/" + warrantyOrder.getId())
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
+                .build());
+
         return warrantyOrder.getId();
     }
 
@@ -1102,7 +1212,7 @@ public class SaleService {
 
         // Notify Sale
         if (order.getNguoiPhuTrach() != null) {
-            asyncNotificationService.pushAsync(Notification.builder()
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .userId(order.getNguoiPhuTrach().getId())
                     .role("SALE")
                     .title("Khách đã duyệt: " + order.getPhieuTiepNhan().getXe().getBienSo())
@@ -1114,8 +1224,19 @@ public class SaleService {
                     .build());
         }
 
+        // Notify Workshop Manager to assign/manage
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
+                .role("QUAN_LY_XUONG")
+                .title("Đơn hàng được duyệt: " + order.getPhieuTiepNhan().getXe().getBienSo())
+                .content("Khách hàng đã duyệt báo giá. Vui lòng phân công thợ sửa chữa.")
+                .type("SUCCESS")
+                .link("/manager/orders/" + orderId)
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
+                .build());
+
         // Notify Mechanic
-        asyncNotificationService.pushAsync(Notification.builder()
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
                 .role("THO_SUA_CHUA")
                 .title("Lệnh mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
                 .content("Báo giá được duyệt, sẵn sàng nhận việc.")
@@ -1128,7 +1249,7 @@ public class SaleService {
         // Notify Warehouse (CRITICAL MISSING FEATURE RESTORED)
         boolean hasParts = order.getChiTietDonHang().stream().anyMatch(i -> !i.getHangHoa().getLaDichVu());
         if (hasParts) {
-            asyncNotificationService.pushAsync(Notification.builder()
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .role("KHO")
                     .title("Phiếu xuất kho mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
                     .content("Đơn hàng đã được duyệt bởi khách. Vui lòng chuẩn bị vật tư.")
@@ -1168,7 +1289,7 @@ public class SaleService {
 
         // Notify Sale
         if (order.getNguoiPhuTrach() != null) {
-            asyncNotificationService.pushAsync(Notification.builder()
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .userId(order.getNguoiPhuTrach().getId())
                     .role("SALE")
                     .title("Báo giá bị từ chối: " + order.getPhieuTiepNhan().getXe().getBienSo())
@@ -1211,7 +1332,7 @@ public class SaleService {
 
         // Notify Sale
         if (order.getNguoiPhuTrach() != null) {
-            asyncNotificationService.pushAsync(Notification.builder()
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .userId(order.getNguoiPhuTrach().getId())
                     .role("SALE")
                     .title("Yêu cầu chỉnh báo giá: " + order.getPhieuTiepNhan().getXe().getBienSo())

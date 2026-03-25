@@ -2,37 +2,37 @@
 
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Car, CheckCircle, Loader2 } from 'lucide-react';
+import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 
 export default function CustomerHistoryPage() {
     const { data: session, status: authStatus } = useSession();
     const router = useRouter();
-    const [orders, setOrders] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
     useEffect(() => {
-        if (authStatus === 'unauthenticated') { router.push('/customer/login'); return; }
-        if (authStatus !== 'authenticated') return;
+        if (authStatus === 'unauthenticated') {
+            router.push('/customer/login');
+        }
+    }, [authStatus, router]);
 
-        const token = (session?.user as any)?.accessToken;
-        if (!token) return;
+    const { data: orders = [], isLoading: dataLoading } = useQuery({
+        queryKey: ['customer-orders'],
+        queryFn: async () => {
+            const data = await api.get('/customer/orders', token);
+            return (data || []).filter((o: any) => ['HOAN_THANH', 'DONG'].includes(o.status));
+        },
+        enabled: authStatus === 'authenticated' && !!token
+    });
 
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/api/customer/orders`, {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then(r => r.json())
-            .then(data => {
-                // Filter completed orders
-                const completed = (data || []).filter((o: any) => ['HOAN_THANH', 'DONG'].includes(o.status));
-                setOrders(completed);
-            })
-            .catch(() => setOrders([]))
-            .finally(() => setLoading(false));
-    }, [authStatus, session, router]);
+    const loading = authStatus === 'loading' || dataLoading;
 
-    if (authStatus === 'loading' || loading) {
+    if (loading) {
         return <div className="min-h-screen bg-stone-950 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={32} /></div>;
     }
 

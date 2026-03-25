@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import {
     CalendarCheck, Clock, Car, Phone, User, Eye, CheckCircle, Loader2,
@@ -17,6 +17,7 @@ import {
     addMonths, subMonths, parseISO
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 // ─── Status helpers ───
 const bookingStatusMap = (booking: any): { label: string; color: string; dot: string } => {
@@ -103,7 +104,7 @@ function CalendarView({ bookings, onReschedule, token }: {
                     >
                         <ChevronLeft size={18} className="text-slate-600 dark:text-slate-400" />
                     </button>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white min-w-[160px] text-center">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white  text-center">
                         {format(currentMonth, 'MMMM yyyy', { locale: vi })}
                     </h3>
                     <button
@@ -279,47 +280,51 @@ function CalendarView({ bookings, onReschedule, token }: {
 // ─── Main Page Component ───
 export default function SaleBookingsPage() {
     const { data: session } = useSession();
-    const [bookings, setBookings] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     const [filter, setFilter] = useState<'all' | 'pending' | 'done'>('all');
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
     const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-    const token = (session?.user as any)?.accessToken;
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
-    const fetchBookings = useCallback(() => {
-        if (!token) return;
-        api.get('/sale/bookings', token)
-            .then((data: any) => setBookings(data || []))
-            .catch(() => setBookings([]))
-            .finally(() => setLoading(false));
-    }, [token]);
+    const { data: bookings = [], isLoading } = useQuery({
+        queryKey: ['bookings'],
+        queryFn: async () => {
+            return await api.get('/sale/bookings', token);
+        },
+        enabled: !!token
+    });
 
-    useEffect(() => { fetchBookings(); }, [fetchBookings]);
-
-    const handleReschedule = useCallback(async (bookingId: number, newDate: string) => {
-        if (!token) return;
-        try {
-            await api.patch(`/sale/bookings/${bookingId}/reschedule`, { newDate }, token);
-            setToastMsg(`Đã đổi lịch LH#${bookingId} sang ${newDate}`);
-            fetchBookings(); // Refresh
+    const rescheduleMutation = useMutation({
+        mutationFn: async ({ bookingId, newDate }: { bookingId: number, newDate: string }) => {
+            return await api.patch(`/sale/bookings/${bookingId}/reschedule`, { newDate }, token);
+        },
+        onSuccess: (data, variables) => {
+            setToastMsg(`Đã đổi lịch LH#${variables.bookingId} sang ${variables.newDate}`);
+            queryClient.invalidateQueries({ queryKey: ['bookings'] });
             setTimeout(() => setToastMsg(null), 3000);
-        } catch (err: any) {
+        },
+        onError: (err: any) => {
             setToastMsg(`Lỗi: ${err.message || 'Không thể đổi lịch'}`);
             setTimeout(() => setToastMsg(null), 3000);
         }
-    }, [token, fetchBookings]);
+    });
+
+    const handleReschedule = (bookingId: number, newDate: string) => {
+        rescheduleMutation.mutate({ bookingId, newDate });
+    };
 
     const filteredBookings = useMemo(() => {
-        if (filter === 'pending') return bookings.filter(b => !b.hasOrder);
-        if (filter === 'done') return bookings.filter(b => b.hasOrder);
+        if (filter === 'pending') return bookings.filter((b: any) => !b.hasOrder);
+        if (filter === 'done') return bookings.filter((b: any) => b.hasOrder);
         return bookings;
     }, [bookings, filter]);
 
-    const pendingCount = bookings.filter(b => !b.hasOrder).length;
-    const doneCount = bookings.filter(b => b.hasOrder).length;
+    const pendingCount = useMemo(() => bookings.filter((b: any) => !b.hasOrder).length, [bookings]);
+    const doneCount = useMemo(() => bookings.filter((b: any) => b.hasOrder).length, [bookings]);
 
-    if (loading) {
+    if (isLoading) {
         return (
             <DashboardLayout title="Quản lý đặt lịch" subtitle="Lịch hẹn từ khách hàng đặt online">
                 <div className="flex items-center justify-center h-64">

@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { Search, Save, RefreshCw, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 type Product = {
     id: number;
@@ -50,41 +51,36 @@ function ConfigurationContent() {
 }
 
 function NotificationConfigTab({ token }: { token?: string }) {
+    const queryClient = useQueryClient();
     const [configs, setConfigs] = useState<Record<string, string>>({});
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-    useEffect(() => {
-        if (!token) return;
-        loadConfigs();
-    }, [token]);
+    const { data: initialConfigs, isLoading: loading } = useQuery<Record<string, string>>({
+        queryKey: ['config'],
+        queryFn: () => api.get('/config', token),
+        enabled: !!token
+    });
 
-    const loadConfigs = async () => {
-        if (!token) return;
-        setLoading(true);
-        try {
-            const res = await api.get('/config', token);
-            setConfigs(res || {});
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
+    // Sync local state when query finishes
+    useEffect(() => {
+        if (initialConfigs) {
+            setConfigs(initialConfigs);
         }
-    };
+    }, [initialConfigs]);
+
+    const saveMutation = useMutation({
+        mutationFn: (newConfigs: Record<string, string>) => api.post('/config', newConfigs, token as string),
+        onSuccess: () => {
+            setMessage({ type: 'success', text: 'Đã lưu cấu hình thông báo' });
+            queryClient.invalidateQueries({ queryKey: ['config'] });
+        },
+        onError: () => {
+            setMessage({ type: 'error', text: 'Lỗi khi lưu cấu hình' });
+        }
+    });
 
     const handleSave = async () => {
-        if (!token) return;
-        setSaving(true);
-        setMessage(null);
-        try {
-            await api.post('/config', configs, token);
-            setMessage({ type: 'success', text: 'Đã lưu cấu hình thông báo' });
-        } catch (e) {
-            setMessage({ type: 'error', text: 'Lỗi khi lưu cấu hình' });
-        } finally {
-            setSaving(false);
-        }
+        saveMutation.mutate(configs);
     };
 
     const handleChange = (key: string, value: string) => {
@@ -92,6 +88,7 @@ function NotificationConfigTab({ token }: { token?: string }) {
     };
 
     if (loading) return <div className="p-8 text-center text-slate-500 dark:text-slate-400">Đang tải cấu hình...</div>;
+    const saving = saveMutation.isPending;
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 space-y-6 transition-colors">

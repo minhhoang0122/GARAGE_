@@ -5,23 +5,35 @@ import { Search, Info, Tag, Clock, ArrowRight, ArrowLeft, Wrench, FileText, Chec
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSSEContext } from '@/modules/common/contexts/SSEContext';
 
 export default function ServicesPage() {
-    const [services, setServices] = useState<any[]>([]);
     const [search, setSearch] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
+    const { addListener, removeListener } = useSSEContext();
 
+    const { data: services = [], isLoading } = useQuery({
+        queryKey: ['public-services'],
+        queryFn: () => api.getCached('/public/services'),
+        staleTime: 1000 * 60 * 5, // Cache for 5 mins
+    });
+
+    // SSE Listener để đồng bộ bảng giá khi Admin cập nhật
     useEffect(() => {
-        setIsLoading(true);
-        api.getCached('/public/services')
-            .then(data => {
-                setServices(data || []);
-            })
-            .catch(err => console.error('Error fetching services:', err))
-            .finally(() => setIsLoading(false));
-    }, []);
+        const handleRefresh = (data: any) => {
+            console.log('[Public SSE] Services/Inventory Update received:', data);
+            queryClient.invalidateQueries({ queryKey: ['public-services'] });
+        };
 
-    const filteredServices = services.filter(s =>
+        addListener('inventory_updated', handleRefresh);
+
+        return () => {
+            removeListener('inventory_updated', handleRefresh);
+        };
+    }, [addListener, removeListener, queryClient]);
+
+    const filteredServices = services.filter((s: any) =>
         s?.tenHang?.toLowerCase().includes(search.toLowerCase())
     );
 
@@ -108,7 +120,7 @@ export default function ServicesPage() {
                                         Dịch vụ phổ biến nhất
                                     </h3>
                                     <div className="grid lg:grid-cols-2 gap-8">
-                                        {filteredServices.slice(0, 2).map((s, idx) => (
+                                        {filteredServices.slice(0, 2).map((s: any, idx: number) => (
                                             <motion.div 
                                                 key={`featured-${idx}`}
                                                 initial={{ opacity: 0, x: idx === 0 ? -20 : 20 }}
@@ -148,7 +160,7 @@ export default function ServicesPage() {
                                     className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
                                 >
                                     {filteredServices.length > 0 ? (
-                                        filteredServices.map((s, idx) => (
+                                        filteredServices.map((s: any, idx: number) => (
                                             <motion.div key={idx} variants={itemVariants} className="bg-white border-2 border-transparent hover:border-stone-800 transition-all duration-300 shadow-sm hover:shadow-xl group relative overflow-hidden flex flex-col">
                                                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform duration-500 pointer-events-none">
                                                     <Settings size={80} className="rotate-45" />

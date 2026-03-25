@@ -20,20 +20,33 @@ public class MechanicController {
         this.mechanicService = mechanicService;
     }
 
+    private Integer extractUserId(Object principal) {
+        if (principal instanceof Integer) {
+            return (Integer) principal;
+        } else if (principal instanceof User) {
+            return ((User) principal).getId();
+        } else if (principal != null) {
+            try {
+                return Integer.parseInt(principal.toString());
+            } catch (NumberFormatException ignored) {}
+        }
+        throw new RuntimeException("Unauthorized: Không tìm thấy thông tin định danh người dùng.");
+    }
+
     @GetMapping("/jobs")
-    public ResponseEntity<?> getAssignedJobs(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(mechanicService.getAssignedJobs(user.getId()));
+    public ResponseEntity<?> getAssignedJobs(@AuthenticationPrincipal Object principal) {
+        return ResponseEntity.ok(mechanicService.getAssignedJobs(extractUserId(principal)));
     }
 
     @GetMapping("/jobs/history")
-    public ResponseEntity<?> getRepairHistory(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(mechanicService.getRepairHistory(user.getId()));
+    public ResponseEntity<?> getRepairHistory(@AuthenticationPrincipal Object principal) {
+        return ResponseEntity.ok(mechanicService.getRepairHistory(extractUserId(principal)));
     }
 
     @PostMapping("/jobs/{id}/claim")
-    public ResponseEntity<?> claimJob(@PathVariable Integer id, @AuthenticationPrincipal User user) {
+    public ResponseEntity<?> claimJob(@PathVariable Integer id, @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.claimJob(id, user.getId());
+            mechanicService.claimJob(id, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -41,10 +54,20 @@ public class MechanicController {
     }
 
     @PostMapping("/jobs/{id}/unclaim")
-    public ResponseEntity<?> unclaimJob(@PathVariable Integer id, @AuthenticationPrincipal com.gara.entity.User user) {
+    public ResponseEntity<?> unclaimJob(@PathVariable Integer id, @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.unclaimJob(id, user.getId());
+            mechanicService.unclaimJob(id, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/jobs/{id}/submit-assignments")
+    public ResponseEntity<?> submitAssignments(@PathVariable Integer id, @AuthenticationPrincipal Object principal) {
+        try {
+            mechanicService.submitAssignments(id, extractUserId(principal));
+            return ResponseEntity.ok(Map.of("success", true, "message", "Đã xác nhận phân công. Thợ sẽ nhận thông báo."));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
         }
@@ -53,9 +76,32 @@ public class MechanicController {
     @PostMapping("/jobs/{id}/assign")
     public ResponseEntity<?> assignJob(@PathVariable Integer id,
             @RequestParam Integer mechanicId,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.assignJob(id, mechanicId, user.getId());
+            mechanicService.assignJob(id, mechanicId, extractUserId(principal));
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/items/{itemId}/assign-direct")
+    public ResponseEntity<?> adminAssignItem(@PathVariable Integer itemId,
+            @RequestParam Integer mechanicId,
+            @AuthenticationPrincipal Object principal) {
+        try {
+            mechanicService.adminAssignItem(itemId, mechanicId, extractUserId(principal));
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/items/assign-direct/{taskId}")
+    public ResponseEntity<?> adminUnassignItem(@PathVariable Integer taskId,
+            @AuthenticationPrincipal Object principal) {
+        try {
+            mechanicService.adminUnassignItem(taskId, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -63,15 +109,15 @@ public class MechanicController {
     }
 
     @GetMapping("/mechanics")
-    public ResponseEntity<?> getAvailableMechanics(@AuthenticationPrincipal User user) {
+    public ResponseEntity<?> getAvailableMechanics(@AuthenticationPrincipal Object principal) {
         return ResponseEntity.ok(mechanicService.getAvailableMechanics());
     }
 
     @PostMapping("/items/{itemId}/toggle")
     public ResponseEntity<?> toggleItemCompletion(@PathVariable Integer itemId,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.toggleItemCompletion(itemId, user.getId());
+            mechanicService.toggleItemCompletion(itemId, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -109,15 +155,15 @@ public class MechanicController {
     }
 
     @GetMapping("/inspect/history")
-    public ResponseEntity<?> getInspectedHistory(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(mechanicService.getInspectedHistory(user.getId()));
+    public ResponseEntity<?> getInspectedHistory(@AuthenticationPrincipal Object principal) {
+        return ResponseEntity.ok(mechanicService.getInspectedHistory(extractUserId(principal)));
     }
 
     @PostMapping("/inspect/{id}/proposal")
     public ResponseEntity<?> submitProposal(@PathVariable Integer id, @RequestBody List<ProposalItemDTO> items,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.submitProposal(id, items, user.getId());
+            mechanicService.submitProposal(id, items, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -126,9 +172,9 @@ public class MechanicController {
 
     @PostMapping("/jobs/{id}/report-issue")
     public ResponseEntity<?> reportIssue(@PathVariable Integer id, @RequestBody List<ProposalItemDTO> items,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.reportTechnicalIssue(id, items, user.getId());
+            mechanicService.reportTechnicalIssue(id, items, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -142,9 +188,9 @@ public class MechanicController {
 
     @PostMapping("/jobs/{id}/confirm-technical")
     public ResponseEntity<?> confirmTechnicalIssue(@PathVariable Integer id, @RequestBody List<Integer> itemIds,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.confirmTechnicalIssue(id, itemIds, user.getId());
+            mechanicService.confirmTechnicalIssue(id, itemIds, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -162,9 +208,9 @@ public class MechanicController {
     }
 
     @PostMapping("/jobs/{id}/qc-pass")
-    public ResponseEntity<?> qcPass(@PathVariable Integer id, @AuthenticationPrincipal User user) {
+    public ResponseEntity<?> qcPass(@PathVariable Integer id, @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.qcPass(id, user.getId());
+            mechanicService.qcPass(id, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -172,9 +218,9 @@ public class MechanicController {
     }
 
     @PostMapping("/jobs/{id}/qc-fail")
-    public ResponseEntity<?> qcFail(@PathVariable Integer id, @AuthenticationPrincipal User user) {
+    public ResponseEntity<?> qcFail(@PathVariable Integer id, @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.qcFail(id, user.getId());
+            mechanicService.qcFail(id, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -185,9 +231,9 @@ public class MechanicController {
 
     @PostMapping("/items/{itemId}/join")
     public ResponseEntity<?> requestJoinTask(@PathVariable Integer itemId,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.requestJoinTask(itemId, user.getId());
+            mechanicService.requestJoinTask(itemId, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -196,9 +242,9 @@ public class MechanicController {
 
     @PostMapping("/assignments/{id}/approve")
     public ResponseEntity<?> approveJoinTask(@PathVariable Integer id,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.approveJoinTask(id, user.getId());
+            mechanicService.approveJoinTask(id, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -208,9 +254,9 @@ public class MechanicController {
     @PostMapping("/items/{itemId}/distribution")
     public ResponseEntity<?> updateTaskDistribution(@PathVariable Integer itemId,
             @RequestBody Map<Integer, java.math.BigDecimal> distribution,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.updateTaskDistribution(itemId, distribution, user.getId());
+            mechanicService.updateTaskDistribution(itemId, distribution, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -221,8 +267,8 @@ public class MechanicController {
     public ResponseEntity<?> updateItemMaxMechanics(
             @PathVariable Integer itemId,
             @RequestParam Integer limit,
-            @AuthenticationPrincipal User user) {
-        mechanicService.updateItemMaxMechanics(itemId, limit, user.getId());
+            @AuthenticationPrincipal Object principal) {
+        mechanicService.updateItemMaxMechanics(itemId, limit, extractUserId(principal));
         return ResponseEntity.ok(Map.of("success", true, "message", "Updated max mechanics limit."));
     }
 
@@ -230,8 +276,8 @@ public class MechanicController {
     public ResponseEntity<?> updateItemMaxMechanicsV2(
             @PathVariable Integer itemId,
             @RequestParam Integer limit,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal User user) {
-        mechanicService.updateItemMaxMechanics(itemId, limit, user.getId());
+            @org.springframework.security.core.annotation.AuthenticationPrincipal Object principal) {
+        mechanicService.updateItemMaxMechanics(itemId, limit, extractUserId(principal));
         return ResponseEntity.ok(Map.of("success", true, "message", "Updated max mechanics limit."));
     }
 }

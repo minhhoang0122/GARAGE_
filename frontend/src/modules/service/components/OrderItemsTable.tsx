@@ -1,14 +1,14 @@
 'use client';
 
-import { OrderDetailItem, updateOrderItem, removeOrderItem, toggleItemStatus } from '@/modules/service/order';
+import { OrderDetailItem, updateOrderItem, removeOrderItem } from '@/modules/service/order';
 import { Trash2, Check, X, ChevronRight, Save, Loader2, ShieldCheck } from 'lucide-react';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { useToast } from '@/contexts/ToastContext';
-import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import { useOrderWorkspaceOptional } from './OrderWorkspaceProvider';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface OrderItemsTableProps {
     items: OrderDetailItem[];
@@ -17,23 +17,43 @@ interface OrderItemsTableProps {
     token?: string;
 }
 
-/**
- * OrderItemsTable Ver 3.0 - Pixel Perfect & Global Edit
- * - Giao diện rộng rãi (min-w-1200px) đảm bảo không bị "nuốt" cột.
- * - Chế độ chỉnh sửa tập trung (Global Edit) giúp quản lý báo giá chuyên nghiệp.
- * - Cột Xóa Sticky với hiệu ứng Glassmorphism tinh tế.
- */
 export default function OrderItemsTable({ items: serverItems, orderId, readOnly = false, token }: OrderItemsTableProps) {
+    const queryClient = useQueryClient();
     const workspace = useOrderWorkspaceOptional();
     const displayItems = workspace ? workspace.items : serverItems;
     const router = useRouter();
     const confirm = useConfirm();
     const { showToast } = useToast();
     const [isGlobalEditing, setIsGlobalEditing] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
 
     // Chứa dữ liệu thay đổi tạm thời: { [itemId]: { quantity, discountPercent } }
     const [editData, setEditData] = useState<Record<string, { quantity: number; discountPercent: number }>>({});
+
+    const saveItemsMutation = useMutation({
+        mutationFn: async () => {
+            const updatePromises = Object.entries(editData).map(([id, data]) => {
+                const originalItem = displayItems.find(i => i.id.toString() === id);
+                return updateOrderItem(Number(id), { 
+                    ...data, 
+                    version: originalItem?.version 
+                });
+            });
+            return Promise.all(updatePromises);
+        },
+        onSuccess: () => {
+            showToast('success', 'Đã lưu tất cả thay đổi');
+            setIsGlobalEditing(false);
+            setEditData({});
+            queryClient.invalidateQueries({ queryKey: ['order', orderId] });
+            queryClient.invalidateQueries({ queryKey: ['sale'] });
+            router.refresh();
+        },
+        onError: () => {
+            showToast('error', 'Có lỗi khi lưu thay đổi hàng loạt');
+        }
+    });
+
+    const isSaving = saveItemsMutation.isPending;
 
     const handleUpdateLocal = (id: number, field: 'quantity' | 'discountPercent', value: number) => {
         const idKey = id.toString();
@@ -49,23 +69,7 @@ export default function OrderItemsTable({ items: serverItems, orderId, readOnly 
         });
     };
 
-    const handleSaveAll = async () => {
-        setIsSaving(true);
-        try {
-            const updatePromises = Object.entries(editData).map(([id, data]) => 
-                updateOrderItem(Number(id), data)
-            );
-            await Promise.all(updatePromises);
-            showToast('success', 'Đã lưu tất cả thay đổi');
-            setIsGlobalEditing(false);
-            setEditData({});
-            router.refresh();
-        } catch (error) {
-            showToast('error', 'Có lỗi khi lưu thay đổi hàng loạt');
-        } finally {
-            setIsSaving(false);
-        }
-    };
+    const handleSaveAll = () => saveItemsMutation.mutate();
 
     const handleCancel = () => {
         setEditData({});
@@ -132,18 +136,18 @@ export default function OrderItemsTable({ items: serverItems, orderId, readOnly 
 
             {/* Table Container - Extreme Space Optimization */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden text-[13px]">
-                <div className="overflow-x-auto custom-scrollbar">
-                    <table className="data-table w-full text-left min-w-[850px] table-fixed">
+                <div className="w-full">
+                    <table className="data-table w-full text-left">
                         <thead>
-                            <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                                <th className="w-[50px] px-4 py-3.5 !text-center">
-                                    <div className="w-3 h-3 rounded border border-slate-300 dark:border-slate-600 mx-auto" />
+                            <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 font-bold">
+                                <th className="w-[45px] px-1 py-3.5 !text-center">
+                                    <div className="w-4 h-4 rounded border-2 border-slate-400 dark:border-slate-500 mx-auto" />
                                 </th>
-                                <th className="pl-6 pr-4 py-3.5 text-[10px] font-black text-slate-400 uppercase !text-left">Hạng mục</th>
-                                <th className="w-[70px] px-4 py-3.5 !text-right text-[10px] font-black text-slate-400 uppercase">SL</th>
-                                <th className="w-[150px] px-4 py-3.5 !text-right text-[10px] font-black text-slate-400 uppercase">Đơn giá</th>
-                                <th className="w-[180px] px-4 py-3.5 !text-right text-[10px] font-black text-slate-400 uppercase">Thành tiền</th>
-                                <th className="w-[80px] px-4 py-3.5 !text-center text-[10px] font-black text-slate-400 uppercase">Xóa</th>
+                                <th className="pl-6 pr-4 py-3.5 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase !text-left">Hạng mục</th>
+                                <th className="w-[60px] px-2 py-3.5 !text-right text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase">SL</th>
+                                <th className="w-[140px] px-4 py-3.5 !text-right text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase">Đơn giá</th>
+                                <th className="w-[160px] px-4 py-3.5 !text-right text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase">Thành tiền</th>
+                                <th className="w-[70px] px-4 py-3.5 !text-center text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase">Xóa</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -159,6 +163,18 @@ export default function OrderItemsTable({ items: serverItems, orderId, readOnly 
                                     token={token}
                                 />
                             ))}
+                            {/* Dòng Tổng cộng chân bảng để khớp với Thanh toán */}
+                            <tr className="bg-slate-50/30 dark:bg-slate-800/20 font-black border-t-2 border-slate-100 dark:border-slate-800">
+                                <td colSpan={4} className="px-6 py-4 text-right text-slate-500 uppercase tracking-tighter text-[11px]">Tổng cộng các hạng mục đã duyệt:</td>
+                                <td className="px-4 py-4 text-right text-blue-600 dark:text-blue-400 text-lg tabular-nums">
+                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                                        displayItems
+                                            .filter(i => i.itemStatus !== 'KHACH_TU_CHOI')
+                                            .reduce((sum, i) => sum + i.total, 0)
+                                    )}
+                                </td>
+                                <td></td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -209,91 +225,123 @@ function Row({
     // Sửa dụng status từ Context nếu có
     const currentStatus = workspace ? item.itemStatus : localStatus;
 
-    const abortRef = useRef<AbortController | null>(null);
+    const queryClient = useQueryClient();
+    const statusMutation = useMutation({
+        mutationFn: async (nextStatus: string) => {
+            if (!token) throw new Error('Phiên làm việc hết hạn');
+            return api.patch(`/sale/items/${item.id}/status`, { status: nextStatus }, token);
+        },
+        onMutate: async (nextStatus) => {
+            // Cancel outgoing refetches
+            await queryClient.cancelQueries({ queryKey: ['order', orderId] });
+
+            // Snapshot previous value
+            const previousOrder = queryClient.getQueryData(['order', orderId]);
+
+            // Optimistically update
+            if (previousOrder) {
+                queryClient.setQueryData(['order', orderId], (old: any) => ({
+                    ...old,
+                    items: old.items.map((i: any) => 
+                        i.id === item.id ? { ...i, itemStatus: nextStatus } : i
+                    )
+                }));
+                // Also update local state for immediate feedback if not using workspace
+                if (!workspace) setLocalStatus(nextStatus);
+            }
+
+            return { previousOrder };
+        },
+        onError: (err: any, nextStatus, context) => {
+            if (context?.previousOrder) {
+                queryClient.setQueryData(['order', orderId], context.previousOrder);
+            }
+            if (!workspace && context?.previousOrder) {
+                const oldItem = (context.previousOrder as any).items.find((i: any) => i.id === item.id);
+                if (oldItem) setLocalStatus(oldItem.itemStatus);
+            }
+            showToast('error', err.message || 'Đồng bộ trạng thái thất bại');
+        },
+        onSuccess: (_, nextStatus) => {
+            if (workspace) {
+                workspace.updateItemStatusLocal(item.id, nextStatus);
+            }
+            setLastServerStatus(nextStatus);
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['order', orderId] });
+            queryClient.invalidateQueries({ queryKey: ['sale'] });
+            router.refresh();
+        }
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: () => removeOrderItem(item.id),
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: ['order', orderId] });
+            const previousOrder = queryClient.getQueryData(['order', orderId]);
+
+            if (previousOrder) {
+                queryClient.setQueryData(['order', orderId], (old: any) => ({
+                    ...old,
+                    items: old.items.filter((i: any) => i.id !== item.id)
+                }));
+            }
+
+            return { previousOrder };
+        },
+        onError: (err: any, variables, context) => {
+            if (context?.previousOrder) {
+                queryClient.setQueryData(['order', orderId], context.previousOrder);
+            }
+            showToast('error', 'Lỗi khi xóa hạng mục');
+        },
+        onSuccess: () => {
+            showToast('success', 'Đã xóa hạng mục');
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['order', orderId] });
+            queryClient.invalidateQueries({ queryKey: ['sale'] });
+            router.refresh();
+        }
+    });
 
     const isRejected = currentStatus === 'KHACH_TU_CHOI';
-    const isApproved = currentStatus !== 'KHACH_TU_CHOI'; // Hiển thị checked cho cả DE_XUAT và KHACH_DONG_Y
+    const isApproved = currentStatus !== 'KHACH_TU_CHOI';
+    const isOutOfStock = !item.isService && item.stock <= 0;
+
+    // Chỉ ẩn checkbox cho SALE, các role kỹ thuật/quản lý bảo trì box để duyệt
+    const isSale = item.proposedByRole?.toUpperCase().includes('SALE') || 
+                  item.proposedByName?.toLowerCase().includes('sale');
 
     const formatCurrency = (val: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
     return (
-        <tr className={`group transition-all hover:bg-slate-50/80 dark:hover:bg-slate-800/50 ${isRejected ? 'opacity-40' : ''}`}>
+        <tr className={`group transition-all hover:bg-slate-50/80 dark:hover:bg-slate-800/50 ${isRejected ? 'opacity-40' : ''} ${isOutOfStock ? 'bg-red-50/30 dark:bg-red-900/5' : ''}`}>
             {/* 1. Tuyển chọn */}
-            <td className="px-4 py-3.5 w-[50px] text-center">
+            <td className="px-4 py-3.5 w-[45px] text-center">
+                {!isSale ? (
                 <button
-                    disabled={readOnly}
+                    disabled={readOnly || isOutOfStock || statusMutation.isPending}
                     onClick={() => {
-                        if (readOnly) return;
-                        
-                        // 1. UI update NGAY LẬP TỨC 
-                        const prevStatus = currentStatus;
+                        if (readOnly || isOutOfStock) return;
                         const nextStatus = currentStatus === 'KHACH_TU_CHOI' ? 'KHACH_DONG_Y' : 'KHACH_TU_CHOI';
-                        
-                        // Cập nhật Workspace Context hoặc Local State fallback
-                        if (workspace) {
-                            workspace.updateItemStatusLocal(item.id, nextStatus);
-                        } else {
-                            setLocalStatus(nextStatus);
-                        }
-                        
-                        // Cập nhật mốc server giả định trước để lúc render nó không bị đè về trạng thái cũ 
-                        // trong khi chờ router.refresh() (đợi ~500ms -> 1s).
-                        setLastServerStatus(nextStatus);
-
-                        // 2. Hủy request cũ nếu click quá nhanh
-                        if (abortRef.current) {
-                            abortRef.current.abort();
-                        }
-                        const controller = new AbortController();
-                        abortRef.current = controller;
- 
-                        // 3. Chuẩn bị hàm gọi API cập nhật
-                        if (!token) {
-                            showToast('error', 'Phiên làm việc hết hạn. Vui lòng tải lại trang.');
-                            if (workspace) workspace.updateItemStatusLocal(item.id, prevStatus);
-                            else setLocalStatus(prevStatus);
-                            setLastServerStatus(prevStatus);
-                            return;
-                        }
-
-                        const executeUpdate = async () => {
-                            try {
-                                await api.patch(`/sale/items/${item.id}/status`, { status: nextStatus }, token, controller.signal);
-                            } catch (err: any) {
-                                if (err.name === 'AbortError') return;
-                                
-                                // Lỗi thật: Rollback
-                                if (workspace) {
-                                    workspace.updateItemStatusLocal(item.id, prevStatus);
-                                } else {
-                                    setLocalStatus(prevStatus);
-                                }
-                                setLastServerStatus(prevStatus);
-                                showToast('error', 'Đồng bộ trạng thái thất bại');
-                                throw err; // Re-throw để startCalculation biết là fail
-                            }
-                        };
-
-                        // 4. Nếu có workspace context, uỷ quyền cho workspace hiển thị loading ở Summary và refresh state
-                        if (workspace) {
-                            workspace.startCalculation(executeUpdate);
-                        } else {
-                            // Fallback khi không có workspace
-                            executeUpdate().catch(() => {});
-                        }
+                        statusMutation.mutate(nextStatus);
                     }}
-                    title={isApproved ? "Bỏ duyệt" : "Duyệt hạng mục"}
-                    className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
+                    title={isOutOfStock ? "Hết hàng trong kho" : isApproved ? "Bỏ duyệt" : "Duyệt hạng mục"}
+                    className={`p-1 rounded-md transition-colors ${isOutOfStock ? 'cursor-not-allowed opacity-50' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                 >
                     <div 
-                        className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 
-                        ${isApproved ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'}
+                        className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-200 
+                        ${isApproved ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-400 dark:border-slate-500 bg-white dark:bg-slate-900'}
+                        ${isOutOfStock ? 'border-red-300 dark:border-red-800' : ''}
                         hover:scale-105 shadow-sm`}
                     >
                         {isApproved ? <Check className="w-3 h-3 stroke-[3]" /> : null}
                     </div>
                 </button>
+                ) : null}
             </td>
 
             {/* 2. Thông tin */}
@@ -313,6 +361,11 @@ function Row({
                     <span className={`text-[9px] font-bold px-1 py-0.5 rounded uppercase shrink-0 ${item.isService ? 'text-blue-600 bg-blue-50' : 'text-emerald-600 bg-emerald-50'}`}>
                         {item.isService ? 'DV' : 'PT'}
                     </span>
+                    {isOutOfStock && (
+                        <span className="text-[9px] font-bold px-1 py-0.5 bg-red-100 text-red-600 rounded uppercase animate-pulse">
+                            HẾT KHO
+                        </span>
+                    )}
                 </div>
                 {item.proposedByName && (
                     <div className="text-[10px] text-slate-400 italic flex items-center gap-1 mb-1">
@@ -393,7 +446,7 @@ function Row({
 
             {/* 8. Action Xóa */}
             <td className="px-4 py-3.5 w-[80px] text-center">
-                {!readOnly && (
+                {!readOnly && item.proposedByRole === 'SALE' && (
                     <button
                         onClick={async () => {
                             const confirmed = await confirm({
@@ -403,14 +456,9 @@ function Row({
                                 confirmText: 'Xóa'
                             });
                             if (!confirmed) return;
-                            try {
-                                await removeOrderItem(item.id);
-                                showToast('success', 'Đã xóa hạng mục');
-                                router.refresh();
-                            } catch (e) {
-                                showToast('error', 'Lỗi khi xóa hạng mục');
-                            }
+                            deleteMutation.mutate();
                         }}
+                        disabled={deleteMutation.isPending}
                         className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all active:scale-90"
                         title="Xóa hạng mục"
                     >

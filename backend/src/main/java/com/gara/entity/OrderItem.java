@@ -14,6 +14,10 @@ public class OrderItem {
     @Column(name = "id")
     private Integer id;
 
+    @Version
+    @Column(name = "version")
+    private Integer version;
+
     @Column(name = "so_luong", nullable = false)
     private Integer soLuong;
 
@@ -41,6 +45,9 @@ public class OrderItem {
     @Column(name = "ly_do_chinh_gia", length = 200)
     private String lyDoChinhGia;
 
+    @Column(name = "ghi_chu", length = 500)
+    private String ghiChu;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "trang_thai", length = 20)
     private ItemStatus trangThai = ItemStatus.DE_XUAT; // DE_XUAT, KHACH_DONG_Y, KHACH_TU_CHOI
@@ -59,6 +66,12 @@ public class OrderItem {
 
     @Column(name = "so_luong_tho_toi_da")
     private Integer soLuongThoToiDa = 4;
+
+    @Column(name = "la_phat_sinh")
+    private Boolean laPhatSinh = false;
+
+    @Column(name = "ngay_de_xuat")
+    private java.time.LocalDateTime ngayDeXuat;
 
     // Foreign Keys
     @Column(name = "don_hang_sua_chua_id", insertable = false, updatable = false)
@@ -98,10 +111,11 @@ public class OrderItem {
 
     public OrderItem(Integer id, Integer soLuong, BigDecimal donGiaGoc, BigDecimal giamGiaTien,
             BigDecimal giamGiaPhanTram, BigDecimal thanhTien, BigDecimal vatPhanTram, BigDecimal tienThue,
-            Integer uuTien, String lyDoChinhGia, ItemStatus trangThai,
+            Integer uuTien, String lyDoChinhGia, ItemStatus trangThai, String ghiChu,
             Boolean laHangBaoHanh, String ghiChuBaoHanh, Boolean daHoanThanh, Integer soLuongThoToiDa,
             Integer donHangSuaChuaId, Integer hangHoaId, RepairOrder donHangSuaChua, Product hangHoa,
-            Integer nguoiThucHienId, User nguoiThucHien, List<TaskAssignment> phanCongTho) {
+            Integer nguoiThucHienId, User nguoiThucHien, List<TaskAssignment> phanCongTho,
+            Boolean laPhatSinh, java.time.LocalDateTime ngayDeXuat, User nguoiDeXuat) {
         this.id = id;
         this.soLuong = soLuong;
         this.donGiaGoc = donGiaGoc;
@@ -112,6 +126,7 @@ public class OrderItem {
         this.tienThue = tienThue != null ? tienThue : BigDecimal.ZERO;
         this.uuTien = uuTien != null ? uuTien : 0;
         this.lyDoChinhGia = lyDoChinhGia;
+        this.ghiChu = ghiChu;
         this.trangThai = trangThai != null ? trangThai : ItemStatus.DE_XUAT;
         this.laHangBaoHanh = laHangBaoHanh != null ? laHangBaoHanh : false;
         this.ghiChuBaoHanh = ghiChuBaoHanh;
@@ -124,6 +139,17 @@ public class OrderItem {
         this.nguoiThucHienId = nguoiThucHienId;
         this.nguoiThucHien = nguoiThucHien;
         this.phanCongTho = phanCongTho;
+        this.laPhatSinh = laPhatSinh != null ? laPhatSinh : false;
+        this.ngayDeXuat = ngayDeXuat;
+        this.nguoiDeXuat = nguoiDeXuat;
+    }
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
     }
 
     public Integer getId() {
@@ -204,6 +230,14 @@ public class OrderItem {
 
     public void setLyDoChinhGia(String lyDoChinhGia) {
         this.lyDoChinhGia = lyDoChinhGia;
+    }
+
+    public String getGhiChu() {
+        return ghiChu;
+    }
+
+    public void setGhiChu(String ghiChu) {
+        this.ghiChu = ghiChu;
     }
 
     public ItemStatus getTrangThai() {
@@ -326,6 +360,22 @@ public class OrderItem {
         this.nguoiDeXuat = nguoiDeXuat;
     }
 
+    public Boolean getLaPhatSinh() {
+        return laPhatSinh != null ? laPhatSinh : false;
+    }
+
+    public void setLaPhatSinh(Boolean laPhatSinh) {
+        this.laPhatSinh = laPhatSinh;
+    }
+
+    public java.time.LocalDateTime getNgayDeXuat() {
+        return ngayDeXuat;
+    }
+
+    public void setNgayDeXuat(java.time.LocalDateTime ngayDeXuat) {
+        this.ngayDeXuat = ngayDeXuat;
+    }
+
     public static OrderItemBuilder builder() {
         return new OrderItemBuilder();
     }
@@ -341,6 +391,7 @@ public class OrderItem {
         private BigDecimal tienThue = BigDecimal.ZERO;
         private Integer uuTien = 0;
         private String lyDoChinhGia;
+        private String ghiChu;
         private ItemStatus trangThai = ItemStatus.DE_XUAT;
         private Boolean laHangBaoHanh = false;
         private String ghiChuBaoHanh;
@@ -404,6 +455,11 @@ public class OrderItem {
             return this;
         }
 
+        public OrderItemBuilder ghiChu(String ghiChu) {
+            this.ghiChu = ghiChu;
+            return this;
+        }
+
         public OrderItemBuilder trangThai(ItemStatus trangThai) {
             this.trangThai = trangThai;
             return this;
@@ -464,10 +520,30 @@ public class OrderItem {
             return this;
         }
 
+        private User nguoiDeXuat;
+        private Boolean laPhatSinh = false;
+        private java.time.LocalDateTime ngayDeXuat;
+
+        public OrderItemBuilder nguoiDeXuat(User nguoiDeXuat) {
+            this.nguoiDeXuat = nguoiDeXuat;
+            return this;
+        }
+
+        public OrderItemBuilder laPhatSinh(Boolean laPhatSinh) {
+            this.laPhatSinh = laPhatSinh;
+            return this;
+        }
+
+        public OrderItemBuilder ngayDeXuat(java.time.LocalDateTime ngayDeXuat) {
+            this.ngayDeXuat = ngayDeXuat;
+            return this;
+        }
+
         public OrderItem build() {
             return new OrderItem(id, soLuong, donGiaGoc, giamGiaTien, giamGiaPhanTram, thanhTien, vatPhanTram, tienThue,
-                    uuTien, lyDoChinhGia, trangThai, laHangBaoHanh, ghiChuBaoHanh, daHoanThanh, soLuongThoToiDa,
-                    donHangSuaChuaId, hangHoaId, donHangSuaChua, hangHoa, nguoiThucHienId, nguoiThucHien, phanCongTho);
+                    uuTien, lyDoChinhGia, trangThai, ghiChu, laHangBaoHanh, ghiChuBaoHanh, daHoanThanh, soLuongThoToiDa,
+                    donHangSuaChuaId, hangHoaId, donHangSuaChua, hangHoa, nguoiThucHienId, nguoiThucHien, phanCongTho,
+                    laPhatSinh, ngayDeXuat, nguoiDeXuat);
         }
     }
 }

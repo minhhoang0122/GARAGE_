@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import Link from 'next/link';
 import { FileText, ArrowRight, ShieldCheck } from 'lucide-react';
@@ -11,97 +12,53 @@ import { formatCurrency } from '@/lib/utils';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { SearchInput } from '@/modules/shared/components/ui/search-input';
 
+import { useQuery } from '@tanstack/react-query';
+
 export default function OrderListPage() {
     const { data: session } = useSession();
     const router = useRouter();
     const searchParams = useSearchParams();
     const pathname = usePathname();
 
-    const [orders, setOrders] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
     // Filter state
-    const filter = searchParams.get('filter') || 'ALL';
     const keyword = searchParams.get('q') || '';
 
-    useEffect(() => {
-        const fetchOrders = async () => {
-            setLoading(true);
-            try {
-                // @ts-ignore
-                const token = session?.user?.accessToken;
-                if (!token) return;
-
-                let endpoint = '/sale/orders';
-                const queryParams = new URLSearchParams();
-
-                if (filter === 'WARRANTY') {
-                    queryParams.set('status', 'WARRANTY');
-                }
-
-                // If backend supports searching in the same API, add 'q'
-                // Currently backend getOrders(statusFilter) handles status.
-                // We might need to filter 'q' locally if backend doesn't support it yet.
-
-                const res = await api.get(`${endpoint}?${queryParams.toString()}`, token);
-                setOrders(res || []);
-            } catch (e) {
-                console.error('Failed to fetch orders', e);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (session) {
-            fetchOrders();
-        }
-    }, [session, filter]);
-
-    // Update URL when filter changes
-    const setFilter = (newFilter: string) => {
-        const params = new URLSearchParams(searchParams);
-        if (newFilter === 'ALL') params.delete('filter');
-        else params.set('filter', newFilter);
-        router.replace(`${pathname}?${params.toString()}`);
-    };
+    const { data: orders = [], isLoading: loading } = useQuery({
+        queryKey: ['sale', 'orders'],
+        queryFn: async () => {
+            let endpoint = '/sale/orders';
+            return api.get(endpoint, token);
+        },
+        enabled: !!token
+    });
 
     // Local Search
-    const filteredOrders = orders.filter(o =>
+    const filteredOrders = orders.filter((o: any) =>
         o.plate?.toLowerCase().includes(keyword.toLowerCase()) ||
         o.customerName?.toLowerCase().includes(keyword.toLowerCase())
     );
 
+    const parentRef = useRef<HTMLDivElement>(null);
+
+    const rowVirtualizer = useVirtualizer({
+        count: filteredOrders.length,
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => 72,
+        overscan: 5,
+    });
+
     return (
-        <DashboardLayout title="Danh sách đơn hàng" subtitle="Quản lý tất cả đơn hàng và bảo hành">
+        <DashboardLayout title="Danh sách đơn hàng" subtitle="Hệ thống quản lý chi tiết các đơn hàng dịch vụ">
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
                 {/* Tools Bar */}
                 <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row gap-4 justify-between items-center">
-
-                    {/* Search */}
                     {/* Search */}
                     <SearchInput
                         placeholder="Tìm theo biển số, tên KH..."
                     />
-
-                    {/* Filter Buttons */}
-                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                        <button
-                            onClick={() => setFilter('ALL')}
-                            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${filter === 'ALL'
-                                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                        >
-                            Tất cả
-                        </button>
-                        <button
-                            onClick={() => setFilter('WARRANTY')}
-                            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${filter === 'WARRANTY'
-                                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm border-l-4 border-l-slate-900'
-                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                        >
-                            <ShieldCheck className="w-4 h-4" /> Còn bảo hành
-                        </button>
-                    </div>
                 </div>
 
                 {loading ? (
@@ -116,63 +73,88 @@ export default function OrderListPage() {
                     </div>
                 ) : (
                     <>
-                        {/* Desktop Table */}
-                        <div className="hidden md:block overflow-x-auto">
-                            <table className="data-table w-full text-left min-w-[800px] table-fixed">
-                                <thead>
-                                    <tr className="bg-stone-100 dark:bg-slate-900 border-b border-stone-200 dark:border-slate-800 text-[10px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-widest transition-colors">
-                                        <th className="w-[80px] px-3 py-4 !text-left">Mã đơn</th>
-                                        <th className="w-[110px] px-3 py-4 !text-left">Thời gian</th>
-                                        <th className="w-[120px] px-3 py-4 !text-left">Biển số</th>
-                                        <th className="px-3 py-4 !text-left">Khách hàng</th>
-                                        <th className="w-[150px] px-3 py-4 !text-left">Trạng thái</th>
-                                        <th className="w-[140px] px-3 py-4 !text-right">Tổng tiền</th>
-                                        <th className="w-[140px] px-3 py-4 !text-right">Còn nợ</th>
-                                        <th className="w-[80px] px-3 py-4 !text-right">Chi tiết</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white dark:bg-transparent">
-                                    {filteredOrders.map((order: any) => (
-                                        <tr key={order.id} className="hover:bg-amber-50/50 dark:hover:bg-slate-800/40 transition-colors group">
-                                            <td className="px-3 py-4 font-bold text-blue-600 dark:text-blue-400 border-b border-stone-100 dark:border-slate-800">
-                                                #{order.id}
-                                            </td>
-                                            <td className="px-3 py-4 text-stone-600 dark:text-slate-400 border-b border-stone-100 dark:border-slate-800 tabular-nums">
-                                                {new Date(order.createdAt).toLocaleDateString('vi-VN')}
-                                                <div className="text-[10px] opacity-70 font-medium">{new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
-                                            </td>
-                                            <td className="px-3 py-4 font-black text-stone-800 dark:text-slate-100 border-b border-stone-100 dark:border-slate-800">
-                                                {order.plate}
-                                                <div className="text-[9px] font-bold opacity-50 uppercase tracking-tighter">{order.vehicleBrand} {order.vehicleModel}</div>
-                                            </td>
-                                            <td className="px-3 py-4 text-stone-900 dark:text-slate-100 border-b border-stone-100 dark:border-slate-800 font-medium">
-                                                {order.customerName}
-                                            </td>
-                                            <td className="px-3 py-4 border-b border-stone-100 dark:border-slate-800">
-                                                {getStatusBadge(order.status)}
-                                            </td>
-                                            <td className="px-3 py-4 text-right font-black text-stone-900 dark:text-slate-100 border-b border-stone-100 dark:border-slate-800 tabular-nums">
-                                                {formatCurrency(Number(order.grandTotal)).replace('₫', '').trim()}
-                                            </td>
-                                            <td className="px-3 py-4 text-right border-b border-stone-100 dark:border-slate-800 tabular-nums">
-                                                {Number(order.debt) > 0 ? (
-                                                    <span className="text-red-600 font-black">{formatCurrency(Number(order.debt)).replace('₫', '').trim()}</span>
-                                                ) : (
-                                                    <span className="text-stone-400 text-[10px] font-bold uppercase">Paid</span>
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-4 text-right border-b border-stone-100 dark:border-slate-800">
-                                                <Link
-                                                    href={`/sale/orders/${order.id}?source=list`}
-                                                    className="inline-flex items-center gap-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all group-hover:gap-2"
-                                                >
-                                                    <ArrowRight className="w-4 h-4" />
-                                                </Link>
-                                            </td>
+                        {/* Desktop Table View */}
+                        <div 
+                            ref={parentRef}
+                            className="hidden md:block overflow-auto max-h-[calc(100vh-280px)] scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800"
+                        >
+                                <div
+                                    style={{
+                                        height: `${rowVirtualizer.getTotalSize() + 48}px`,
+                                        width: '100%',
+                                        position: 'relative',
+                                    }}
+                                >
+                                <table className="w-full text-left border-collapse table-fixed">
+                                    <thead className="sticky top-0 z-10">
+                                        <tr className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase transition-colors backdrop-blur-md flex items-center w-full">
+                                            <th className="w-20 px-3 py-4 flex-shrink-0">Mã đơn</th>
+                                            <th className="w-28 px-3 py-4 flex-shrink-0">Thời gian</th>
+                                            <th className="w-32 px-3 py-4 flex-shrink-0">Biển số</th>
+                                            <th className="px-3 py-4 flex-1 min-w-[200px]">Khách hàng</th>
+                                            <th className="w-40 px-3 py-4 flex-shrink-0">Trạng thái</th>
+                                            <th className="w-36 px-3 py-4 text-right flex-shrink-0">Tổng tiền</th>
+                                            <th className="w-36 px-3 py-4 text-right flex-shrink-0">Còn nợ</th>
+                                            <th className="w-24 px-3 py-4 text-right flex-shrink-0 pr-5 whitespace-nowrap">Chi tiết</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                                            const order = filteredOrders[virtualRow.index];
+                                            return (
+                                                <tr 
+                                                    key={order.id} 
+                                                    className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group flex items-center w-full border-b border-slate-100 dark:border-slate-800"
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        left: 0,
+                                                        width: '100%',
+                                                        height: `${virtualRow.size}px`,
+                                                        transform: `translateY(${virtualRow.start + 48}px)`,
+                                                    }}
+                                                >
+                                                    <td className="w-20 px-3 py-4 font-bold text-blue-600 dark:text-blue-400 flex-shrink-0 truncate">
+                                                        #{order.id}
+                                                    </td>
+                                                    <td className="w-28 px-3 py-4 text-slate-600 dark:text-slate-400 flex-shrink-0 tabular-nums truncate">
+                                                        {new Date(order.createdAt).toLocaleDateString('vi-VN')}
+                                                        <div className="text-[10px] opacity-70 font-medium">{new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
+                                                    </td>
+                                                    <td className="w-32 px-3 py-4 font-black text-slate-800 dark:text-slate-100 flex-shrink-0 truncate">
+                                                        {order.plate}
+                                                        <div className="text-[9px] font-bold opacity-50 uppercase tracking-tighter truncate">{order.vehicleBrand} {order.vehicleModel}</div>
+                                                    </td>
+                                                    <td className="flex-1 px-3 py-4 text-slate-900 dark:text-slate-100 font-medium min-w-[200px] truncate">
+                                                        {order.customerName}
+                                                    </td>
+                                                    <td className="w-40 px-3 py-4 flex-shrink-0 truncate">
+                                                        {getStatusBadge(order.status)}
+                                                    </td>
+                                                    <td className="w-36 px-3 py-4 text-right font-black text-slate-900 dark:text-slate-100 tabular-nums flex-shrink-0 truncate">
+                                                        {formatCurrency(Number(order.grandTotal)).replace('₫', '').trim()}
+                                                    </td>
+                                                    <td className="w-36 px-3 py-4 text-right flex-shrink-0 tabular-nums truncate">
+                                                        {Number(order.debt) > 0 ? (
+                                                            <span className="text-red-600 font-black">{formatCurrency(Number(order.debt)).replace('₫', '').trim()}</span>
+                                                        ) : (
+                                                            <span className="text-slate-400 text-[10px] font-bold uppercase">Paid</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="w-24 px-3 py-4 flex-shrink-0 flex justify-end pr-5">
+                                                        <Link
+                                                            href={`/sale/orders/${order.id}?source=list`}
+                                                            className="inline-flex items-center gap-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all group-hover:gap-2"
+                                                        >
+                                                            <ArrowRight className="w-4 h-4" />
+                                                        </Link>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
                         {/* Mobile Card View */}

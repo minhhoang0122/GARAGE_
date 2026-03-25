@@ -91,32 +91,40 @@ public class MechanicService {
             return allJobs;
         }
 
-        // THO_SUA_CHUA: Only see jobs assigned to them
+        // THO_SUA_CHUA: Only see jobs that have items assigned to them via TaskAssignment
         return orderRepository.findJobsForMechanic().stream()
                 .filter(o -> !o.getChiTietDonHang().isEmpty())
-                .filter(o -> o.getThoPhanCong() != null && o.getThoPhanCong().getId().equals(userId))
+                .filter(o -> o.getChiTietDonHang().stream().anyMatch(item ->
+                        item.getPhanCongTho() != null && item.getPhanCongTho().stream()
+                                .anyMatch(ta -> ta.getTho().getId().equals(userId))
+                ))
                 .map(this::mapToJobSummary)
                 .toList();
     }
 
-    // Assign Job - Only QUAN_LY_XUONG or Admin can assign work to mechanics
+    // Assign Job - DEPRECATED: Legacy method, now split into claimJob + submitAssignments
     @Transactional
     public void assignJob(Integer orderId, Integer mechanicId, Integer assignedById) {
+        // Keep for backward compat but redirect to new flow
+        claimJob(orderId, assignedById);
+    }
+
+    // Quản đốc "Nhận phụ trách" - Chỉ lưu ai phụ trách, KHÔNG đổi trạng thái
+    @Transactional
+    public void claimJob(Integer orderId, Integer userId) {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng."));
-        User assigner = userRepository.findById(assignedById)
+        User quanDoc = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        User mechanic = userRepository.findById(mechanicId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy thợ."));
 
-        // Permission check: Only QUAN_LY_XUONG or Admin
-        if (!assigner.hasPermission("ASSIGN_WORK") && !assigner.isAdmin()) {
-            throw new RuntimeException("Chỉ Quản đốc hoặc Admin mới được chia việc.");
+        // Permission check
+        if (!quanDoc.hasPermission("ASSIGN_WORK") && !quanDoc.isAdmin()) {
+            throw new RuntimeException("Chỉ Quản đốc hoặc Admin mới được nhận phụ trách.");
         }
 
-        // Prevent double-assign
+        // Prevent double-claim
         if (order.getThoPhanCong() != null) {
-            throw new RuntimeException("Đơn hàng đã được giao cho: " + order.getThoPhanCong().getHoTen());
+            throw new RuntimeException("Đơn hàng đã được phụ trách bởi: " + order.getThoPhanCong().getHoTen());
         }
 
         // Rule 10.4: Check Deposit
@@ -130,11 +138,57 @@ public class MechanicService {
             }
         }
 
-        OrderStatus oldStatus = order.getTrangThai();
-        order.setThoPhanCong(mechanic);
-        if (OrderStatus.DA_DUYET.equals(order.getTrangThai())) {
-            order.setTrangThai(OrderStatus.DANG_SUA);
+        // Chỉ lưu QĐ phụ trách, KHÔNG chuyển trạng thái
+        order.setThoPhanCong(quanDoc);
+        orderRepository.save(order);
+
+        // Audit log
+        asyncAuditService.logAsync(AuditLog.builder()
+                .bang("DonHangSuaChua")
+                .banGhiId(orderId)
+                .hanhDong("UPDATE")
+                .duLieuCu("")
+                .duLieuMoi("QD:" + quanDoc.getHoTen())
+                .lyDo("Quản đốc " + quanDoc.getHoTen() + " nhận phụ trách đơn hàng")
+                .nguoiThucHienId(userId)
+                .build());
+    }
+
+    // Quản đốc "Xác nhận phân công" - Chuyển DANG_SUA + notify thợ
+    @Transactional
+    public void submitAssignments(Integer orderId, Integer userId) {
+        RepairOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng."));
+        User quanDoc = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Permission check
+        if (!quanDoc.hasPermission("ASSIGN_WORK") && !quanDoc.isAdmin()) {
+            throw new RuntimeException("Chỉ Quản đốc hoặc Admin mới được xác nhận phân công.");
         }
+
+        // Must be the assigned QD
+        if (order.getThoPhanCong() == null || !order.getThoPhanCong().getId().equals(userId)) {
+            if (!quanDoc.isAdmin()) {
+                throw new RuntimeException("Bạn không phải Quản đốc phụ trách đơn này.");
+            }
+        }
+
+        // Check: must have at least 1 TaskAssignment
+        List<OrderItem> items = order.getChiTietDonHang();
+        List<TaskAssignment> allAssignments = new java.util.ArrayList<>();
+        for (OrderItem item : items) {
+            if (item.getPhanCongTho() != null) {
+                allAssignments.addAll(item.getPhanCongTho());
+            }
+        }
+        if (allAssignments.isEmpty()) {
+            throw new RuntimeException("Chưa phân công thợ cho hạng mục nào. Vui lòng gán thợ trước khi xác nhận.");
+        }
+
+        // Change status
+        OrderStatus oldStatus = order.getTrangThai();
+        order.setTrangThai(OrderStatus.DANG_SUA);
         orderRepository.save(order);
 
         // Audit log
@@ -144,27 +198,27 @@ public class MechanicService {
                 .hanhDong("UPDATE")
                 .duLieuCu(oldStatus.name())
                 .duLieuMoi(order.getTrangThai().name())
-                .lyDo("Quản đốc " + assigner.getHoTen() + " giao việc cho " + mechanic.getHoTen())
-                .nguoiThucHienId(assignedById)
+                .lyDo("Quản đốc " + quanDoc.getHoTen() + " xác nhận phân công")
+                .nguoiThucHienId(userId)
                 .build());
 
-        // Notify mechanic about new assignment
-        asyncNotificationService.pushUniqueAsync(Notification.builder()
-                .userId(mechanicId)
-                .role("THO_SUA_CHUA")
-                .title("Việc mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
-                .content("Quản đốc đã giao việc sửa chữa cho bạn. Vui lòng kiểm tra.")
-                .type("INFO")
-                .link("/mechanic/jobs/" + orderId)
-                .createdAt(LocalDateTime.now())
-                .isRead(false)
-                .build());
-    }
-
-    // Backward compat: claimJob now requires ASSIGN_WORK (Quan doc self-assigns)
-    @Transactional
-    public void claimJob(Integer orderId, Integer userId) {
-        assignJob(orderId, userId, userId);
+        // Notify each unique mechanic assigned
+        String bienSo = order.getPhieuTiepNhan().getXe().getBienSo();
+        allAssignments.stream()
+                .map(a -> a.getTho().getId())
+                .distinct()
+                .forEach(mechanicId -> {
+                    asyncNotificationService.pushUniqueAsync(Notification.builder()
+                            .userId(mechanicId)
+                            .role("THO_SUA_CHUA")
+                            .title("Việc mới: " + bienSo)
+                            .content("Quản đốc " + quanDoc.getHoTen() + " đã phân công việc cho bạn. Vui lòng kiểm tra.")
+                            .type("INFO")
+                            .link("/mechanic/jobs/" + orderId)
+                            .createdAt(LocalDateTime.now())
+                            .isRead(false)
+                            .build());
+                });
     }
 
     // Get Available Mechanics with specialty, level, and workload
@@ -177,9 +231,14 @@ public class MechanicService {
                 .filter(u -> u.getRoles().stream().anyMatch(r -> "THO_SUA_CHUA".equals(r.getName())))
                 .toList();
 
-        // Count active jobs per mechanic
-        List<RepairOrder> activeOrders = orderRepository.findByTrangThaiIn(
-                List.of(OrderStatus.DANG_SUA, OrderStatus.CHO_SUA_CHUA));
+        // Count active assignments per mechanic from TaskAssignment table
+        List<Object[]> workloadData = taskAssignmentRepository.countActiveOrdersPerMechanic();
+        Map<Integer, Long> workloadMap = new java.util.HashMap<>();
+        for (Object[] row : workloadData) {
+            Integer mechanicId = (Integer) row[0];
+            Long count = (Long) row[1];
+            workloadMap.put(mechanicId, count);
+        }
 
         return mechanics.stream().map(m -> {
             Map<String, Object> info = new java.util.HashMap<>();
@@ -190,12 +249,96 @@ public class MechanicService {
             info.put("capBac", m.getCapBac() != null ? m.getCapBac().name() : null);
             info.put("capBacLabel", m.getCapBac() != null ? m.getCapBac().getDescription() : "Chưa xác định");
 
-            long activeJobs = activeOrders.stream()
-                    .filter(o -> o.getThoPhanCong() != null && o.getThoPhanCong().getId().equals(m.getId()))
-                    .count();
+            long activeJobs = workloadMap.getOrDefault(m.getId(), 0L);
             info.put("soViecDangLam", activeJobs);
             return info;
         }).toList();
+    }
+
+    // Admin trực tiếp gán Thợ vào Hạng Mục (Drag & Drop)
+    @Transactional
+    public void adminAssignItem(Integer itemId, Integer mechanicId, Integer assignedById) {
+        OrderItem item = orderItemRepository.findById(itemId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hạng mục"));
+                
+        User mechanic = userRepository.findById(mechanicId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thợ."));
+                
+        User assigner = userRepository.findById(assignedById)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!assigner.isQuanLy() && !assigner.isAdmin()) {
+            throw new RuntimeException("Chỉ Quản đốc/Admin mới có quyền trực tiếp phân công hạng mục.");
+        }
+
+        RepairOrder order = item.getDonHangSuaChua();
+
+        // Guard: không cho sửa phân công khi đơn đã submit (đang sửa chữa)
+        if (order.getTrangThai() == OrderStatus.DANG_SUA) {
+            throw new RuntimeException("Đơn hàng đã được xác nhận phân công và đang sửa chữa. Không thể thay đổi phân công.");
+        }
+
+        // Kiểm tra tiền cọc
+        java.math.BigDecimal threshold = new java.math.BigDecimal("5000000");
+        java.math.BigDecimal minRate = new java.math.BigDecimal("0.3");
+        if (order.getTongCong() != null && order.getTongCong().compareTo(threshold) > 0) {
+            java.math.BigDecimal minDeposit = order.getTongCong().multiply(minRate);
+            if (order.getTienCoc() == null || order.getTienCoc().compareTo(minDeposit) < 0) {
+                throw new RuntimeException("Đơn hàng chưa đủ tiền cọc (Cần tối thiểu 30%). Vui lòng báo Sale thu tiền trước khi chia việc.");
+            }
+        }
+
+        // Kiểm tra xem thợ đã được gán vào Item này chưa, nếu có thì skip
+        boolean alreadyAssigned = item.getPhanCongTho() != null && item.getPhanCongTho().stream()
+                .anyMatch(ta -> ta.getTho().getId().equals(mechanicId));
+        if (alreadyAssigned) return;
+
+        TaskAssignment assignment = TaskAssignment.builder()
+                .chiTietDonHang(item)
+                .tho(mechanic)
+                .phanTramCong(new java.math.BigDecimal("100"))
+                .laThoChinh(true) // Cho phép là thợ chính của item này
+                .trangThai("APPROVED") 
+                .build();
+        taskAssignmentRepository.save(assignment);
+
+        // NOTE: Không tự chuyển status ở đây nữa. QĐ sẽ bấm "Xác nhận phân công" riêng.
+        // Cũng không notify riêng lẻ, submitAssignments sẽ batch notify.
+    }
+
+    // Admin trực tiếp gỡ Thợ khỏi Hạng Mục (Drag ra ngoài)
+    @Transactional
+    public void adminUnassignItem(Integer taskId, Integer assignedById) {
+        TaskAssignment assignment = taskAssignmentRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phân công"));
+                
+        User assigner = userRepository.findById(assignedById)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!assigner.isQuanLy() && !assigner.isAdmin()) {
+            throw new RuntimeException("Chỉ Quản đốc/Admin mới có quyền gỡ phân công.");
+        }
+
+        // Guard: không cho gỡ phân công khi đơn đã submit (đang sửa chữa)
+        OrderItem item = assignment.getChiTietDonHang();
+        RepairOrder order = item.getDonHangSuaChua();
+        if (order.getTrangThai() == OrderStatus.DANG_SUA) {
+            throw new RuntimeException("Đơn hàng đã được xác nhận phân công và đang sửa chữa. Không thể thay đổi phân công.");
+        }
+
+        taskAssignmentRepository.delete(assignment);
+        
+        // Notify
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
+                .userId(assignment.getTho().getId())
+                .role("THO_SUA_CHUA")
+                .title("Đã hủy một Hạng mục")
+                .content("Quản đốc đã rút bạn khỏi hạng mục: " + assignment.getChiTietDonHang().getHangHoa().getTenHang())
+                .type("WARNING")
+                .link("/mechanic/jobs")
+                .createdAt(java.time.LocalDateTime.now())
+                .isRead(false)
+                .build());
     }
 
     // 3. Unclaim Job (Secured)
@@ -311,10 +454,21 @@ public class MechanicService {
         }
         order.setThoChanDoan(user);
 
+        // Guard against duplicate items (e.g. Sale already added them)
+        List<Integer> existingProductIds = order.getChiTietDonHang().stream()
+                .filter(item -> !ItemStatus.KHACH_TU_CHOI.equals(item.getTrangThai()))
+                .map(item -> item.getHangHoa().getId())
+                .toList();
+
         for (ProposalItemDTO pItem : items) {
             if (pItem.quantity() <= 0) {
                 throw new RuntimeException("Số lượng phải lớn hơn 0");
             }
+            
+            if (existingProductIds.contains(pItem.productId())) {
+                throw new RuntimeException("Phụ tùng/Dịch vụ (ID: " + pItem.productId() + ") đã tồn tại trong đơn hàng. Vui lòng F5 trang hoặc kiểm tra lại để tránh đề xuất trùng lặp.");
+            }
+            
             Product product = productRepository.findById(pItem.productId())
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
@@ -328,6 +482,9 @@ public class MechanicService {
             item.setGiamGiaTien(BigDecimal.ZERO);
             item.setGiamGiaPhanTram(BigDecimal.ZERO);
             item.setNguoiDeXuat(user);
+            item.setGhiChu(pItem.note());
+            item.setLaPhatSinh(false);
+            item.setNgayDeXuat(java.time.LocalDateTime.now());
 
             orderItemRepository.save(item);
         }
@@ -401,10 +558,20 @@ public class MechanicService {
             throw new RuntimeException("Bạn không được gán cho lệnh này.");
         }
 
+        List<Integer> existingProductIds = order.getChiTietDonHang().stream()
+                .filter(item -> !ItemStatus.KHACH_TU_CHOI.equals(item.getTrangThai()))
+                .map(item -> item.getHangHoa().getId())
+                .toList();
+
         for (ProposalItemDTO pItem : items) {
             if (pItem.quantity() <= 0) {
                 throw new RuntimeException("Số lượng phải lớn hơn 0");
             }
+
+            if (existingProductIds.contains(pItem.productId())) {
+                throw new RuntimeException("Phụ tùng/Dịch vụ (ID: " + pItem.productId() + ") đã tồn tại trong đơn hàng. Vui lòng kiểm tra lại để tránh báo phát sinh trùng lặp.");
+            }
+
             Product product = productRepository.findById(pItem.productId())
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
@@ -414,10 +581,14 @@ public class MechanicService {
             item.setSoLuong(pItem.quantity());
             item.setDonGiaGoc(product.getGiaBanNiemYet());
             item.setThanhTien(product.getGiaBanNiemYet().multiply(BigDecimal.valueOf(pItem.quantity())));
-            item.setTrangThai(ItemStatus.CHO_KY_THUAT_DUYET); // Waiting for Manager approval
+            boolean isManager = user.isQuanLy() || user.isAdmin();
+            item.setTrangThai(isManager ? ItemStatus.DE_XUAT : ItemStatus.CHO_KY_THUAT_DUYET);
             item.setGiamGiaTien(BigDecimal.ZERO);
             item.setGiamGiaPhanTram(BigDecimal.ZERO);
             item.setNguoiDeXuat(user);
+            item.setGhiChu(pItem.note());
+            item.setLaPhatSinh(true);
+            item.setNgayDeXuat(java.time.LocalDateTime.now());
 
             orderItemRepository.save(item);
         }
@@ -433,9 +604,8 @@ public class MechanicService {
                 .map(p -> productRepository.findById(p.productId()).orElseThrow().getGiaBanNiemYet().multiply(BigDecimal.valueOf(p.quantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // NOTE: CHO_KY_THUAT_DUYET items are NOT included in totals yet in OrderCalculationService?
-        // Wait, let's check OrderCalculationService filter again.
-        // It only skips KHACH_TU_CHOI. So it DOES include CHO_KY_THUAT_DUYET.
+        // NOTE: Even CHO_KY_THUAT_DUYET items should be included in "potentials", 
+        // and if it's DE_XUAT it definitely affects subtotal calculation if frontend filters that way.
         
         if (deltaParts.compareTo(BigDecimal.ZERO) > 0) {
             orderCalculationService.updateTotalsIncrementally(order.getId(), deltaParts, false);
@@ -447,26 +617,40 @@ public class MechanicService {
         orderRepository.save(order);
 
         // Audit log
+        boolean isManager = user.isQuanLy() || user.isAdmin();
         asyncAuditService.logAsync(AuditLog.builder()
                 .bang("DonHangSuaChua")
                 .banGhiId(order.getId())
                 .hanhDong("UPDATE")
                 .duLieuCu(order.getTrangThai().name())
                 .duLieuMoi(order.getTrangThai().name())
-                .lyDo("Thợ báo phát sinh kỹ thuật mới - Chờ Quản đốc duyệt")
+                .lyDo(isManager ? "Quản đốc đề xuất hạng mục mới" : "Thợ báo phát sinh kỹ thuật mới - Chờ Quản đốc duyệt")
                 .nguoiThucHienId(userId)
                 .build());
 
-        // Notify Workshop Manager (Quản đốc)
-        asyncNotificationService.pushUniqueAsync(Notification.builder()
-                .role("QUAN_LY_XUONG")
-                .title("Phát sinh kỹ thuật mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
-                .content("Thợ " + user.getHoTen() + " báo phát sinh phụ tùng/dịch vụ mới. Vui lòng kiểm tra và duyệt kỹ thuật.")
-                .type("WARNING")
-                .link("/admin/technical-review")
-                .createdAt(LocalDateTime.now())
-                .isRead(false)
-                .build());
+        if (isManager) {
+            // Notify Sale immediately
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
+                    .role("SALE")
+                    .title("Đề xuất mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
+                    .content("Quản đốc " + user.getHoTen() + " vừa bổ sung hạng mục mới. Vui lòng báo giá cho khách.")
+                    .type("INFO")
+                    .link("/sale/orders/" + order.getId())
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        } else {
+            // Notify Workshop Manager (Quản đốc)
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
+                    .role("QUAN_LY_XUONG")
+                    .title("Phát sinh kỹ thuật mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
+                    .content("Thợ " + user.getHoTen() + " báo phát sinh phụ tùng/dịch vụ mới. Vui lòng kiểm tra và duyệt kỹ thuật.")
+                    .type("WARNING")
+                    .link("/admin/technical-review")
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        }
     }
 
     // Manager confirms technical items to move them to Sale for pricing
@@ -674,6 +858,15 @@ public class MechanicService {
                     .isRead(false)
                     .build());
         }
+    }
+
+    private String getProposedByRole(User user) {
+        if (user == null) return "AI";
+        if (user.getRoles().stream().anyMatch(r -> "SALE".equals(r.getName()))) return "SALE";
+        if (user.getRoles().stream().anyMatch(r -> "QUAN_LY_XUONG".equals(r.getName()))) return "MANAGER";
+        if (user.getRoles().stream().anyMatch(r -> "THO_SUA_CHUA".equals(r.getName()))) return "TECHNICIAN";
+        if (user.isAdmin()) return "ADMIN";
+        return "UNKNOWN";
     }
 
     private JobSummaryDTO mapToJobSummary(RepairOrder o) {
@@ -944,6 +1137,11 @@ public class MechanicService {
                     m.put("completedById", i.getNguoiThucHien() != null ? i.getNguoiThucHien().getId() : null);
                     m.put("completedByName", i.getNguoiThucHien() != null ? i.getNguoiThucHien().getHoTen() : null);
                     m.put("maxMechanics", i.getSoLuongThoToiDa() != null ? i.getSoLuongThoToiDa() : 4);
+                    m.put("proposedById", i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getId() : null);
+                    m.put("proposedByName", i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getHoTen() : "N/A");
+                    m.put("proposedByRole", getProposedByRole(i.getNguoiDeXuat()));
+                    m.put("isTechnicalAddition", i.getLaPhatSinh());
+                    m.put("proposedAt", i.getNgayDeXuat());
 
                     // Use pre-loaded assignments (O(1) lookup)
                     List<TaskAssignment> assignments = assignmentsByItem.getOrDefault(i.getId(), new ArrayList<>());
@@ -1004,6 +1202,29 @@ public class MechanicService {
                         m.put("productName", i.getHangHoa().getTenHang());
                         m.put("quantity", i.getSoLuong());
                         m.put("isService", i.getHangHoa().getLaDichVu());
+                        m.put("note", i.getGhiChu());
+                        m.put("status", i.getTrangThai() != null ? i.getTrangThai().name() : null);
+                        m.put("proposedById", i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getId() : null);
+                        m.put("proposedByName", i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getHoTen() : "N/A");
+                        m.put("proposedByRole", getProposedByRole(i.getNguoiDeXuat()));
+                        m.put("isTechnicalAddition", i.getLaPhatSinh());
+                        m.put("proposedAt", i.getNgayDeXuat());
+                        
+                        // Thêm danh sách thợ phân công cho hạng mục này
+                        if (i.getPhanCongTho() != null) {
+                            List<Map<String, Object>> assignments = i.getPhanCongTho().stream().map(ta -> {
+                                Map<String, Object> am = new java.util.HashMap<>();
+                                am.put("id", ta.getId());
+                                am.put("mechanicId", ta.getTho().getId());
+                                am.put("mechanicName", ta.getTho().getHoTen());
+                                am.put("isMain", ta.getLaThoChinh());
+                                return am;
+                            }).toList();
+                            m.put("assignments", assignments);
+                        } else {
+                            m.put("assignments", new ArrayList<>());
+                        }
+                        
                         return m;
                     })
                     .toList();

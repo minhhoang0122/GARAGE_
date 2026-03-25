@@ -2,53 +2,44 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { Wrench, Clock, CheckCircle, Search } from 'lucide-react';
+import { Wrench, Clock, CheckCircle, Search, AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import { usePermission } from '@/hooks/usePermission';
 
-type Job = {
-    id: number;
-    plate: string;
-    vehicleBrand: string;
-    vehicleModel: string;
-    customerName: string;
-    totalItems: number;
-    completedItems: number;
-    claimedByName: string | null;
-};
-
-type Stats = {
-    inProgressJobs: number;
-    completedToday: number;
-};
+import { useQuery } from '@tanstack/react-query';
 
 export default function MechanicDashboard() {
     const { data: session } = useSession();
-    const { hasPermission, isAdmin } = usePermission();
+    const { hasPermission, isAdmin, roles } = usePermission();
 
-    const [repairJobs, setRepairJobs] = useState<Job[]>([]);
-    const [inspectJobs, setInspectJobs] = useState<any[]>([]);
-    const [stats, setStats] = useState<Stats>({ inProgressJobs: 0, completedToday: 0 });
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
     const isDiagnose = hasPermission('CREATE_PROPOSAL');
     const isRepair = hasPermission('CLAIM_REPAIR_JOB');
 
-    useEffect(() => {
-        // @ts-ignore
-        const token = session?.user?.accessToken;
-        if (token) {
-            if (isDiagnose || isAdmin) {
-                // Always fetch fresh data for inspection queue
-                api.get('/mechanic/inspect', token).then(setInspectJobs).catch(console.error);
-            }
-            if (isRepair || isAdmin) {
-                api.getCached('/mechanic/jobs', token).then(setRepairJobs).catch(console.error);
-                api.getCached('/mechanic/stats', token).then(setStats).catch(console.error);
-            }
-        }
-    }, [session?.user, isDiagnose, isRepair, isAdmin]);
+    // Query for Inspection Jobs
+    const { data: inspectJobs = [] } = useQuery({
+        queryKey: ['mechanic', 'inspect'],
+        queryFn: () => api.get('/mechanic/inspect', token),
+        enabled: !!token && (isDiagnose || isAdmin)
+    });
+
+    // Query for Repair Jobs
+    const { data: repairJobs = [] } = useQuery({
+        queryKey: ['mechanic', 'jobs'],
+        queryFn: () => api.get('/mechanic/jobs', token),
+        enabled: !!token && (isRepair || isAdmin)
+    });
+
+    // Query for Stats
+    const { data: stats = { inProgressJobs: 0, completedToday: 0 } } = useQuery({
+        queryKey: ['mechanic', 'stats'],
+        queryFn: () => api.get('/mechanic/stats', token),
+        enabled: !!token && (isRepair || isAdmin)
+    });
 
     return (
         <DashboardLayout
@@ -69,7 +60,7 @@ export default function MechanicDashboard() {
                             {inspectJobs.length === 0 ? (
                                 <div className="p-8 text-center text-slate-400">Không có xe nào đang chờ</div>
                             ) : (
-                                inspectJobs.map(job => (
+                                inspectJobs.map((job: any) => (
                                     <Link
                                         key={job.id}
                                         href={`/mechanic/inspect/${job.id}`} // Link to Inspect Page
@@ -140,6 +131,42 @@ export default function MechanicDashboard() {
                                 </div>
                             </Link>
                         </div>
+
+                        {/* Section Xe chờ phân công (Chỉ dành cho Quản đốc) */}
+                        {roles.includes('QUAN_LY_XUONG') && repairJobs.some((j: any) => !j.claimedByName) && (
+                            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border-2 border-amber-200 dark:border-amber-800 overflow-hidden mb-6 transition-colors animate-pulse-subtle">
+                                <div className="px-6 py-4 border-b border-amber-100 dark:border-amber-900/30 flex items-center justify-between bg-amber-50/50 dark:bg-amber-900/10">
+                                    <h2 className="font-semibold text-amber-800 dark:text-amber-400 flex items-center gap-2">
+                                        <AlertCircle className="w-5 h-5 text-amber-500" /> Xe chờ phân công ({repairJobs.filter((j: any) => !j.claimedByName).length})
+                                    </h2>
+                                    <Link href="/mechanic/assign" className="text-sm font-bold text-amber-700 dark:text-amber-500 hover:underline flex items-center gap-1">
+                                        Vào điều phối <ArrowRight className="w-4 h-4" />
+                                    </Link>
+                                </div>
+                                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {repairJobs.filter((j: any) => !j.claimedByName).map((job: any) => (
+                                        <Link
+                                            key={job.id}
+                                            href={`/mechanic/assign/${job.id}`}
+                                            className="px-6 py-4 flex items-center gap-4 hover:bg-amber-50/30 dark:hover:bg-amber-900/5 transition-colors"
+                                        >
+                                            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center text-amber-600 font-bold text-sm">
+                                                !
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-bold text-slate-800 dark:text-slate-200">{job.plate}</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                                    {job.vehicleBrand} {job.vehicleModel} - {job.customerName}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                                {job.totalItems} hạng mục
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Danh sách việc đang sửa */}
                         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">

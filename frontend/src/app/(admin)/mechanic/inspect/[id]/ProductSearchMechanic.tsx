@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Package, Wrench, Plus, Layers } from 'lucide-react';
+import { Search, Package, Wrench, Plus, CheckCircle2 } from 'lucide-react';
 import { searchProductsForMechanic, getTopProductsForMechanic } from '@/modules/service/mechanic';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -15,9 +15,10 @@ type Product = {
 
 interface ProductSearchMechanicProps {
     onSelect: (product: Product) => void;
+    excludeIds?: number[];
 }
 
-export default function ProductSearchMechanic({ onSelect }: ProductSearchMechanicProps) {
+export default function ProductSearchMechanic({ onSelect, excludeIds = [] }: ProductSearchMechanicProps) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<Product[]>([]);
     const [topProducts, setTopProducts] = useState<Product[]>([]);
@@ -115,29 +116,48 @@ export default function ProductSearchMechanic({ onSelect }: ProductSearchMechani
                                 Không tìm thấy kết quả
                             </div>
                         ) : (
-                            displayList.map(product => (
-                                <button
-                                    key={product.id}
-                                    onClick={() => handleSelect(product)}
-                                    className="w-full px-3 py-2 flex items-center gap-3 hover:bg-slate-50 rounded-lg text-left transition-colors group"
-                                >
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${product.isService ? 'bg-purple-100 text-purple-600' : 'bg-slate-100 text-slate-600'}`}>
-                                        {product.isService ? <Wrench className="w-4 h-4" /> : <Package className="w-4 h-4" />}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-slate-800 truncate group-hover:text-blue-700">{product.name}</p>
-                                        <p className="text-xs text-slate-500 flex items-center gap-2">
-                                            <span>{product.code}</span>
-                                            {!product.isService && (
-                                                <span className={`${product.stock <= 0 ? 'text-red-500 font-medium' : 'text-emerald-600'}`}>
-                                                    • Tồn: {product.stock}
-                                                </span>
-                                            )}
-                                        </p>
-                                    </div>
-                                    <Plus className="w-4 h-4 text-slate-300 group-hover:text-slate-900" />
-                                </button>
-                            ))
+                            displayList.map(product => {
+                                const isAdded = excludeIds.includes(product.id);
+                                const isOutOfStock = !product.isService && product.stock <= 0;
+                                const isDisabled = isAdded || isOutOfStock;
+                                
+                                return (
+                                    <button
+                                        key={product.id}
+                                        onClick={() => !isDisabled && handleSelect(product)}
+                                        disabled={isDisabled}
+                                        className={`w-full px-3 py-2 flex items-center gap-3 rounded-lg text-left transition-colors group ${isDisabled ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'hover:bg-slate-50 group'}`}
+                                    >
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${product.isService ? 'bg-purple-100 text-purple-600' : 'bg-slate-100 text-slate-600'}`}>
+                                            {product.isService ? <Wrench className="w-4 h-4" /> : <Package className="w-4 h-4" />}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <p className={`font-medium truncate ${isDisabled ? 'text-slate-500' : 'text-slate-800'}`}>{product.name}</p>
+                                                {isAdded && (
+                                                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 tracking-widest uppercase">Đã thêm</span>
+                                                )}
+                                                {isOutOfStock && !isAdded && (
+                                                    <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 tracking-widest uppercase">Hết hàng</span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-slate-500 flex items-center gap-2">
+                                                <span>{product.code}</span>
+                                                {!product.isService && (
+                                                    <span className={`${product.stock <= 0 ? 'text-red-500 font-medium' : 'text-emerald-600'}`}>
+                                                        • Tồn: {product.stock}
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
+                                        {isAdded ? (
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                        ) : (
+                                            <Plus className={`w-4 h-4 ${isOutOfStock ? 'text-slate-300' : 'text-slate-300 group-hover:text-slate-900'}`} />
+                                        )}
+                                    </button>
+                                );
+                            })
                         )}
                     </div>
 

@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, Fragment } from 'react';
+import React, { useState, useMemo, Fragment } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { api } from '@/lib/api';
 import { useSession } from 'next-auth/react';
 import { Search, History, Filter, User, Calendar, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { Card } from '@/modules/shared/components/ui/card';
+import { useQuery } from '@tanstack/react-query';
 
 type AuditLog = {
     id: number;
@@ -22,39 +23,28 @@ type AuditLog = {
 
 export default function AuditLogsPage() {
     const { data: session } = useSession();
-    const [logs, setLogs] = useState<AuditLog[]>([]);
-    const [filteredLogs, setFilteredLogs] = useState<AuditLog[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedLog, setExpandedLog] = useState<number | null>(null);
 
-    const loadLogs = async () => {
-        try {
-            setIsLoading(true);
-            const token = (session?.user as any)?.accessToken;
-            const res = await api.get('/admin/audit-logs', token);
-            setLogs(res);
-            setFilteredLogs(res);
-        } catch (error) {
-            console.error('Failed to load logs', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
-    useEffect(() => {
-        if (session) loadLogs();
-    }, [session]);
+    const { data: logs = [], isLoading } = useQuery({
+        queryKey: ['audit-logs'],
+        queryFn: async () => {
+            return await api.get('/admin/audit-logs', token);
+        },
+        enabled: !!token
+    });
 
-    useEffect(() => {
+    const filteredLogs = useMemo(() => {
         const lowerSearch = searchTerm.toLowerCase();
-        const filtered = logs.filter(log =>
+        return logs.filter((log: AuditLog) =>
             log.user.toLowerCase().includes(lowerSearch) ||
             log.action.toLowerCase().includes(lowerSearch) ||
             log.table.toLowerCase().includes(lowerSearch) ||
             (log.reason?.toLowerCase() || '').includes(lowerSearch)
         );
-        setFilteredLogs(filtered);
     }, [searchTerm, logs]);
 
     const getActionBadge = (action: string) => {
@@ -93,7 +83,7 @@ export default function AuditLogsPage() {
                 {/* Logs Table */}
                 <Card className="overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[900px]">
+                        <table className="w-full text-left border-collapse ">
                             <thead>
                                 <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
                                     <th className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Thời gian</th>
@@ -113,7 +103,7 @@ export default function AuditLogsPage() {
                                         <td colSpan={5} className="px-6 py-12 text-center text-slate-400 dark:text-slate-500">Không tìm thấy bản ghi nào</td>
                                     </tr>
                                 ) : (
-                                    filteredLogs.map((log) => (
+                                    filteredLogs.map((log: AuditLog) => (
                                         <Fragment key={log.id}>
                                             <tr
                                                 className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors ${expandedLog === log.id ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}

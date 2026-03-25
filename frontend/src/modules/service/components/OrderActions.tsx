@@ -1,13 +1,14 @@
 'use client';
 
-import { finalizeOrder, submitToCustomer, cancelOrder, closeOrder, submitReplenishmentQuote } from '@/modules/service/order';
+import { finalizeOrder, submitToCustomer, cancelOrder, closeOrder, submitReplenishmentQuote, claimOrder } from '@/modules/service/order';
 import { FileCheck, Printer, Loader2, Send, XCircle, CheckCircle, PlusCircle, AlertTriangle, DollarSign, Wrench } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/modules/shared/components/ui/dialog";
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface OrderActionsProps {
     orderId: number;
@@ -16,13 +17,24 @@ interface OrderActionsProps {
     amountPaid?: number;
     depositAmount?: number;
     thoChanDoanId?: number | null;
+    nguoiPhuTrachId?: number | null;
 }
 
 const formatCurrency = (val: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
-export default function OrderActions({ orderId, status, hasProposedItems = false, amountPaid = 0, depositAmount = 0, thoChanDoanId = null }: OrderActionsProps) {
-    const [isLoading, setIsLoading] = useState(false);
+export default function OrderActions({ orderId, status, hasProposedItems = false, amountPaid = 0, depositAmount = 0, thoChanDoanId = null, nguoiPhuTrachId = null }: OrderActionsProps) {
+    const queryClient = useQueryClient();
+    const [isItemUpdating, setIsItemUpdating] = useState(false);
+
+    useEffect(() => {
+        const handleStatusUpdating = (e: any) => {
+            setIsItemUpdating(Boolean(e.detail?.isUpdating));
+        };
+        window.addEventListener('item-status-updating', handleStatusUpdating as EventListener);
+        return () => window.removeEventListener('item-status-updating', handleStatusUpdating as EventListener);
+    }, []);
+
     const router = useRouter();
     const { data: session } = useSession();
     const userRole = (session?.user as any)?.role;
@@ -30,40 +42,69 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
 
     const isEditable = ['TIEP_NHAN', 'CHO_CHAN_DOAN', 'BAO_GIA_LAI', 'BAO_GIA'].includes(status);
     const isWaitingApproval = status === 'CHO_KH_DUYET';
-    const canClose = status === 'HOAN_THANH' || status === 'DONG'; // status === 'CHO_THANH_TOAN' is usually too early for full close
+    const canClose = status === 'HOAN_THANH' || status === 'DONG';
     const isClosed = status === 'DONG' || status === 'HUY';
     const isRepairing = ['DANG_SUA', 'CHO_SUA_CHUA', 'DA_DUYET'].includes(status);
 
-    // Rule: Chốt chặn chẩn đoán
     const isMissingDiagnostic = !thoChanDoanId;
 
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [cancelReason, setCancelReason] = useState("");
 
-    const handleAction = async (actionFn: (id: number) => Promise<any>, title: string, message: string, type: 'warning' | 'info' = 'warning') => {
-        // ... (handleAction logic remains the same)
+    const orderMutation = useMutation({
+        mutationFn: async ({ fn, args = [] }: { fn: Function, args?: any[], nextStatus?: string }) => {
+            const result = await fn(orderId, ...args);
+            if (!result.success) throw new Error(result.error || 'Có lỗi xảy ra');
+            return result;
+        },
+        onMutate: async ({ nextStatus }) => {
+            if (!nextStatus) return;
+
+            // Snapshot the previous values
+            await queryClient.cancelQueries({ queryKey: ['order', orderId] });
+            await queryClient.cancelQueries({ queryKey: ['orders'] });
+            await queryClient.cancelQueries({ queryKey: ['sale'] });
+
+            const previousOrder = queryClient.getQueryData(['order', orderId]);
+
+            // Optimistically update
+            if (previousOrder) {
+                queryClient.setQueryData(['order', orderId], (old: any) => ({
+                    ...old,
+                    status: nextStatus
+                }));
+            }
+
+            return { previousOrder };
+        },
+        onSuccess: () => {
+             // Invalidate to refresh all related views
+            queryClient.invalidateQueries({ queryKey: ['sale'] });
+            queryClient.invalidateQueries({ queryKey: ['reception'] });
+            queryClient.invalidateQueries({ queryKey: ['warehouse'] });
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+            queryClient.invalidateQueries({ queryKey: ['order', orderId] });
+
+            router.refresh();
+        },
+        onError: async (error: any, variables, context) => {
+            if (context?.previousOrder) {
+                queryClient.setQueryData(['order', orderId], context.previousOrder);
+            }
+            await confirm({ title: 'Lỗi', message: error.message, type: 'danger', confirmText: 'Đóng', cancelText: '' });
+        }
+    });
+
+    const isLoading = orderMutation.isPending;
+    const isActionDisabled = isLoading || isItemUpdating;
+
+    const handleAction = async (actionFn: (id: number) => Promise<any>, title: string, message: string, nextStatus?: string, type: 'warning' | 'info' = 'warning') => {
         const confirmed = await confirm({ title, message, type });
         if (!confirmed) return;
 
-        setIsLoading(true);
-        try {
-            const result = await actionFn(orderId);
-            if (!result.success) {
-                await confirm({ title: 'Lỗi', message: result.error, type: 'danger', confirmText: 'Đóng', cancelText: '' });
-            } else {
-                api.invalidateCache('/sale/stats');
-                api.invalidateCache(`/sale/orders/${orderId}`);
-                api.invalidateCache('/warehouse/pending');
-                router.refresh();
-            }
-        } catch (error) {
-            await confirm({ title: 'Lỗi', message: 'Có lỗi xảy ra', type: 'danger', confirmText: 'Đóng', cancelText: '' });
-        } finally {
-            setIsLoading(false);
-        }
+        orderMutation.mutate({ fn: actionFn, nextStatus });
     };
 
-    // ... rest of the helper functions
     const handleCancelClick = () => {
         setCancelReason("");
         setShowCancelDialog(true);
@@ -71,22 +112,7 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
 
     const confirmCancel = async () => {
         setShowCancelDialog(false);
-        setIsLoading(true);
-        try {
-            const result = await cancelOrder(orderId, cancelReason);
-            if (!result.success) {
-                await confirm({ title: 'Lỗi', message: result.error, type: 'danger', confirmText: 'Đóng', cancelText: '' });
-            } else {
-                api.invalidateCache('/sale/stats');
-                api.invalidateCache(`/sale/orders/${orderId}`);
-                api.invalidateCache('/warehouse/pending');
-                router.refresh();
-            }
-        } catch (error) {
-            await confirm({ title: 'Lỗi', message: 'Có lỗi xảy ra', type: 'danger', confirmText: 'Đóng', cancelText: '' });
-        } finally {
-            setIsLoading(false);
-        }
+        orderMutation.mutate({ fn: cancelOrder, args: [cancelReason] });
     };
 
     const warnings: { icon: React.ReactNode; text: string; severity: 'red' | 'amber' | 'blue' }[] = [];
@@ -107,9 +133,22 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
         });
     }
 
+    const isClaimed = !!nguoiPhuTrachId;
+
     return (
         <>
             <div className="flex flex-wrap gap-2 items-center">
+                {!isClaimed && status === 'TIEP_NHAN' && (
+                    <button
+                        onClick={() => handleAction(claimOrder, 'Nhận đơn hàng', 'Bạn sẽ trở thành người phụ trách chính cho đơn hàng này?', 'TIEP_NHAN', 'info')}
+                        disabled={isActionDisabled}
+                        className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all hover:scale-105 active:scale-95"
+                    >
+                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-5 h-5" />}
+                        NHẬN ĐƠN NGAY
+                    </button>
+                )}
+
                 <button
                     className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium transition-colors"
                     onClick={() => window.open(`/sale/orders/${orderId}/print`, '_blank')}
@@ -120,8 +159,8 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
                 {isEditable && (
                     <div className="group relative">
                         <button
-                            onClick={() => handleAction(submitToCustomer, 'Gửi báo giá', 'Xác nhận gửi báo giá cho khách?\n\nPhụ tùng sẽ được TẠM GIỮ trong kho.', 'info')}
-                            disabled={isLoading || isMissingDiagnostic}
+                            onClick={() => handleAction(submitToCustomer, 'Gửi báo giá', 'Xác nhận gửi báo giá cho khách?\n\nPhụ tùng sẽ được TẠM GIỮ trong kho.', 'CHO_KH_DUYET', 'info')}
+                            disabled={isActionDisabled || isMissingDiagnostic}
                             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 dark:bg-white text-white dark:text-slate-900 rounded-lg text-sm font-medium hover:bg-slate-700 dark:hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -137,10 +176,10 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
                     </div>
                 )}
 
-                {hasProposedItems && !isEditable && !isClosed && (
+                {hasProposedItems && isRepairing && (
                     <button
-                        onClick={() => handleAction(submitReplenishmentQuote, 'Báo giá bổ sung', 'Gửi báo giá bổ sung cho các hạng mục phát sinh kỹ thuật?', 'warning')}
-                        disabled={isLoading}
+                        onClick={() => handleAction(submitReplenishmentQuote, 'Báo giá bổ sung', 'Gửi báo giá bổ sung cho các hạng mục phát sinh kỹ thuật?', 'CHO_KH_DUYET', 'warning')}
+                        disabled={isActionDisabled}
                         className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors disabled:opacity-50"
                     >
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
@@ -151,8 +190,8 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
                 {isWaitingApproval && (
                     <div className="group relative">
                         <button
-                            onClick={() => handleAction(finalizeOrder, 'Duyệt báo giá', 'Xác nhận khách hàng ĐÃ DUYỆT báo giá?\n\nLệnh sửa chữa sẽ được chuyển cho thợ.', 'info')}
-                            disabled={isLoading || isMissingDiagnostic}
+                            onClick={() => handleAction(finalizeOrder, 'Duyệt báo giá', 'Xác nhận khách hàng ĐÃ DUYỆT báo giá?\n\nLệnh sửa chữa sẽ được chuyển cho thợ.', 'DA_DUYET', 'info')}
+                            disabled={isActionDisabled || isMissingDiagnostic}
                             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
@@ -170,8 +209,8 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
 
                 {canClose && (
                     <button
-                        onClick={() => handleAction(closeOrder, 'Đóng đơn hàng', 'Xác nhận ĐÓNG ĐƠN HÀNG?\n\nChỉ thực hiện khi đã thanh toán đủ hoặc được Admin cho phép.', 'warning')}
-                        disabled={isLoading}
+                        onClick={() => handleAction(closeOrder, 'Đóng đơn hàng', 'Xác nhận ĐÓNG ĐƠN HÀNG?\n\nChỉ thực hiện khi đã thanh toán đủ hoặc được Admin cho phép.', 'DONG', 'warning')}
+                        disabled={isActionDisabled}
                         className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
                     >
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCheck className="w-4 h-4" />}
@@ -182,7 +221,7 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
                 {!isClosed && (
                     <button
                         onClick={handleCancelClick}
-                        disabled={isLoading}
+                        disabled={isActionDisabled}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg text-sm font-medium transition-colors"
                     >
                         <XCircle className="w-4 h-4" /> Hủy đơn

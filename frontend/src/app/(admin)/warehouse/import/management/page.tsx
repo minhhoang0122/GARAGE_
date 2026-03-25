@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { ArrowLeft, Check, X, Search, Filter } from 'lucide-react';
+import { ArrowLeft, Check, X, Search, Filter, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { api } from '@/lib/api';
@@ -35,66 +35,61 @@ interface ImportNote {
 
 import { usePermission } from '@/hooks/usePermission';
 
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 export default function ImportManagementPage() {
+    const queryClient = useQueryClient();
     const { data: session } = useSession();
     const { hasPermission, isAdmin } = usePermission();
 
     const isAdminOrManager = isAdmin || hasPermission('MANAGE_INVENTORY');
 
-    const [imports, setImports] = useState<ImportNote[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState<string>('PENDING'); // Default to PENDING
     const [searchTerm, setSearchTerm] = useState('');
     const { toast } = useToast();
 
-    const fetchImports = async () => {
-        setIsLoading(true);
-        try {
-            // @ts-ignore
-            const token = session?.user?.accessToken;
-            if (!token) return;
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
+    const { data: imports = [], isLoading } = useQuery({
+        queryKey: ['warehouse-imports', statusFilter],
+        queryFn: async () => {
             const query = statusFilter === 'ALL' ? '' : `?status=${statusFilter}`;
-            const res = await api.get(`/warehouse/imports${query}`, token);
-            setImports(res);
-        } catch (error) {
-            console.error(error);
-            toast({ title: "Lỗi", description: "Không thể tải danh sách phiếu nhập", variant: "destructive" });
-        } finally {
-            setIsLoading(false);
-        }
-    };
+            return await api.get(`/warehouse/imports${query}`, token);
+        },
+        enabled: !!token
+    });
 
-    useEffect(() => {
-        if (session) {
-            fetchImports();
-        }
-    }, [session, statusFilter]);
-
-    const handleApprove = async (id: number) => {
-        if (!confirm('Bạn có chắc chắn muốn duyệt phiếu nhập này? Kho và giá sẽ được cập nhật.')) return;
-
-        try {
-            const token = (session?.user as any)?.accessToken;
-            await api.post(`/warehouse/import/${id}/approve`, {}, token);
+    const approveMutation = useMutation({
+        mutationFn: (id: number) => api.post(`/warehouse/import/${id}/approve`, {}, token),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['warehouse-imports'] });
             toast({ title: "Thành công", description: "Đã duyệt phiếu nhập thành công", variant: "default" });
-            fetchImports();
-        } catch (error: any) {
+        },
+        onError: (error: any) => {
             toast({ title: "Lỗi", description: error.message || "Lỗi khi duyệt", variant: "destructive" });
         }
-    };
+    });
 
-    const handleReject = async (id: number) => {
-        if (!confirm('Bạn có chắc chắn muốn từ chối phiếu nhập này?')) return;
-
-        try {
-            const token = (session?.user as any)?.accessToken;
-            await api.post(`/warehouse/import/${id}/reject`, {}, token);
+    const rejectMutation = useMutation({
+        mutationFn: (id: number) => api.post(`/warehouse/import/${id}/reject`, {}, token),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['warehouse-imports'] });
             toast({ title: "Thành công", description: "Đã từ chối phiếu nhập", variant: "default" });
-            fetchImports();
-        } catch (error: any) {
+        },
+        onError: (error: any) => {
             toast({ title: "Lỗi", description: error.message || "Lỗi khi từ chối", variant: "destructive" });
         }
+    });
+
+    const handleApprove = (id: number) => {
+        if (!confirm('Bạn có chắc chắn muốn duyệt phiếu nhập này? Kho và giá sẽ được cập nhật.')) return;
+        approveMutation.mutate(id);
+    };
+
+    const handleReject = (id: number) => {
+        if (!confirm('Bạn có chắc chắn muốn từ chối phiếu nhập này?')) return;
+        rejectMutation.mutate(id);
     };
 
     const getStatusBadge = (status: string) => {
@@ -208,18 +203,28 @@ export default function ImportManagementPage() {
                                                             variant="outline"
                                                             className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
                                                             onClick={() => handleApprove(item.id)}
+                                                            disabled={approveMutation.isPending || rejectMutation.isPending}
                                                             title="Duyệt"
                                                         >
-                                                            <Check className="w-4 h-4" />
+                                                            {approveMutation.isPending && approveMutation.variables === item.id ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : (
+                                                                <Check className="w-4 h-4" />
+                                                            )}
                                                         </Button>
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
                                                             className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
                                                             onClick={() => handleReject(item.id)}
+                                                            disabled={approveMutation.isPending || rejectMutation.isPending}
                                                             title="Từ chối"
                                                         >
-                                                            <X className="w-4 h-4" />
+                                                            {rejectMutation.isPending && rejectMutation.variables === item.id ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : (
+                                                                <X className="w-4 h-4" />
+                                                            )}
                                                         </Button>
                                                     </>
                                                 )}

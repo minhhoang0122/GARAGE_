@@ -12,37 +12,33 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
     DA_BAO_HANH: { label: 'Đã bảo hành', color: 'text-blue-400 bg-blue-900/30 border-blue-800', icon: ShieldAlert },
 };
 
+import { api } from '@/lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 export default function CustomerWarrantyPage() {
     const { data: session, status: authStatus } = useSession();
     const router = useRouter();
-    const [items, setItems] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [claimLoading, setClaimLoading] = useState<number | null>(null);
+    const queryClient = useQueryClient();
+    
     const [successMsg, setSuccessMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
 
     const token = (session?.user as any)?.accessToken;
 
     useEffect(() => {
-        if (authStatus === 'unauthenticated') { router.push('/customer/login'); return; }
-        if (authStatus !== 'authenticated') return;
-        if (!token) return;
+        if (authStatus === 'unauthenticated') {
+            router.push('/customer/login');
+        }
+    }, [authStatus, router]);
 
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/api/customer/warranty`, {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then(r => r.json())
-            .then(data => setItems(data || []))
-            .catch(() => setItems([]))
-            .finally(() => setLoading(false));
-    }, [authStatus, session, router, token]);
+    const { data: items = [], isLoading } = useQuery({
+        queryKey: ['customer-warranty'],
+        queryFn: () => api.get('/customer/warranty', token),
+        enabled: authStatus === 'authenticated' && !!token
+    });
 
-    const handleClaim = async (orderId: number, itemId: number) => {
-        setClaimLoading(itemId);
-        setErrorMsg('');
-        setSuccessMsg('');
-
-        try {
+    const mutation = useMutation({
+        mutationFn: async ({ orderId, itemId }: { orderId: number, itemId: number }) => {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/api/customer/warranty-claim`, {
                 method: 'POST',
                 headers: {
@@ -51,24 +47,30 @@ export default function CustomerWarrantyPage() {
                 },
                 body: JSON.stringify({ orderId, itemIds: [itemId], currentOdo: null }),
             });
-            const data = await res.json();
-            if (!res.ok || !data.success) {
-                setErrorMsg(data.message || 'Yêu cầu bảo hành thất bại.');
-            } else {
+            return await res.json();
+        },
+        onSuccess: (data) => {
+            if (data.success) {
                 setSuccessMsg(data.message || 'Yêu cầu bảo hành đã được ghi nhận!');
-                // Update item status locally
-                setItems(prev => prev.map(i =>
-                    i.orderItemId === itemId ? { ...i, warrantyStatus: 'DA_BAO_HANH', daBaoHanh: true } : i
-                ));
+                queryClient.invalidateQueries({ queryKey: ['customer-warranty'] });
+            } else {
+                setErrorMsg(data.message || 'Yêu cầu bảo hành thất bại.');
             }
-        } catch {
+        },
+        onError: () => {
             setErrorMsg('Có lỗi xảy ra. Vui lòng thử lại.');
-        } finally {
-            setClaimLoading(null);
         }
+    });
+
+    const handleClaim = (orderId: number, itemId: number) => {
+        setErrorMsg('');
+        setSuccessMsg('');
+        mutation.mutate({ orderId, itemId });
     };
 
-    if (authStatus === 'loading' || loading) {
+    const claimLoading = mutation.isPending ? (mutation.variables as any)?.itemId : null;
+
+    if (authStatus === 'loading' || isLoading) {
         return <div className="min-h-screen bg-stone-950 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={32} /></div>;
     }
 

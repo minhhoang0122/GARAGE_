@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useState, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/modules/shared/components/ui/card';
+import { Card, CardContent } from '@/modules/shared/components/ui/card';
 import { Button } from '@/modules/shared/components/ui/button';
 import { Badge } from '@/modules/shared/components/ui/badge';
 import { api } from '@/lib/api';
@@ -12,6 +12,7 @@ import { formatCurrency } from '@/lib/utils';
 import { CreditCard, Banknote, Clock, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { SearchInput } from '@/modules/shared/components/ui/search-input';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface Order {
     id: number;
@@ -26,28 +27,25 @@ interface Order {
 }
 
 export default function SaleCheckoutPage() {
-    const router = useRouter();
     const searchParams = useSearchParams();
-    const pathname = usePathname();
     const { data: session } = useSession();
+    const queryClient = useQueryClient();
 
-    const [orders, setOrders] = useState<Order[]>([]);
-    const [loading, setLoading] = useState(true);
     // Initialize keyword from URL to persist state
     const searchKeyword = searchParams.get('q') || '';
 
-    async function loadPendingOrders() {
-        setLoading(true);
-        try {
-            // @ts-ignore
-            const token = session?.user?.accessToken;
-            if (!token) return;
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
+    const { data: orders = [], isLoading: loading, refetch } = useQuery({
+        queryKey: ['checkout', 'orders'],
+        queryFn: async () => {
+            if (!token) return [];
             // Fetch orders and filter those with remaining debt
             const res = await api.get('/sale/orders', token);
             const allOrders = res || [];
             // Handle both mapped property names: remainingAmount or debt
-            const pendingOrders = allOrders
+            return allOrders
                 .filter((o: any) => (o.remainingAmount || o.debt || 0) > 0)
                 .map((o: any) => ({
                     ...o,
@@ -55,30 +53,22 @@ export default function SaleCheckoutPage() {
                     remainingAmount: o.remainingAmount || o.debt || 0,
                     subTime: o.subTime || o.createdAt || new Date().toISOString()
                 }));
-            setOrders(pendingOrders);
-        } catch (error) {
-            console.error('Failed to load orders', error);
-        } finally {
-            setLoading(false);
-        }
-    }
+        },
+        enabled: !!token,
+        staleTime: 30000 // 30s cache
+    });
 
-    useEffect(() => {
-        if (session) {
-            loadPendingOrders();
-        }
-    }, [session]);
-
-    // Update URL when search keyword changes
-
-
-    const filteredOrders = orders.filter(order =>
+    const filteredOrders = useMemo(() => orders.filter((order: Order) =>
         order.plate?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
         order.customerName?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
         order.customerPhone?.includes(searchKeyword)
-    );
+    ), [orders, searchKeyword]);
 
-    const totalPending = orders.reduce((sum, o) => sum + (o.remainingAmount || 0), 0);
+    const totalPending = useMemo(() => orders.reduce((sum: number, o: Order) => sum + (o.remainingAmount || 0), 0), [orders]);
+
+    const handleRefresh = () => {
+        queryClient.invalidateQueries({ queryKey: ['checkout', 'orders'] });
+    };
 
     return (
         <DashboardLayout title="Thu ngân" subtitle="Danh sách đơn hàng chờ thanh toán">
@@ -122,14 +112,14 @@ export default function SaleCheckoutPage() {
                                 placeholder="Tìm theo biển số, tên khách, SĐT..."
                             />
                         </div>
-                        <Button variant="outline" onClick={loadPendingOrders} disabled={loading}>
+                        <Button variant="outline" onClick={handleRefresh} disabled={loading}>
                             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                         </Button>
                     </div>
                 </div>
 
                 {/* Orders List */}
-                {loading ? (
+                {loading && orders.length === 0 ? (
                     <div className="text-center py-12">
                         <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-600" />
                         <p className="mt-2 text-slate-500 dark:text-slate-400">Đang tải...</p>
@@ -141,7 +131,7 @@ export default function SaleCheckoutPage() {
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        {filteredOrders.map((order) => (
+                        {filteredOrders.map((order: Order) => (
                             <Card key={order.id} className="hover:shadow-md transition-shadow">
                                 <CardContent className="p-4">
                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

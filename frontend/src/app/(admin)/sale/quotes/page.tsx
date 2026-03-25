@@ -4,6 +4,7 @@ import { FileText, Search, ArrowRight } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { getStatusBadge } from '@/lib/status';
+import { RealtimeRefresh } from '@/modules/common/components/layout/RealtimeRefresh';
 
 export default async function QuotesListPage() {
     const session = await auth();
@@ -24,6 +25,9 @@ export default async function QuotesListPage() {
 
     return (
         <DashboardLayout title="Quản lý Báo giá" subtitle="Danh sách báo giá đang thực hiện">
+            {/* Tự động làm mới khi có dữ liệu mới */}
+            <RealtimeRefresh events={['order_updated', 'notification']} />
+            
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
                 {/* Filter / Search */}
                 <div className="p-6 border-b border-slate-200 dark:border-slate-800">
@@ -47,7 +51,7 @@ export default async function QuotesListPage() {
                     </div>
                 ) : (
                 <div className="overflow-x-auto">
-                    <table className="data-table w-full text-left min-w-[800px] table-fixed">
+                    <table className="data-table w-full text-left  ">
                         <thead>
                             <tr className="bg-stone-100 dark:bg-slate-900 border-b border-stone-200 dark:border-slate-800 text-[10px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-widest transition-colors">
                                 <th className="w-[80px] px-4 py-4 !text-left">Mã</th>

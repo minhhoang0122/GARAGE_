@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { Plus, Edit, Lock, Unlock } from 'lucide-react';
+import { Plus, Edit, Lock, Unlock, Loader2 } from 'lucide-react';
 import { getCustomerAccounts as getUsers, toggleUserActive } from '@/modules/identity/user';
 import { getStatusBadge } from '@/lib/status';
 import { Card } from '@/modules/shared/components/ui/card';
@@ -10,20 +10,28 @@ import { Button } from '@/modules/shared/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/modules/shared/components/ui/table';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { useToast } from '@/contexts/ToastContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function CustomerAccountsPage() {
-    const [users, setUsers] = useState<any[]>([]);
+    const queryClient = useQueryClient();
     const confirm = useConfirm();
     const { showToast } = useToast();
 
-    useEffect(() => {
-        loadUsers();
-    }, []);
+    const { data: users = [], isLoading } = useQuery({
+        queryKey: ['customer-accounts'],
+        queryFn: async () => {
+            const data = await getUsers();
+            return Array.isArray(data) ? data : [];
+        }
+    });
 
-    const loadUsers = async () => {
-        const data = await getUsers();
-        if (Array.isArray(data)) setUsers(data);
-    };
+    const toggleMutation = useMutation({
+        mutationFn: toggleUserActive,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['customer-accounts'] });
+            showToast('success', 'Đã cập nhật trạng thái tài khoản');
+        }
+    });
 
     const handleToggle = async (id: number) => {
         const confirmed = await confirm({
@@ -33,9 +41,7 @@ export default function CustomerAccountsPage() {
             confirmText: 'Xác nhận'
         });
         if (confirmed) {
-            await toggleUserActive(id);
-            loadUsers();
-            showToast('success', 'Đã cập nhật trạng thái tài khoản');
+            toggleMutation.mutate(id);
         }
     };
 
@@ -59,14 +65,20 @@ export default function CustomerAccountsPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {users.length === 0 ? (
+                             {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="text-center py-10">
+                                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" />
+                                    </TableCell>
+                                </TableRow>
+                            ) : users.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-10 text-slate-500">
                                         Không tìm thấy tài khoản khách hàng nào
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                users.map((user) => (
+                                 users.map((user: any) => (
                                     <TableRow key={user.id}>
                                         <TableCell className="font-medium">#{user.id}</TableCell>
                                         <TableCell className="font-semibold text-slate-700 dark:text-slate-300">{user.tenDangNhap}</TableCell>
@@ -78,9 +90,9 @@ export default function CustomerAccountsPage() {
                                         <TableCell className="text-right">
                                             <Button 
                                                 size="icon" 
-                                                variant="ghost" 
-                                                onClick={() => handleToggle(user.id)} 
-                                                className={`h-8 w-8 ${user.trangThaiHoatDong ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20' : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'}`}
+                                                variant="ghost"                                                 disabled={toggleMutation.isPending}
+                                                 onClick={() => handleToggle(user.id)} 
+                                                 className={`h-8 w-8 ${user.trangThaiHoatDong ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20' : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'}`}
                                             >
                                                 {user.trangThaiHoatDong ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                                             </Button>

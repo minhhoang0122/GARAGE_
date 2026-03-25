@@ -13,13 +13,21 @@ import java.util.List;
 public interface NotificationRepository extends JpaRepository<Notification, Integer> {
 
         @Query("SELECT n FROM Notification n WHERE " +
-                        "(:userId IS NULL OR n.userId = :userId) AND " +
-                        "(:role IS NULL OR n.role = :role) AND " +
+                        "n.userId = :userId AND " +
                         "n.title = :title AND n.content = :content AND " +
                         "n.isRead = false AND " +
                         "n.createdAt > :since")
-        List<Notification> findDuplicateUnread(@Param("userId") Integer userId,
-                        @Param("role") String role,
+        List<Notification> findDuplicateUnreadByUser(@Param("userId") Integer userId,
+                        @Param("title") String title,
+                        @Param("content") String content,
+                        @Param("since") LocalDateTime since);
+
+        @Query("SELECT n FROM Notification n WHERE " +
+                        "n.role = :role AND " +
+                        "n.title = :title AND n.content = :content AND " +
+                        "n.isRead = false AND " +
+                        "n.createdAt > :since")
+        List<Notification> findDuplicateUnreadByRole(@Param("role") String role,
                         @Param("title") String title,
                         @Param("content") String content,
                         @Param("since") LocalDateTime since);

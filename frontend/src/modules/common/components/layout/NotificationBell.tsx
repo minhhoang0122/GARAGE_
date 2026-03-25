@@ -1,11 +1,12 @@
 'use client';
-
+ 
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Info, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
-import { getUnreadNotifications, markAsRead, markAllAsRead } from '@/actions/notification';
+import { markAsRead, markAllAsRead } from '@/actions/notification';
+import { useSSEContext } from '@/modules/common/contexts/SSEContext';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-
+ 
 type Notification = {
     id: number;
     title: string;
@@ -14,47 +15,14 @@ type Notification = {
     link?: string;
     createdAt: Date;
 };
-
+ 
 export default function NotificationBell() {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const { notifications, loading, setNotifications, fetchNotifications } = useSSEContext();
     const [isOpen, setIsOpen] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [isUpdating, setIsUpdating] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const readIdsRef = useRef<Set<number>>(new Set());
     const router = useRouter();
-
-    const fetchNotifications = async (force: boolean = false) => {
-        // Don't poll while an update is in progress, unless forced
-        if (isUpdating && !force) return;
-
-        try {
-            const data = await getUnreadNotifications();
-            setNotifications((data || []) as any);
-        } catch (error) {
-            console.error('Failed to fetch notifications', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Initial fetch and polling
-    useEffect(() => {
-        fetchNotifications();
-
-        // Poll every 5 seconds (Reduced frequency to stay stable)
-        const interval = setInterval(() => fetchNotifications(), 5000);
-
-        // Refetch on window focus
-        const onFocus = () => fetchNotifications(true);
-        window.addEventListener('focus', onFocus);
-
-        return () => {
-            clearInterval(interval);
-            window.removeEventListener('focus', onFocus);
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
+ 
     // Click outside to close
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -65,12 +33,12 @@ export default function NotificationBell() {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-
+ 
     const handleMarkAsRead = async (id: number, link?: string) => {
-        setIsUpdating(true);
         // Optimistic update
-        setNotifications(prev => prev.filter(n => n.id !== id));
-
+        readIdsRef.current.add(id);
+        setNotifications((prev: any[]) => prev.filter(n => n.id !== id));
+ 
         try {
             await markAsRead(id);
             if (link) {
@@ -78,22 +46,21 @@ export default function NotificationBell() {
                 router.push(link);
             }
         } catch (error) {
-            // Restore if failed
-            fetchNotifications(true);
-        } finally {
-            setIsUpdating(false);
+            // Restore if failed (rare)
+            readIdsRef.current.delete(id);
+            fetchNotifications();
         }
     };
 
     const handleMarkAllRead = async () => {
-        setIsUpdating(true);
+        const ids = notifications.map(n => n.id);
+        ids.forEach(id => readIdsRef.current.add(id));
         setNotifications([]);
         try {
             await markAllAsRead();
         } catch (error) {
-            fetchNotifications(true);
-        } finally {
-            setIsUpdating(false);
+            ids.forEach(id => readIdsRef.current.delete(id));
+            fetchNotifications();
         }
     };
 

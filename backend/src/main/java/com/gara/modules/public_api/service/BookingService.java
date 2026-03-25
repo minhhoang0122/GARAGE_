@@ -20,17 +20,20 @@ public class BookingService {
     private final ReceptionRepository receptionRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
 
     public BookingService(CustomerRepository customerRepository,
             VehicleRepository vehicleRepository,
             ReceptionRepository receptionRepository,
             ProductRepository productRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            com.gara.modules.support.service.AsyncNotificationService asyncNotificationService) {
         this.customerRepository = customerRepository;
         this.vehicleRepository = vehicleRepository;
         this.receptionRepository = receptionRepository;
         this.productRepository = productRepository;
         this.userRepository = userRepository;
+        this.asyncNotificationService = asyncNotificationService;
     }
 
     @Transactional
@@ -102,6 +105,18 @@ public class BookingService {
         reception.setTinhTrangVoXe("Khách đặt online - Chưa kiểm tra");
 
         Reception saved = receptionRepository.save(reception);
+
+        // Notify Sale/Admin (SSE)
+        asyncNotificationService.pushAsync(com.gara.entity.Notification.builder()
+                .role("SALE")
+                .title("Lịch hẹn mới: " + dto.bienSoXe())
+                .content("Khách hàng " + dto.hoTen() + " vừa đặt lịch online ngày " + dto.ngayHen())
+                .type("INFO")
+                .link("/sale/bookings")
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
+                .build());
+
         return saved.getId();
     }
 }

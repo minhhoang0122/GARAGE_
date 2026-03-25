@@ -20,33 +20,42 @@ const statusMap: Record<string, { label: string; color: string; icon: any }> = {
     DONG: { label: 'Đã đóng', color: 'text-stone-400 bg-stone-800', icon: CheckCircle },
 };
 
+import { api } from '@/lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSSE } from '@/hooks/useSSE';
+
 export default function CustomerProgressPage() {
     const { data: session, status: authStatus } = useSession();
     const router = useRouter();
-    const [orders, setOrders] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
     useEffect(() => {
-        if (authStatus === 'unauthenticated') { router.push('/customer/login'); return; }
-        if (authStatus !== 'authenticated') return;
+        if (authStatus === 'unauthenticated') {
+            router.push('/customer/login');
+        }
+    }, [authStatus, router]);
 
-        const token = (session?.user as any)?.accessToken;
-        if (!token) return;
+    const queryClient = useQueryClient();
 
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/api/customer/orders`, {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then(r => r.json())
-            .then(data => {
-                // Filter active orders (not HOAN_THANH, DONG, HUY)
-                const active = (data || []).filter((o: any) => !['HOAN_THANH', 'DONG', 'HUY'].includes(o.status));
-                setOrders(active);
-            })
-            .catch(() => setOrders([]))
-            .finally(() => setLoading(false));
-    }, [authStatus, session, router]);
+    const { data: orders = [], isLoading: dataLoading } = useQuery({
+        queryKey: ['customer-orders-active'],
+        queryFn: async () => {
+            const data = await api.get('/customer/orders', token);
+            return (data || []).filter((o: any) => !['HOAN_THANH', 'DONG', 'HUY'].includes(o.status));
+        },
+        enabled: authStatus === 'authenticated' && !!token,
+    });
 
-    if (authStatus === 'loading' || loading) {
+    // Real-time update via SSE
+    useSSE('notification', () => {
+        queryClient.invalidateQueries({ queryKey: ['customer-orders-active'] });
+    });
+
+    const loading = authStatus === 'loading' || dataLoading;
+
+    if (loading) {
         return <div className="min-h-screen bg-stone-950 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={32} /></div>;
     }
 

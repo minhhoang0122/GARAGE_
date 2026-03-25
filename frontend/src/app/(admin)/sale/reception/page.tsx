@@ -13,44 +13,44 @@ import { getStatusBadge } from '@/lib/status';
 import { ReceptionListSkeleton } from '@/modules/service/components/ReceptionListSkeleton';
 import { SearchInput } from '@/modules/shared/components/ui/search-input';
 
+import { useQuery } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useRef } from 'react';
+
 export default function ReceptionListPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const pathname = usePathname();
     const { data: session } = useSession();
 
-    const [receptions, setReceptions] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
     const searchKeyword = searchParams.get('q') || '';
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
-    async function loadReceptions() {
-        setLoading(true);
-        try {
-            // @ts-ignore
-            const token = session?.user?.accessToken;
-            if (!token) return;
-
+    const { data: receptions = [], isLoading: loading, refetch: loadReceptions } = useQuery({
+        queryKey: ['reception'],
+        queryFn: async () => {
             const res = await api.get('/reception', token);
-            setReceptions(res || []);
-        } catch (e) {
-            console.error('Failed to fetch receptions', e);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    useEffect(() => {
-        if (session) {
-            loadReceptions();
-        }
-    }, [session]);
+            return res || [];
+        },
+        enabled: !!token
+    });
 
     // Filter locally
-    const filteredReceptions = receptions.filter(r =>
+    const filteredReceptions = (receptions || []).filter((r: any) =>
         r.XeBienSo?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
         r.KhachHangName?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
         r.KhachHangPhone?.includes(searchKeyword)
     );
+
+    const parentRef = useRef<HTMLDivElement>(null);
+
+    const rowVirtualizer = useVirtualizer({
+        count: filteredReceptions.length,
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => 64, // Ước lượng chiều cao mỗi dòng
+        overscan: 5,
+    });
 
     return (
         <DashboardLayout title="Tiếp nhận xe" subtitle="Danh sách xe đã tiếp nhận">
@@ -63,7 +63,7 @@ export default function ReceptionListPage() {
                     </div>
                     <div className="flex gap-2">
                         <button
-                            onClick={loadReceptions}
+                            onClick={() => loadReceptions()}
                             className="p-2 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                             disabled={loading}
                         >
@@ -89,99 +89,117 @@ export default function ReceptionListPage() {
                             icon={FileText}
                             actionLabel={!searchKeyword ? "Tạo phiếu ngay" : undefined}
                             onAction={!searchKeyword ? () => router.push('/sale/reception/new') : undefined}
-                            className="border-none shadow-none bg-transparent"
                         />
                     </div>
                 ) : (
                     <>
                         {/* Desktop Table View */}
-                        <div className="hidden md:block overflow-x-auto">
-                            <table className="w-full text-left border-collapse min-w-[900px]">
-                                <thead>
-                                    <tr className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase transition-colors">
-                                        <th className="px-2 py-3 text-center w-16">Ảnh</th>
-                                        <th className="px-3 py-3 text-center w-28">Thời gian</th>
-                                        <th className="px-3 py-3 text-center w-36">Biển số</th>
-                                        <th className="px-3 py-3 text-left min-w-[150px]">Khách hàng</th>
-                                        <th className="px-3 py-3 text-left w-40">Xe</th>
-                                        <th className="px-3 py-3 text-center w-28">Trạng thái</th>
-                                        <th className="px-3 py-3 text-center w-52">Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {filteredReceptions.map((r: any) => (
-                                        <tr key={r.ID} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="px-2 py-3 text-center">
-                                                {r.HinhAnh ? (
-                                                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 mx-auto">
-                                                        <img src={r.HinhAnh.split(',')[0]} alt="Xe" className="w-full h-full object-cover" />
-                                                    </div>
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-400 mx-auto">
-                                                        <Car className="w-4 h-4 opacity-40" />
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-3 text-center">
-                                                <div className="flex flex-col items-center">
-                                                    <span className="font-medium text-slate-900 dark:text-slate-100 text-sm">
-                                                        {new Date(r.NgayGio).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                                    </span>
-                                                    <span className="text-[11px] text-slate-400">
-                                                        {new Date(r.NgayGio).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-3 text-center">
-                                                <Link href={`/sale/reception/${r.ID}`} className="font-bold text-sm text-slate-800 dark:text-slate-200 hover:text-indigo-600 transition-colors inline-flex items-center gap-1.5">
-                                                    {r.XeBienSo}
-                                                    <ExternalLink className="w-3 h-3 opacity-30" />
-                                                </Link>
-                                            </td>
-                                            <td className="px-3 py-3 text-left">
-                                                <div className="font-medium text-sm text-slate-800 dark:text-slate-200">{r.KhachHangName}</div>
-                                                <div className="text-[11px] text-slate-400 dark:text-slate-500">{r.KhachHangPhone}</div>
-                                            </td>
-                                            <td className="px-3 py-3 text-left">
-                                                <span className="text-sm text-slate-600 dark:text-slate-300">
-                                                    {r.XeNhanHieu} {r.XeModel}
-                                                </span>
-                                            </td>
-                                            <td className="px-3 py-3 text-center">
-                                                <div className="flex justify-center">
-                                                    {r.DonHangSuaChua ? (
-                                                        getStatusBadge(r.DonHangSuaChua.TrangThai)
-                                                    ) : (
-                                                        getStatusBadge('TIEP_NHAN')
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-3 text-center">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <Link
-                                                        href={`/sale/reception/${r.ID}`}
-                                                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[11px] rounded-lg transition-all flex items-center gap-1.5"
-                                                    >
-                                                        <Eye className="w-3.5 h-3.5" />
-                                                        Xem phiếu
-                                                    </Link>
-
-                                                    {r.DonHangSuaChua ? (
-                                                        <Link
-                                                            href={`/sale/orders/${r.DonHangSuaChua.ID}?source=reception`}
-                                                            className="px-2.5 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-[11px] rounded-lg shadow-sm hover:translate-y-[-1px] transition-all"
-                                                        >
-                                                            Đơn hàng
-                                                        </Link>
-                                                    ) : (
-                                                        <CreateOrderButton receptionId={r.ID} />
-                                                    )}
-                                                </div>
-                                            </td>
+                        <div 
+                            ref={parentRef}
+                            className="hidden md:block overflow-auto max-h-[calc(100vh-280px)] scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800"
+                        >
+                                <div
+                                    style={{
+                                        height: `${rowVirtualizer.getTotalSize() + 48}px`,
+                                        width: '100%',
+                                        position: 'relative',
+                                    }}
+                                >
+                                <table className="w-full text-left border-collapse table-fixed">
+                                    <thead className="sticky top-0 z-10">
+                                        <tr className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase transition-colors backdrop-blur-md flex items-center w-full">
+                                            <th className="px-2 py-3 text-center w-14 flex-shrink-0">Ảnh</th>
+                                            <th className="px-3 py-3 text-center w-28 flex-shrink-0">Thời gian</th>
+                                            <th className="px-3 py-3 text-center w-32 flex-shrink-0">Biển số</th>
+                                            <th className="px-3 py-3 text-left flex-1 min-w-[200px]">Khách hàng</th>
+                                            <th className="px-3 py-3 text-left w-36 flex-shrink-0">Xe</th>
+                                            <th className="px-3 py-3 text-center w-32 flex-shrink-0">Trạng thái</th>
+                                            <th className="px-3 py-3 text-left w-56 flex-shrink-0 pl-8">Thao tác</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                                            const r = filteredReceptions[virtualRow.index];
+                                            return (
+                                                <tr 
+                                                    key={r.ID} 
+                                                    className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors absolute top-0 left-0 w-full flex items-center border-b border-slate-100 dark:border-slate-800"
+                                                    style={{
+                                                        height: `${virtualRow.size}px`,
+                                                        transform: `translateY(${virtualRow.start + 48}px)`,
+                                                    }}
+                                                >
+                                                    <td className="w-14 px-2 text-center flex-shrink-0">
+                                                        {r.HinhAnh ? (
+                                                            <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 mx-auto">
+                                                                <img src={r.HinhAnh.split(',')[0]} alt="Xe" className="w-full h-full object-cover" />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-10 h-10 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-400 mx-auto">
+                                                                <Car className="w-4 h-4 opacity-40" />
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="w-28 px-3 text-center flex-shrink-0">
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="font-medium text-slate-900 dark:text-slate-100 text-sm">
+                                                                {new Date(r.NgayGio).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                            <span className="text-[11px] text-slate-400">
+                                                                {new Date(r.NgayGio).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="w-32 px-3 text-center flex-shrink-0 text-indigo-600 dark:text-indigo-400">
+                                                        <Link href={`/sale/reception/${r.ID}`} className="font-bold text-sm hover:underline inline-flex items-center gap-1.5 break-all">
+                                                            {r.XeBienSo}
+                                                        </Link>
+                                                    </td>
+                                                    <td className="flex-1 px-3 text-left overflow-hidden min-w-[200px]">
+                                                        <div className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate">{r.KhachHangName}</div>
+                                                        <div className="text-[11px] text-slate-500 truncate">{r.KhachHangPhone}</div>
+                                                    </td>
+                                                    <td className="w-36 px-3 text-left flex-shrink-0 overflow-hidden">
+                                                        <span className="text-sm text-slate-600 dark:text-slate-300 truncate block">
+                                                            {r.XeNhanHieu} {r.XeModel}
+                                                        </span>
+                                                    </td>
+                                                    <td className="w-32 px-3 text-center flex-shrink-0">
+                                                        <div className="flex justify-center">
+                                                            {r.DonHangSuaChua ? (
+                                                                getStatusBadge(r.DonHangSuaChua.TrangThai)
+                                                            ) : (
+                                                                getStatusBadge('TIEP_NHAN')
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="w-56 pl-8 flex-shrink-0">
+                                                        <div className="flex items-center justify-start gap-2">
+                                                            <Link
+                                                                href={`/sale/reception/${r.ID}`}
+                                                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[11px] rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap"
+                                                            >
+                                                                <Eye className="w-3.5 h-3.5" />
+                                                                Xem phiếu
+                                                            </Link>
+                                                            {r.DonHangSuaChua ? (
+                                                                <Link
+                                                                    href={`/sale/orders/${r.DonHangSuaChua.ID}?source=reception`}
+                                                                    className="px-2.5 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-[11px] rounded-lg shadow-sm hover:translate-y-[-1px] transition-all whitespace-nowrap"
+                                                                >
+                                                                    Đơn hàng
+                                                                </Link>
+                                                            ) : (
+                                                                <CreateOrderButton receptionId={r.ID} />
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
                         {/* Mobile Card View */}

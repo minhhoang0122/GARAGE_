@@ -9,6 +9,8 @@ import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
+import { useQuery } from '@tanstack/react-query';
+
 interface TransactionStats {
     currentBalance: number;
     totalRevenueThisMonth: number;
@@ -28,36 +30,26 @@ interface Transaction {
 
 export default function FinancePage() {
     const { data: session } = useSession();
-    const [stats, setStats] = useState<TransactionStats | null>(null);
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [loading, setLoading] = useState(true);
+    // @ts-ignore
+    const token = session?.user?.accessToken;
 
-    async function loadData() {
-        setLoading(true);
-        try {
-            // @ts-ignore
-            const token = session?.user?.accessToken;
-            if (!token) return;
+    const { data: stats, isLoading: statsLoading } = useQuery<TransactionStats>({
+        queryKey: ['transactions', 'stats'],
+        queryFn: () => api.get('/transactions/stats', token),
+        enabled: !!token
+    });
 
-            const [statsData, recentData] = await Promise.all([
-                api.get('/transactions/stats', token),
-                api.get('/transactions/recent', token)
-            ]);
+    const { data: transactions = [], isLoading: transactionsLoading, refetch } = useQuery<Transaction[]>({
+        queryKey: ['transactions', 'recent'],
+        queryFn: () => api.get('/transactions/recent', token),
+        enabled: !!token
+    });
 
-            setStats(statsData);
-            setTransactions(recentData || []);
-        } catch (error) {
-            console.error('Failed to load finance data', error);
-        } finally {
-            setLoading(false);
-        }
+    const loading = statsLoading || transactionsLoading;
+
+    async function handleRefresh() {
+        refetch();
     }
-
-    useEffect(() => {
-        if (session) {
-            loadData();
-        }
-    }, [session]);
 
     const getTypeLabel = (type: string) => {
         switch (type) {
@@ -128,7 +120,7 @@ export default function FinancePage() {
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                     <h3 className="font-bold text-slate-800 dark:text-slate-100">Giao dịch gần đây</h3>
-                    <button onClick={loadData} disabled={loading} className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium disabled:opacity-50">
+                    <button onClick={handleRefresh} disabled={loading} className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium disabled:opacity-50">
                         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                         Làm mới
                     </button>

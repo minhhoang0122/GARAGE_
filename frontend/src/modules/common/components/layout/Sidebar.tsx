@@ -20,7 +20,7 @@ const ICON_MAP: Record<string, any> = {
     Car, LayoutDashboard, Users, BarChart3, Settings, History,
     ShoppingCart, Package, FileText, CreditCard, PackagePlus,
     PackageMinus, Boxes, ClipboardCheck, ClipboardList, LogOut, Component,
-    Tag, Wallet, UserCog
+    Tag, Wallet, UserCog, Wrench, ShieldCheck
 };
 
 // --- PREMIUM ICON COMPONENT ---
@@ -144,6 +144,16 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
         return activeRole ? ROLE_MENUS[activeRole] || [] : [];
     }, [activeRole]);
 
+    // Tìm mục menu active nhất (Longest Prefix Match)
+    const activeItemHref = useMemo(() => {
+        const allItems = menuGroups.flatMap(g => g.items);
+        const matches = allItems
+            .filter(item => pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/')))
+            .sort((a, b) => b.href.length - a.href.length);
+        
+        return matches[0]?.href || null;
+    }, [menuGroups, pathname]);
+
     const roleDisplayName = useMemo(() => {
         return activeRole ? ROLE_DISPLAY_NAMES[activeRole] : '';
     }, [activeRole]);
@@ -216,18 +226,15 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
                             </div>
                         )}
                         <ul className="space-y-0.5">
-                            {group.items.map((item) => {
-                                const isActive = pathname === item.href;
-                                return (
-                                    <MenuItem
-                                        key={item.href}
-                                        item={item}
-                                        isActive={isActive}
-                                        token={token}
-                                        onNavigate={onNavigate}
-                                    />
-                                );
-                            })}
+                            {group.items.map((item) => (
+                                <MenuItem
+                                    key={item.href}
+                                    item={item}
+                                    isActive={activeItemHref === item.href}
+                                    token={token}
+                                    onNavigate={onNavigate}
+                                />
+                            ))}
                         </ul>
                     </div>
                 ))}
