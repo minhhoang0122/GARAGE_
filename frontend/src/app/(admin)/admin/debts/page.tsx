@@ -1,19 +1,11 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useMemo } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { api } from '@/lib/api';
-import { useSession } from 'next-auth/react';
+import { useDebts } from '@/modules/finance/hooks/useFinance';
+import { Debtor } from '@/modules/finance/services/finance';
 import { Search, RefreshCw, AlertCircle, DollarSign, User, Phone, FileText } from 'lucide-react';
-import { useToast } from '@/contexts/ToastContext';
-
-type Debtor = {
-    customerId: number;
-    customerName: string;
-    phoneNumber: string;
-    totalDebt: number;
-    orderCount: number;
-};
+import { useToast } from '@/modules/shared/components/ui/use-toast';
 
 export default function DebtsPage() {
     return (
@@ -26,50 +18,24 @@ export default function DebtsPage() {
 }
 
 function DebtsContent() {
-    const { data: session } = useSession();
-    const token = (session?.user as any)?.accessToken;
-    const { showToast } = useToast();
-
-    const [debtors, setDebtors] = useState<Debtor[]>([]);
-    const [filteredDebtors, setFilteredDebtors] = useState<Debtor[]>([]);
+    const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (!token) return;
-        loadDebts();
-    }, [token]);
+    const { data: debtors = [], isLoading, isError, refetch } = useDebts();
 
-    const loadDebts = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const res = await api.get('/debts', token); // Call /api/debts
-            setDebtors(res);
-            setFilteredDebtors(res);
-        } catch (err: any) {
-            console.error(err);
-            setError('Lỗi tải danh sách công nợ');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    useEffect(() => {
+    const filteredDebtors = useMemo(() => {
         const lower = searchTerm.toLowerCase();
-        const filtered = debtors.filter(d =>
+        return debtors.filter((d: Debtor) =>
             d.customerName.toLowerCase().includes(lower) ||
             d.phoneNumber.includes(lower)
         );
-        setFilteredDebtors(filtered);
     }, [searchTerm, debtors]);
 
     const formatMoney = (amount: number) => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
     };
 
-    const totalDebt = filteredDebtors.reduce((sum, d) => sum + d.totalDebt, 0);
+    const totalDebt = (filteredDebtors as Debtor[]).reduce((sum: number, d: Debtor) => sum + d.totalDebt, 0);
 
     return (
         <div className="max-w-6xl mx-auto space-y-6 pb-20">
@@ -97,21 +63,21 @@ function DebtsContent() {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <button
-                            onClick={loadDebts}
-                            className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center gap-2 transition-colors"
-                        >
-                            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                                <button
+                                    onClick={() => refetch()}
+                                    className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center gap-2 transition-colors"
+                                >
+                                    <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
                             <span className="text-sm font-medium hidden sm:inline">Tải lại</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            {error && (
+            {isError && (
                 <div className="p-4 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg flex items-center gap-3 transition-colors">
                     <AlertCircle className="w-5 h-5" />
-                    {error}
+                    Lỗi tải danh sách công nợ
                 </div>
             )}
 
@@ -132,7 +98,7 @@ function DebtsContent() {
                         ) : filteredDebtors.length === 0 ? (
                             <tr><td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">Không có dữ liệu công nợ</td></tr>
                         ) : (
-                            filteredDebtors.map(d => (
+                            filteredDebtors.map((d: Debtor) => (
                                 <tr key={d.customerId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <td className="px-6 py-4 font-medium text-slate-700 dark:text-slate-200 flex items-center gap-2">
                                         <User className="w-4 h-4 text-slate-400" />
@@ -155,7 +121,7 @@ function DebtsContent() {
                                     <td className="px-6 py-4 text-right">
                                         <button
                                             className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium text-xs border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 px-3 py-1.5 rounded-lg transition-all"
-                                            onClick={() => showToast('info', 'Tính năng đang phát triển')}
+                                            onClick={() => toast({ title: 'Thông báo', description: 'Tính năng đang phát triển' })}
                                         >
                                             Chi tiết
                                         </button>

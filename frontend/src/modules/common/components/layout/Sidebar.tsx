@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
 import { ReactNode, memo, useState, useCallback, useEffect, useMemo } from 'react';
@@ -14,6 +14,9 @@ import {
 import { ROLE_MENUS, ROLE_DISPLAY_NAMES, MenuGroup } from '@/config/menu';
 import { VaiTroType } from '@/lib/auth';
 import { api } from '@/lib/api';
+import { usePresence } from '@/hooks/usePresence';
+import { User as UserIcon } from 'lucide-react';
+import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
 
 // Static icon map for faster lookups
 const ICON_MAP: Record<string, any> = {
@@ -46,6 +49,7 @@ const PREFETCH_MAP: Record<string, string[]> = {
     '/mechanic/jobs': ['/mechanic/jobs'],
     '/admin': ['/users'],
 };
+
 
 // Memoized menu item with prefetch
 const MenuItem = memo(function MenuItem({
@@ -82,7 +86,7 @@ const MenuItem = memo(function MenuItem({
                 prefetch={true}
                 onMouseEnter={handleMouseEnter}
                 className={`
-                    flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative select-none
+                    flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-300 group relative select-none
                     ${isActive
                         ? 'bg-indigo-50/80 dark:bg-indigo-500/10 text-indigo-900 dark:text-indigo-100 font-semibold'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'}
@@ -90,7 +94,7 @@ const MenuItem = memo(function MenuItem({
             >
                 <PremiumIcon name={item.icon} isActive={isActive} />
 
-                <span className={`text-[13px] tracking-tight ${isActive ? 'translate-x-0.5' : ''} transition-transform duration-200`}>
+                <span className={`text-[13px] tracking-tight ${isActive ? 'translate-x-0.5' : ''} transition-transform duration-300`}>
                     {item.label}
                 </span>
 
@@ -111,48 +115,69 @@ interface SidebarProps {
 
 export default function Sidebar({ className, onNavigate }: SidebarProps) {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const source = searchParams.get('source');
     const { data: session } = useSession();
+    const { onlineUsers, allStaff } = usePresence();
+
+    // Group staff by online status
+    const groupedStaff = useMemo(() => {
+        const currentUserId = (session?.user as any)?.id;
+        // onlineUsers is a Map<number, any>, .has() works on keys (userIds)
+        const online = allStaff.filter(u => onlineUsers.has(Number(u.id)) && Number(u.id) !== currentUserId);
+        const offline = allStaff.filter(u => !onlineUsers.has(Number(u.id)) && Number(u.id) !== currentUserId);
+        return { online, offline };
+    }, [allStaff, onlineUsers, session?.user]);
 
     const roles = (session?.user as any)?.roles || [];
     const [activeRole, setActiveRole] = useState<string | null>(null);
 
-    // Initialize active role
+    // Xác định role thực tế ngay trong quá trình render để tránh flicker
+    const currentRole = useMemo(() => {
+        if (activeRole) return activeRole;
+        if (roles.length === 0) return null;
+        
+        const savedRole = typeof window !== 'undefined' ? localStorage.getItem('active_role') : null;
+        if (savedRole && roles.includes(savedRole)) return savedRole;
+        
+        const priority = ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA'];
+        return priority.find(r => roles.includes(r)) || roles[0];
+    }, [activeRole, roles]);
+
+    // Đồng bộ ngược lại state để các component khác (như Workspace Switcher) có giá trị chuẩn
     useEffect(() => {
-        if (roles.length > 0) {
-            const savedRole = localStorage.getItem('active_role');
-            if (savedRole && roles.includes(savedRole)) {
-                setActiveRole(savedRole);
-            } else {
-                // Default priority
-                const priority = ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA'];
-                const bestRole = priority.find(r => roles.includes(r)) || roles[0];
-                setActiveRole(bestRole);
-            }
+        if (currentRole && !activeRole) {
+            setActiveRole(currentRole);
         }
-    }, [roles]);
+    }, [currentRole, activeRole]);
 
     const handleRoleChange = (role: string) => {
         setActiveRole(role);
         localStorage.setItem('active_role', role);
-        // Optional: Redirect to module dashboard on switch
-        // if (ROLE_ROUTES[role]) window.location.href = ROLE_ROUTES[role];
     };
 
     const token = (session?.user as any)?.accessToken as string | undefined;
 
     const menuGroups: MenuGroup[] = useMemo(() => {
-        return activeRole ? ROLE_MENUS[activeRole] || [] : [];
-    }, [activeRole]);
+        return currentRole ? ROLE_MENUS[currentRole] || [] : [];
+    }, [currentRole]);
 
     // Tìm mục menu active nhất (Longest Prefix Match)
     const activeItemHref = useMemo(() => {
         const allItems = menuGroups.flatMap(g => g.items);
+        
+        // Nếu có source=history, ưu tiên tìm mục menu có href chứa 'history'
+        if (source === 'history') {
+            const historyItem = allItems.find(item => item.href.includes('history'));
+            if (historyItem) return historyItem.href;
+        }
+
         const matches = allItems
             .filter(item => pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/')))
             .sort((a, b) => b.href.length - a.href.length);
         
         return matches[0]?.href || null;
-    }, [menuGroups, pathname]);
+    }, [menuGroups, pathname, source]);
 
     const roleDisplayName = useMemo(() => {
         return activeRole ? ROLE_DISPLAY_NAMES[activeRole] : '';
@@ -180,6 +205,7 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
                             alt="GARAGEMASTER Logo"
                             width={44}
                             height={44}
+                            priority
                             className="w-11 h-11 object-contain relative z-10 drop-shadow-[0_0_8px_rgba(37,99,235,0.3)]"
                         />
                     </div>
@@ -215,8 +241,8 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
                 </div>
             )}
 
-            {/* Menu - Flexible Area */}
-            <nav className="relative z-10 flex-1 overflow-y-auto custom-scrollbar px-1">
+            {/* Menu - Fixed Area */}
+            <nav className="relative z-10 flex-none px-1">
                 {menuGroups.map((group, groupIndex) => (
                     <div key={groupIndex} className={groupIndex > 0 ? 'mt-6' : ''}>
                         {group.title && (
@@ -240,53 +266,134 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
                 ))}
             </nav>
 
-            {/* User Profile - Detached Card - Soft Gradient */}
-            <div className="mt-auto shrink-0">
-                <div className="bg-gradient-to-br from-white to-blue-50 dark:from-slate-800 dark:to-slate-900 rounded-xl p-3 border border-blue-100 dark:border-slate-700 shadow-[0_4px_12px_-2px_rgba(37,99,235,0.08)] hover:shadow-lg transition-all duration-200 group">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/50 dark:to-blue-950/30 flex items-center justify-center text-xs font-bold text-blue-700 dark:text-blue-300 shrink-0 border border-blue-200/50 dark:border-blue-800/30">
-                            {initials}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-bold truncate text-slate-800 dark:text-slate-200" title={session?.user?.name || ''}>{session?.user?.name}</p>
-                            <p className="text-[10px] text-slate-500 dark:text-slate-500 font-medium truncate flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                {roleDisplayName}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/50">
-                        <div className="flex-1">
-                            {/* ThemeToggle moved to Topbar */}
-                        </div>
-                        <button
-                            onClick={() => signOut({ callbackUrl: '/login' })}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/20 dark:hover:text-rose-500 transition-all"
-                            title="Đăng xuất"
-                        >
-                            <LogOut className="w-4 h-4" />
-                        </button>
+            {/* --- TEAM SECTION (Minimalist Contrast Card) --- */}
+            {currentRole !== 'ADMIN' && (
+                <div className="mt-4 mx-1 px-3 py-4 rounded-2xl bg-slate-200/40 dark:bg-slate-900/40 flex flex-col flex-1 min-h-0">
+                <div className="flex items-center justify-between mb-4 px-1">
+                    <h3 className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                        ĐỘI NGŨ
+                    </h3>
+                    <div className="flex items-center gap-2 text-[10px] font-semibold">
+                        <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400/80 bg-emerald-50 dark:bg-emerald-400/10 px-1.5 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-400/20">
+                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                            {groupedStaff.online.length} online
+                        </span>
+                        <span className="text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-slate-800 px-1.5 py-0.5 rounded-full">
+                            {groupedStaff.offline.length} offline
+                        </span>
                     </div>
                 </div>
+
+                <div className="space-y-4 flex-1 overflow-y-auto pr-1 scrollbar-hidden hover:scrollbar-visible custom-scrollbar">
+                    {/* --- ONLINE SECTION --- */}
+                    {groupedStaff.online.length > 0 && (
+                        <div className="space-y-2">
+                            <div className="text-[9px] font-bold text-slate-400 dark:text-slate-600 px-1 tracking-wider uppercase mb-3 text-left">
+                                ONLINE
+                            </div>
+                            {groupedStaff.online.map((staff) => (
+                                <div 
+                                    key={staff.id} 
+                                    className="flex items-center gap-3 group/member p-1.5 rounded-xl transition-all cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-500/10 active:bg-emerald-100 dark:active:bg-emerald-500/20"
+                                >
+                                    <BaseAvatar
+                                        id={staff.id}
+                                        src={staff.avatar}
+                                        name={staff.fullName}
+                                        online={true}
+                                        size="sm"
+                                        className="group-hover/member:scale-105 transition-transform"
+                                    />
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-[11px] font-medium text-slate-800 dark:text-slate-100 truncate group-hover/member:text-emerald-700 dark:group-hover/member:text-emerald-400 transition-colors">
+                                            {staff.fullName}
+                                        </span>
+                                        <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5 font-medium">
+                                            {(ROLE_DISPLAY_NAMES as any)[staff.vaiTro] || staff.vaiTro || 'Nhân viên'}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* --- OFFLINE SECTION --- */}
+                    {groupedStaff.offline.length > 0 && (
+                        <div className="space-y-2 pt-2 mt-4">
+                            <div className="text-[9px] font-bold text-slate-400 dark:text-slate-600/60 px-1 tracking-wider uppercase mb-3 text-left">
+                                OFFLINE
+                            </div>
+                            {groupedStaff.offline.map((staff) => (
+                                <div 
+                                    key={staff.id} 
+                                    className="flex items-center gap-3 group/member p-1.5 rounded-xl opacity-100 transition-all cursor-default"
+                                >
+                                    <BaseAvatar
+                                        id={staff.id}
+                                        src={staff.avatar}
+                                        name={staff.fullName}
+                                        online={false}
+                                        size="sm"
+                                        className="transition-all"
+                                    />
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate">
+                                            {staff.fullName}
+                                        </span>
+                                        <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate mt-0.5 font-medium">
+                                            {(ROLE_DISPLAY_NAMES as any)[staff.vaiTro] || staff.vaiTro || 'Nhân viên'}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {allStaff.length === 0 && (
+                        <div className="px-1 py-6 text-center">
+                            <p className="text-[10px] text-slate-400 dark:text-slate-600 font-medium italic">
+                                Chưa có dữ liệu nhân sự
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+            )}
+
+            {/* Logout Button - Minimalist Footer */}
+            <div className="mt-auto px-4 py-8">
+                <button
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 transition-all font-bold text-[13px] border border-transparent hover:border-rose-100 dark:hover:border-rose-500/20 shadow-sm hover:shadow-md"
+                >
+                    <LogOut className="w-4 h-4" />
+                    <span>Đăng xuất hệ thống</span>
+                </button>
             </div>
 
             <style jsx>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 0px;
-                    background: transparent;
-                }
-                .custom-scrollbar:hover::-webkit-scrollbar {
-                    width: 3px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: #cbd5e1;
-                    border-radius: 10px;
-                }
-            `}</style>
+            .custom-scrollbar::-webkit-scrollbar,
+            .custom-sidebar-scroll::-webkit-scrollbar {
+                width: 0px;
+                background: transparent;
+            }
+            .custom-scrollbar:hover::-webkit-scrollbar,
+            .group\/scroll:hover .custom-sidebar-scroll::-webkit-scrollbar {
+                width: 3px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track,
+            .custom-sidebar-scroll::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb,
+            .custom-sidebar-scroll::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 10px;
+            }
+            .dark .custom-sidebar-scroll::-webkit-scrollbar-thumb {
+                background: #334155;
+            }
+        `}</style>
         </aside>
     );
 }

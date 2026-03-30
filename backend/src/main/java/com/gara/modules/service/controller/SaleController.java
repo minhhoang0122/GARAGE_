@@ -1,9 +1,6 @@
 package com.gara.modules.service.controller;
 
 import com.gara.modules.service.service.SaleService;
-import com.gara.modules.identity.service.UserService;
-import com.gara.modules.service.repository.RepairOrderRepository;
-import com.gara.modules.reception.repository.ReceptionRepository;
 import com.gara.dto.*;
 import com.gara.entity.User;
 import com.gara.entity.RepairOrder;
@@ -17,7 +14,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.stream.Collectors;
+import java.time.LocalDateTime;
 import com.gara.entity.enums.ItemStatus;
+import com.gara.modules.service.service.TimelineService;
 
 @RestController
 @RequestMapping("/api/sale")
@@ -25,16 +25,21 @@ public class SaleController {
 
     private static final Logger log = LoggerFactory.getLogger(SaleController.class);
     private final SaleService saleService;
-    private final UserService userService;
-    private final RepairOrderRepository repairOrderRepository;
-    private final ReceptionRepository receptionRepository;
+    private final com.gara.modules.identity.service.UserService userService;
+    private final com.gara.modules.service.repository.RepairOrderRepository repairOrderRepository;
+    private final com.gara.modules.reception.repository.ReceptionRepository receptionRepository;
+    private final TimelineService timelineService;
 
-    public SaleController(SaleService saleService, UserService userService,
-            RepairOrderRepository repairOrderRepository, ReceptionRepository receptionRepository) {
+    public SaleController(SaleService saleService, 
+            com.gara.modules.identity.service.UserService userService,
+            com.gara.modules.service.repository.RepairOrderRepository repairOrderRepository, 
+            com.gara.modules.reception.repository.ReceptionRepository receptionRepository,
+            TimelineService timelineService) {
         this.saleService = saleService;
         this.userService = userService;
         this.repairOrderRepository = repairOrderRepository;
         this.receptionRepository = receptionRepository;
+        this.timelineService = timelineService;
     }
 
     private ResponseEntity<?> handleUnauthorized() {
@@ -46,6 +51,25 @@ public class SaleController {
         return ResponseEntity.ok(saleService.getOrders(status));
     }
 
+    @PostMapping("/orders")
+    public ResponseEntity<?> createOrder(@RequestBody Map<String, Object> body, @AuthenticationPrincipal Object principal) {
+        try {
+            User user = userService.getCurrentUser();
+            if (user == null) return handleUnauthorized();
+            
+            Integer receptionId = (Integer) body.get("receptionId");
+            if (receptionId == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Thiếu receptionId"));
+            }
+            
+            RepairOrder order = saleService.createOrderFromReception(receptionId, user);
+            return ResponseEntity.ok(order);
+        } catch (Exception e) {
+            log.error("Error creating order from reception: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/customers")
     public ResponseEntity<?> getCustomers(@RequestParam(required = false) String search) {
         return ResponseEntity.ok(saleService.searchCustomers(search));
@@ -55,6 +79,20 @@ public class SaleController {
     public ResponseEntity<?> createCustomer(@RequestBody com.gara.entity.Customer customer) {
         try {
             return ResponseEntity.ok(saleService.createCustomer(customer));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/customers/{id}")
+    public ResponseEntity<?> getCustomerById(@PathVariable Integer id) {
+        return ResponseEntity.ok(saleService.getCustomerById(id));
+    }
+
+    @PatchMapping("/customers/{id}")
+    public ResponseEntity<?> updateCustomer(@PathVariable Integer id, @RequestBody com.gara.entity.Customer customer) {
+        try {
+            return ResponseEntity.ok(saleService.updateCustomer(id, customer));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -130,9 +168,16 @@ public class SaleController {
             if (user == null)
                 return handleUnauthorized();
 
-            ItemStatus status = ItemStatus.valueOf(body.get("status"));
+            String statusStr = body.get("status");
+            if (statusStr == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Trạng thái không được để trống"));
+            }
+            
+            ItemStatus status = ItemStatus.valueOf(statusStr.toUpperCase().trim());
             saleService.updateItemStatus(id, status, user);
             return ResponseEntity.ok(Map.of("success", true));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Trạng thái không hợp lệ: " + body.get("status")));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
         }
@@ -297,72 +342,91 @@ public class SaleController {
     /**
      * List all warranty orders for management
      */
-    @GetMapping("/warranty-claims")
-    public ResponseEntity<?> getWarrantyClaims() {
-        List<RepairOrder> warrantyOrders = repairOrderRepository.findByLaDonBaoHanhTrue();
-        List<Map<String, Object>> result = warrantyOrders.stream().map(order -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id", order.getId());
-            m.put("trangThai", order.getTrangThai() != null ? order.getTrangThai().name() : null);
-            m.put("ngayTao", order.getNgayTao());
-            m.put("tongCong", order.getTongCong());
-            try {
-                m.put("plate", order.getPhieuTiepNhan().getXe().getBienSo());
-                m.put("customer", order.getPhieuTiepNhan().getXe().getKhachHang().getHoTen());
-                m.put("phone", order.getPhieuTiepNhan().getXe().getKhachHang().getSoDienThoai());
-            } catch (Exception e) {
-                m.put("plate", "");
-                m.put("customer", "");
-                m.put("phone", "");
-            }
-            long warItemCount = order.getChiTietDonHang() != null
-                    ? order.getChiTietDonHang().stream().filter(i -> Boolean.TRUE.equals(i.getLaHangBaoHanh())).count()
-                    : 0;
-            m.put("warrantyItemCount", warItemCount);
-            return m;
-        }).toList();
+    @GetMapping("/warranties")
+    public List<Map<String, Object>> getAllWarranties() {
+        return repairOrderRepository.findByIsWarrantyOrderTrue().stream().map(order -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", order.getId());
+            map.put("uuid", order.getUuid());
+            map.put("status", order.getStatus());
+            map.put("createdAt", order.getCreatedAt());
+            map.put("grandTotal", order.getGrandTotal());
 
-        return ResponseEntity.ok(result);
+            if (order.getReception() != null && order.getReception().getVehicle() != null) {
+                map.put("licensePlate", order.getReception().getVehicle().getLicensePlate());
+                map.put("customerName", order.getReception().getVehicle().getCustomer().getFullName());
+                map.put("customerPhone", order.getReception().getVehicle().getCustomer().getPhone());
+            }
+
+            // Simple item summary
+            String items = order.getOrderItems().stream()
+                    .filter(i -> Boolean.TRUE.equals(i.getIsWarranty()))
+                    .map(i -> i.getProduct() != null ? i.getProduct().getName() : "Unknown")
+                    .collect(Collectors.joining(", "));
+            map.put("warrantyItems", items);
+
+            return map;
+        }).collect(Collectors.toList());
     }
 
     /**
      * List all bookings (Reception created from online booking)
      */
     @GetMapping("/bookings")
-    public ResponseEntity<?> getBookings() {
-        List<Reception> bookings = receptionRepository.findAllBookings();
-        List<Map<String, Object>> result = bookings.stream().map(r -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id", r.getId());
-            m.put("ngayGio", r.getNgayGio());
-            m.put("yeuCauSoBo", r.getYeuCauSoBo());
-            m.put("hasOrder", r.getDonHangSuaChua() != null);
-            m.put("orderId", r.getDonHangSuaChua() != null ? r.getDonHangSuaChua().getId() : null);
-            m.put("orderStatus", r.getDonHangSuaChua() != null && r.getDonHangSuaChua().getTrangThai() != null
-                    ? r.getDonHangSuaChua().getTrangThai().name() : null);
-            try {
-                m.put("plate", r.getXe().getBienSo());
-                m.put("customer", r.getXe().getKhachHang().getHoTen());
-                m.put("phone", r.getXe().getKhachHang().getSoDienThoai());
-            } catch (Exception e) {
-                m.put("plate", "");
-                m.put("customer", "");
-                m.put("phone", "");
-            }
-            // Parse ngayHen from notes
-            String notes = r.getYeuCauSoBo() != null ? r.getYeuCauSoBo() : "";
-            String ngayHen = "";
-            for (String line : notes.split("\\n")) {
-                if (line.startsWith("Ngày hẹn:")) {
-                    ngayHen = line.replace("Ngày hẹn:", "").trim();
-                    break;
-                }
-            }
-            m.put("ngayHen", ngayHen);
-            return m;
-        }).toList();
+    public List<Map<String, Object>> getAllBookings() {
+        return receptionRepository.findAllBookings().stream().map(r -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", r.getId());
+            map.put("receptionDate", r.getReceptionDate());
+            map.put("preliminaryRequest", r.getPreliminaryRequest());
+            map.put("hasOrder", r.getRepairOrder() != null);
+            map.put("orderId", r.getRepairOrder() != null ? r.getRepairOrder().getId() : null);
+            map.put("orderStatus", r.getRepairOrder() != null ? r.getRepairOrder().getStatus() : null);
 
-        return ResponseEntity.ok(result);
+            if (r.getVehicle() != null) {
+                map.put("licensePlate", r.getVehicle().getLicensePlate());
+                map.put("customerName", r.getVehicle().getCustomer().getFullName());
+                map.put("customerPhone", r.getVehicle().getCustomer().getPhone());
+            }
+
+            // Parse booking info if present in request
+            String req = r.getPreliminaryRequest();
+            if (req != null && req.startsWith("BOOKING ONLINE")) {
+                map.put("isOnline", true);
+            }
+
+            return map;
+        }).collect(Collectors.toList());
+    }
+
+    @PutMapping("/bookings/{id}")
+    public ResponseEntity<?> updateBooking(@PathVariable Integer id, @RequestBody Map<String, Object> updates) {
+        Reception reception = receptionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Reception not found"));
+
+        if (updates.containsKey("receptionDate")) {
+            String dateStr = (String) updates.get("receptionDate");
+            LocalDateTime oldDate = reception.getReceptionDate();
+            LocalDateTime newDate = LocalDateTime.parse(dateStr);
+            reception.setReceptionDate(newDate);
+
+            timelineService.recordEvent(id, null, "BOOKING_UPDATE",
+                    "Cập nhật thời gian hẹn từ " + oldDate + " sang " + newDate,
+                    "OLD: " + oldDate, "NEW: " + newDate, false);
+        }
+
+        if (updates.containsKey("preliminaryRequest")) {
+            String oldReq = reception.getPreliminaryRequest();
+            String newReq = (String) updates.get("preliminaryRequest");
+            reception.setPreliminaryRequest(newReq);
+
+            timelineService.recordEvent(id, null, "BOOKING_UPDATE",
+                    "Cập nhật yêu cầu sơ bộ.",
+                    "OLD: " + oldReq, "NEW: " + newReq, false);
+        }
+
+        receptionRepository.save(reception);
+        return ResponseEntity.ok().build();
     }
 
     /**
@@ -376,19 +440,19 @@ public class SaleController {
                 return ResponseEntity.badRequest().body(Map.of("error", "newDate is required"));
             }
 
-            Reception reception = receptionRepository.findById(id)
+            com.gara.entity.Reception reception = receptionRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Booking not found"));
 
-            // Update ngayGio to the new date but keep the time
+            // Update receptionDate to the new date but keep the time
             java.time.LocalDate targetDate = java.time.LocalDate.parse(newDate);
-            java.time.LocalDateTime oldDateTime = reception.getNgayGio();
+            java.time.LocalDateTime oldDateTime = reception.getReceptionDate();
             java.time.LocalDateTime newDateTime = oldDateTime != null
                     ? targetDate.atTime(oldDateTime.toLocalTime())
                     : targetDate.atStartOfDay();
-            reception.setNgayGio(newDateTime);
+            reception.setReceptionDate(newDateTime);
 
-            // Update "Ngày hẹn:" line in yeuCauSoBo
-            String notes = reception.getYeuCauSoBo() != null ? reception.getYeuCauSoBo() : "";
+            // Update "Ngày hẹn:" line in preliminaryRequest
+            String notes = reception.getPreliminaryRequest() != null ? reception.getPreliminaryRequest() : "";
             StringBuilder sb = new StringBuilder();
             boolean foundNgayHen = false;
             for (String line : notes.split("\\n")) {
@@ -402,7 +466,7 @@ public class SaleController {
             if (!foundNgayHen) {
                 sb.append("Ngày hẹn: ").append(newDate).append("\n");
             }
-            reception.setYeuCauSoBo(sb.toString().trim());
+            reception.setPreliminaryRequest(sb.toString().trim());
 
             receptionRepository.save(reception);
 

@@ -38,31 +38,29 @@ public class OrderCalculationService {
      */
     @Transactional
     public void recalculateTotals(RepairOrder order) {
-        List<OrderItem> items = order.getChiTietDonHang();
+        List<OrderItem> items = order.getOrderItems();
         BigDecimal totalParts = BigDecimal.ZERO;
         BigDecimal totalLabor = BigDecimal.ZERO;
 
         if (items != null) {
             for (OrderItem item : items) {
-                // Skip items rejected by customer
-                if (ItemStatus.KHACH_TU_CHOI.equals(item.getTrangThai())) {
+                BigDecimal qty = BigDecimal.valueOf(item.getQuantity() != null ? item.getQuantity() : 0);
+                BigDecimal unitPrice = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
+
+                // Always sync individual line total
+                BigDecimal lineSubtotal = unitPrice.multiply(qty);
+                item.setTotalAmount(lineSubtotal);
+                
+                // Clear per-item tax/discount complexity for now
+                item.setVatAmount(BigDecimal.ZERO);
+
+                // Skip adding to order totals if rejected by customer
+                if (ItemStatus.CUSTOMER_REJECTED.equals(item.getStatus())) {
                     continue;
                 }
 
-                BigDecimal qty = BigDecimal.valueOf(item.getSoLuong());
-                BigDecimal unitPrice = item.getDonGiaGoc();
-
-                // Simple Line Gross Total (Price * Qty)
-                BigDecimal lineSubtotal = unitPrice.multiply(qty);
-                
-                // Clear per-item tax/discount to avoid confusion in DB
-                item.setGiamGiaTien(BigDecimal.ZERO);
-                item.setGiamGiaPhanTram(BigDecimal.ZERO);
-                item.setTienThue(BigDecimal.ZERO);
-                item.setThanhTien(lineSubtotal);
-
                 // Aggregate by type (Parts vs Labor)
-                if (item.getHangHoa() != null && item.getHangHoa().getLaDichVu()) {
+                if (item.getProduct() != null && item.getProduct().getIsService()) {
                     totalLabor = totalLabor.add(lineSubtotal);
                 } else {
                     totalParts = totalParts.add(lineSubtotal);
@@ -83,8 +81,8 @@ public class OrderCalculationService {
         RepairOrder order = orderRepository.findByIdWithLock(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
 
-        BigDecimal currentParts = order.getTongTienHang() != null ? order.getTongTienHang() : BigDecimal.ZERO;
-        BigDecimal currentLabor = order.getTongTienCong() != null ? order.getTongTienCong() : BigDecimal.ZERO;
+        BigDecimal currentParts = order.getPartsTotal() != null ? order.getPartsTotal() : BigDecimal.ZERO;
+        BigDecimal currentLabor = order.getLaborTotal() != null ? order.getLaborTotal() : BigDecimal.ZERO;
 
         if (isLabor) {
             currentLabor = currentLabor.add(delta);
@@ -97,29 +95,29 @@ public class OrderCalculationService {
 
     private void applyTotals(RepairOrder order, BigDecimal totalParts, BigDecimal totalLabor) {
         // 1. Update Subtotals
-        order.setTongTienHang(totalParts);
-        order.setTongTienCong(totalLabor);
+        order.setPartsTotal(totalParts);
+        order.setLaborTotal(totalLabor);
 
         // 2. Apply Global Discount
-        BigDecimal discount = order.getChietKhauTong() != null ? order.getChietKhauTong() : BigDecimal.ZERO;
+        BigDecimal discount = order.getTotalDiscount() != null ? order.getTotalDiscount() : BigDecimal.ZERO;
         BigDecimal subtotalAfterDiscount = totalParts.add(totalLabor).subtract(discount);
         if (subtotalAfterDiscount.compareTo(BigDecimal.ZERO) < 0) subtotalAfterDiscount = BigDecimal.ZERO;
 
         // 3. Apply Global VAT
-        BigDecimal vatRate = order.getVatPhanTram() != null ? order.getVatPhanTram() : BigDecimal.ZERO;
+        BigDecimal vatRate = order.getVatPercentage() != null ? order.getVatPercentage() : BigDecimal.ZERO;
         BigDecimal totalTax = subtotalAfterDiscount.multiply(vatRate)
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
         
-        order.setThueVAT(totalTax);
+        order.setVatAmount(totalTax);
 
         // 4. Final Grand Total
         BigDecimal grandTotal = subtotalAfterDiscount.add(totalTax);
-        order.setTongCong(grandTotal);
+        order.setGrandTotal(grandTotal);
 
         // 5. Update Debt
-        BigDecimal amountPaid = order.getSoTienDaTra() != null ? order.getSoTienDaTra() : BigDecimal.ZERO;
+        BigDecimal amountPaid = order.getAmountPaid() != null ? order.getAmountPaid() : BigDecimal.ZERO;
         BigDecimal debt = grandTotal.subtract(amountPaid);
-        order.setCongNo(debt.compareTo(BigDecimal.ZERO) > 0 ? debt : BigDecimal.ZERO);
+        order.setBalanceDue(debt.compareTo(BigDecimal.ZERO) > 0 ? debt : BigDecimal.ZERO);
 
         orderRepository.save(order);
     }

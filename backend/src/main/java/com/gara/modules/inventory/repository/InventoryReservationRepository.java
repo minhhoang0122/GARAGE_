@@ -12,15 +12,15 @@ import java.util.List;
 public interface InventoryReservationRepository extends JpaRepository<InventoryReservation, Integer> {
 
     // Find active reservation for an order
-    @Query("SELECT r FROM InventoryReservation r WHERE r.donHangSuaChua.id = :orderId AND r.trangThai = 'ACTIVE'")
+    @Query("SELECT r FROM InventoryReservation r WHERE r.repairOrder.id = :orderId AND r.status = 'ACTIVE'")
     List<InventoryReservation> findActiveByOrderId(@Param("orderId") Integer orderId);
 
     // Sum reserved quantity for a product (Active & Not Expired)
-    @Query("SELECT COALESCE(SUM(r.soLuong), 0) FROM InventoryReservation r " +
-            "WHERE r.hangHoa.id = :productId " +
-            "AND r.trangThai = 'ACTIVE' " +
-            "AND r.ngayHetHan >= CURRENT_TIMESTAMP")
+    @Query("SELECT COALESCE(SUM(r.quantity), 0) FROM InventoryReservation r " +
+            "WHERE r.product.id = :productId " +
+            "AND r.status = 'ACTIVE' " +
+            "AND r.expiryDate >= CURRENT_TIMESTAMP")
     Integer sumReservedQuantity(@Param("productId") Integer productId);
 
-    List<InventoryReservation> findByNgayHetHanBeforeAndTrangThai(java.time.LocalDateTime dateTime, String trangThai);
+    List<InventoryReservation> findByExpiryDateBeforeAndStatus(java.time.LocalDateTime dateTime, String status);
 }

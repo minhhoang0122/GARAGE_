@@ -1,7 +1,8 @@
+'use client';
+
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { getJobDetails } from '@/modules/service/mechanic';
-import { notFound } from 'next/navigation';
-import { ArrowLeft, Car, User, Phone, Wrench, Package, CheckCircle2 } from 'lucide-react';
+import { notFound, useSearchParams } from 'next/navigation';
+import { ArrowLeft, Car, User, Phone, Wrench, Package, CheckCircle2, Loader2, Clock } from 'lucide-react';
 import Link from 'next/link';
 import JobItemCheckbox from './JobItemCheckbox';
 import CompleteJobButton from './CompleteJobButton';
@@ -9,37 +10,67 @@ import UnclaimJobButton from './UnclaimJobButton';
 import ClaimJobButton from './ClaimJobButton';
 import MechanicProductSearch from '@/modules/mechanic/components/MechanicProductSearch';
 import DepositWarning from '@/modules/mechanic/components/DepositWarning';
-import { auth } from '@/lib/auth';
+import { useSession } from 'next-auth/react';
+import { useJobDetails } from '@/modules/mechanic/hooks/useMechanic';
+import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
+import { use } from 'react';
+import Timeline from '@/modules/shared/components/common/Timeline';
+import { 
+    isApproved, 
+    isInProgress, 
+    isWaitingForQC, 
+    isCompleted,
+    isClosed,
+    isCancelled,
+    isWaitingPayment
+} from '@/lib/status';
 
-export default async function JobDetailPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-    const { id } = await params;
+export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
     const orderId = parseInt(id);
-    if (isNaN(orderId)) return notFound();
+    const searchParams = useSearchParams();
+    const { data: session } = useSession();
+    
+    const { data: job, isLoading, isError } = useJobDetails(orderId);
+    
+    // Realtime Sync
+    useRealtimeUpdate(['mechanic', 'job', orderId], { refId: orderId });
 
-    const [job, session] = await Promise.all([
-        getJobDetails(orderId),
-        auth()
-    ]);
-    if (!job) return notFound();
+
+    if (isNaN(orderId)) return notFound();
+    if (isLoading) {
+        return (
+            <DashboardLayout title="Chi tiết công việc" subtitle={`Đơn hàng #${id}`}>
+                <div className="flex items-center justify-center h-64">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                </div>
+            </DashboardLayout>
+        );
+    }
+    if (isError || !job) return notFound();
 
     const currentUserId = session?.user?.id ? parseInt(session.user.id) : null;
     const isClaimedByMe = job.claimedById === currentUserId;
 
-    const progress = job.totalItems > 0
-        ? Math.round((job.completedItems / job.totalItems) * 100)
+    const progress = (job?.totalItems || 0) > 0
+        ? Math.round(((job?.completedItems || 0) / (job?.totalItems || 0)) * 100)
         : 0;
 
-    const allCompleted = job.completedItems === job.totalItems && job.totalItems > 0;
-    const isJobActive = !['CHO_THANH_TOAN', 'HOAN_THANH', 'DONG', 'HUY'].includes(job.status || '');
+    const allCompleted = (job?.completedItems || 0) === (job?.totalItems || 0) && (job?.totalItems || 0) > 0;
+    const isJobActive = !(
+        isWaitingPayment(job.status) || 
+        isCompleted(job.status) || 
+        isClosed(job.status) || 
+        isCancelled(job.status)
+    );
 
-    const resolvedSearchParams = await searchParams;
-    const source = resolvedSearchParams?.source;
+    const source = searchParams.get('source');
     const backLink = source === 'history' ? '/mechanic/history' : (isJobActive ? '/mechanic/jobs' : '/mechanic/history');
     const backText = source === 'history' ? 'Quay lại lịch sử' : 'Quay lại danh sách';
 
     return (
         <DashboardLayout title="Chi tiết công việc" subtitle={`Đơn hàng #${job.id}`}>
-            <div className="max-w-5xl mx-auto">
+            <div className="max-w-[1800px] mx-auto pb-20 px-6">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <Link href={backLink} className="flex items-center gap-2 text-slate-500 hover:text-slate-700">
@@ -55,7 +86,7 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
                                 <Wrench className="w-4 h-4" /> Chia việc
                             </Link>
                         )}
-                        {isJobActive && (
+                        {isJobActive && isApproved(job.status) && (
                             <ClaimJobButton
                                 orderId={job.id}
                                 claimedByName={job.claimedByName}
@@ -151,8 +182,8 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
                 {/* Danh sách hạng mục - Tách 3 bảng riêng biệt */}
                 <div className="space-y-6">
                     {(() => {
-                        const diagnosticItems = job.items.filter(i => !i.isTechnicalAddition && i.proposedByRole !== 'SALE');
-                        const additionItems = job.items.filter(i => i.isTechnicalAddition || i.proposedByRole === 'SALE');
+                        const diagnosticItems = job.items.filter((i: any) => !i.isTechnicalAddition && i.proposedByRole !== 'SALE');
+                        const additionItems = job.items.filter((i: any) => i.isTechnicalAddition || i.proposedByRole === 'SALE');
 
                         // Tổng hợp danh sách thợ tham gia
                         const allAssignmentsMap = new Map<number, {
@@ -184,7 +215,7 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
                         const mechanicList = Array.from(allAssignmentsMap.values());
 
                         const renderItem = (item: any) => {
-                            const isAssignedToMe = item.assignments.some((a: any) => a.mechanicId === currentUserId);
+                            const isAssignedToMe = item.assignments?.some((a: any) => a.mechanicId === currentUserId);
                             const depositSafe = !job.tongCong || job.tongCong <= 5000000 || (job.tienCoc >= job.tongCong * 0.3);
 
                             return (
@@ -196,6 +227,7 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
                                         <div className="flex items-start gap-4 flex-1">
                                             <JobItemCheckbox
                                                 itemId={item.id}
+                                                orderId={orderId}
                                                 isCompleted={item.isCompleted}
                                                 disabled={!isAssignedToMe || !depositSafe || !isJobActive}
                                             />
@@ -208,7 +240,7 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
                                                         <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[9px] font-black uppercase rounded border border-purple-200">Phát sinh</span>
                                                     )}
                                                 </div>
-                                                <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                                                <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
                                                     <span>Mã: {item.productCode}</span>
                                                     <span>•</span>
                                                     <span>SL: {item.quantity}</span>
@@ -218,7 +250,7 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
                                                             <span className="italic text-[11px]">Đề xuất: <span className="font-bold text-slate-600 dark:text-slate-300">{item.proposedByRole === 'AI' ? 'AI Chẩn đoán' : item.proposedByName}</span></span>
                                                         </>
                                                     )}
-                                                </p>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -289,17 +321,17 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
                                                 </Link>
                                             )}
                                         </div>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm">
+                                        <div className="w-full">
+                                            <table className="w-full text-sm table-fixed">
                                                 <thead>
                                                     <tr className="bg-slate-50/30 border-b border-slate-100 dark:border-slate-800">
-                                                        <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Nhân viên</th>
-                                                        <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Hạng mục đảm nhận</th>
-                                                        <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-32">Vai trò</th>
+                                                        <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left w-[150px] md:w-[200px]">Nhân viên</th>
+                                                        <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left w-auto">Hạng mục đảm nhận</th>
+                                                        <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-[80px] md:w-[120px]">Vai trò</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                                    {mechanicList.map(m => (
+                                                    {mechanicList.map((m: any) => (
                                                         <tr key={m.mechanicId}>
                                                             <td className="px-6 py-4">
                                                                 <div className="flex items-center gap-3">
@@ -313,7 +345,7 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
                                                             </td>
                                                             <td className="px-6 py-4">
                                                                 <div className="flex flex-wrap gap-1.5">
-                                                                    {m.tasks.map((t, idx) => (
+                                                                    {m.tasks.map((t: string, idx: number) => (
                                                                         <span key={idx} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-[10px] font-bold border border-blue-100/50 dark:border-blue-800/50">
                                                                             {t}
                                                                         </span>
@@ -343,9 +375,8 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
                 )}
 
                 {/* Footer Action */}
-                {/* For Repair Lead: Send to QC */}
                 {
-                    isClaimedByMe && allCompleted && isJobActive && job.status === 'DANG_SUA' && (
+                    isClaimedByMe && allCompleted && isJobActive && isInProgress(job.status) && (
                         <div className="mt-8 mb-12 flex justify-center animate-in fade-in zoom-in duration-500">
                             <CompleteJobButton
                                 orderId={job.id}
@@ -358,7 +389,7 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
 
                 {/* For QC (Diagnostic Mechanic or Admin) */}
                 {
-                    job.status === 'CHO_KCS' && (
+                    isWaitingForQC(job.status) && (
                         <div className="mt-8 mb-12 flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-500">
                             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 px-6 py-4 rounded-xl shadow-sm flex items-center gap-3 mb-4">
                                 <Wrench className="w-5 h-5" />
@@ -380,13 +411,24 @@ export default async function JobDetailPage({ params, searchParams }: { params: 
                                     orderId={job.id}
                                     isQC={true}
                                     qcAction="fail"
-                                    label="Từ chối (Làm lại)"
-                                    className="bg-red-600 hover:bg-red-700 text-white shadow-xl text-lg px-8 py-3 rounded-xl transition-transform hover:scale-105"
-                                />
+                                    />
                             </div>
                         </div>
                     )
                 }
+
+                {/* Timeline - Nhật ký xe */}
+                {job.receptionId && (
+                    <div className="mt-12 mb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Clock className="w-5 h-5 text-slate-500" />
+                            <h3 className="font-black text-slate-800 dark:text-slate-100 uppercase text-[11px] tracking-widest">
+                                Nhật ký & Trao đổi công việc
+                            </h3>
+                        </div>
+                        <Timeline receptionId={job.receptionId} />
+                    </div>
+                )}
             </div >
         </DashboardLayout >
     );

@@ -1,245 +1,110 @@
 package com.gara.entity;
 
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "InventoryReservation")
+@Table(name = "inventory_reservations")
 public class InventoryReservation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "so_luong", nullable = false)
-    private Integer soLuong;
+    @Column(name = "quantity", nullable = false)
+    private Integer quantity;
 
-    @Column(name = "trang_thai", length = 20)
-    private String trangThai = "ACTIVE"; // ACTIVE, CONVERTED, RELEASED, EXPIRED
+    @Column(name = "status", length = 20)
+    private String status = "ACTIVE"; // ACTIVE, COMPLETED, EXPIRED, CANCELLED
 
-    @Column(name = "ngay_het_han", nullable = false)
-    private LocalDateTime ngayHetHan;
+    @Column(name = "expiry_date")
+    private LocalDateTime expiryDate;
 
-    @Column(name = "ngay_tao")
-    private LocalDateTime ngayTao;
-
-    // Foreign Keys
-    @Column(name = "don_hang_sua_chua_id", insertable = false, updatable = false)
-    private Integer donHangSuaChuaId;
-
-    @Column(name = "hang_hoa_id", insertable = false, updatable = false)
-    private Integer hangHoaId;
-
-    @Column(name = "nguoi_tao_id", insertable = false, updatable = false)
-    private Integer nguoiTaoId;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
     // Relations
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "don_hang_sua_chua_id")
-    private RepairOrder donHangSuaChua;
+    @JoinColumn(name = "repair_order_id")
+    private RepairOrder repairOrder;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hang_hoa_id")
-    private Product hangHoa;
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nguoi_tao_id")
-    private User nguoiTao;
+    @JoinColumn(name = "created_by_id")
+    private User creator;
 
     @PrePersist
     protected void onCreate() {
-        ngayTao = LocalDateTime.now();
-        if (trangThai == null)
-            trangThai = "ACTIVE";
+        createdAt = LocalDateTime.now();
+        if (status == null) {
+            status = "ACTIVE";
+        }
     }
 
-    public InventoryReservation() {
-    }
+    public InventoryReservation() {}
 
-    public InventoryReservation(Integer id, Integer soLuong, String trangThai, LocalDateTime ngayHetHan,
-            LocalDateTime ngayTao, Integer donHangSuaChuaId, Integer hangHoaId, Integer nguoiTaoId,
-            RepairOrder donHangSuaChua, Product hangHoa, User nguoiTao) {
-        this.id = id;
-        this.soLuong = soLuong;
-        this.trangThai = trangThai;
-        this.ngayHetHan = ngayHetHan;
-        this.ngayTao = ngayTao;
-        this.donHangSuaChuaId = donHangSuaChuaId;
-        this.hangHoaId = hangHoaId;
-        this.nguoiTaoId = nguoiTaoId;
-        this.donHangSuaChua = donHangSuaChua;
-        this.hangHoa = hangHoa;
-        this.nguoiTao = nguoiTao;
-    }
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
 
-    public Integer getId() {
-        return id;
-    }
+    public Integer getQuantity() { return quantity; }
+    public void setQuantity(Integer quantity) { this.quantity = quantity; }
 
-    public void setId(Integer id) {
-        this.id = id;
-    }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public Integer getSoLuong() {
-        return soLuong;
-    }
+    public LocalDateTime getExpiryDate() { return expiryDate; }
+    public void setExpiryDate(LocalDateTime expiryDate) { this.expiryDate = expiryDate; }
 
-    public void setSoLuong(Integer soLuong) {
-        this.soLuong = soLuong;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
-    public String getTrangThai() {
-        return trangThai;
-    }
+    public RepairOrder getRepairOrder() { return repairOrder; }
+    public void setRepairOrder(RepairOrder repairOrder) { this.repairOrder = repairOrder; }
 
-    public void setTrangThai(String trangThai) {
-        this.trangThai = trangThai;
-    }
+    public Product getProduct() { return product; }
+    public void setProduct(Product product) { this.product = product; }
 
-    public LocalDateTime getNgayHetHan() {
-        return ngayHetHan;
-    }
+    public User getCreator() { return creator; }
+    public void setCreator(User creator) { this.creator = creator; }
 
-    public void setNgayHetHan(LocalDateTime ngayHetHan) {
-        this.ngayHetHan = ngayHetHan;
-    }
-
-    public LocalDateTime getNgayTao() {
-        return ngayTao;
-    }
-
-    public void setNgayTao(LocalDateTime ngayTao) {
-        this.ngayTao = ngayTao;
-    }
-
-    public Integer getDonHangSuaChuaId() {
-        return donHangSuaChuaId;
-    }
-
-    public void setDonHangSuaChuaId(Integer donHangSuaChuaId) {
-        this.donHangSuaChuaId = donHangSuaChuaId;
-    }
-
-    public Integer getHangHoaId() {
-        return hangHoaId;
-    }
-
-    public void setHangHoaId(Integer hangHoaId) {
-        this.hangHoaId = hangHoaId;
-    }
-
-    public Integer getNguoiTaoId() {
-        return nguoiTaoId;
-    }
-
-    public void setNguoiTaoId(Integer nguoiTaoId) {
-        this.nguoiTaoId = nguoiTaoId;
-    }
-
-    public RepairOrder getDonHangSuaChua() {
-        return donHangSuaChua;
-    }
-
-    public void setDonHangSuaChua(RepairOrder donHangSuaChua) {
-        this.donHangSuaChua = donHangSuaChua;
-    }
-
-    public Product getHangHoa() {
-        return hangHoa;
-    }
-
-    public void setHangHoa(Product hangHoa) {
-        this.hangHoa = hangHoa;
-    }
-
-    public User getNguoiTao() {
-        return nguoiTao;
-    }
-
-    public void setNguoiTao(User nguoiTao) {
-        this.nguoiTao = nguoiTao;
-    }
-
+    // Manual Builder
     public static InventoryReservationBuilder builder() {
         return new InventoryReservationBuilder();
     }
 
     public static class InventoryReservationBuilder {
         private Integer id;
-        private Integer soLuong;
-        private String trangThai = "ACTIVE";
-        private LocalDateTime ngayHetHan;
-        private LocalDateTime ngayTao;
-        private Integer donHangSuaChuaId;
-        private Integer hangHoaId;
-        private Integer nguoiTaoId;
-        private RepairOrder donHangSuaChua;
-        private Product hangHoa;
-        private User nguoiTao;
+        private Integer quantity;
+        private String status = "ACTIVE";
+        private LocalDateTime expiryDate;
+        private LocalDateTime createdAt;
+        private RepairOrder repairOrder;
+        private Product product;
+        private User creator;
 
-        InventoryReservationBuilder() {
-        }
-
-        public InventoryReservationBuilder id(Integer id) {
-            this.id = id;
-            return this;
-        }
-
-        public InventoryReservationBuilder soLuong(Integer soLuong) {
-            this.soLuong = soLuong;
-            return this;
-        }
-
-        public InventoryReservationBuilder trangThai(String trangThai) {
-            this.trangThai = trangThai;
-            return this;
-        }
-
-        public InventoryReservationBuilder ngayHetHan(LocalDateTime ngayHetHan) {
-            this.ngayHetHan = ngayHetHan;
-            return this;
-        }
-
-        public InventoryReservationBuilder ngayTao(LocalDateTime ngayTao) {
-            this.ngayTao = ngayTao;
-            return this;
-        }
-
-        public InventoryReservationBuilder donHangSuaChuaId(Integer donHangSuaChuaId) {
-            this.donHangSuaChuaId = donHangSuaChuaId;
-            return this;
-        }
-
-        public InventoryReservationBuilder hangHoaId(Integer hangHoaId) {
-            this.hangHoaId = hangHoaId;
-            return this;
-        }
-
-        public InventoryReservationBuilder nguoiTaoId(Integer nguoiTaoId) {
-            this.nguoiTaoId = nguoiTaoId;
-            return this;
-        }
-
-        public InventoryReservationBuilder donHangSuaChua(RepairOrder donHangSuaChua) {
-            this.donHangSuaChua = donHangSuaChua;
-            return this;
-        }
-
-        public InventoryReservationBuilder hangHoa(Product hangHoa) {
-            this.hangHoa = hangHoa;
-            return this;
-        }
-
-        public InventoryReservationBuilder nguoiTao(User nguoiTao) {
-            this.nguoiTao = nguoiTao;
-            return this;
-        }
+        public InventoryReservationBuilder id(Integer id) { this.id = id; return this; }
+        public InventoryReservationBuilder quantity(Integer quantity) { this.quantity = quantity; return this; }
+        public InventoryReservationBuilder status(String status) { this.status = status; return this; }
+        public InventoryReservationBuilder expiryDate(LocalDateTime expiryDate) { this.expiryDate = expiryDate; return this; }
+        public InventoryReservationBuilder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
+        public InventoryReservationBuilder repairOrder(RepairOrder repairOrder) { this.repairOrder = repairOrder; return this; }
+        public InventoryReservationBuilder product(Product product) { this.product = product; return this; }
+        public InventoryReservationBuilder creator(User creator) { this.creator = creator; return this; }
 
         public InventoryReservation build() {
-            return new InventoryReservation(id, soLuong, trangThai, ngayHetHan, ngayTao, donHangSuaChuaId, hangHoaId,
-                    nguoiTaoId, donHangSuaChua, hangHoa, nguoiTao);
+            InventoryReservation res = new InventoryReservation();
+            res.setId(id);
+            res.setQuantity(quantity);
+            res.setStatus(status);
+            res.setExpiryDate(expiryDate);
+            res.setCreatedAt(createdAt);
+            res.setRepairOrder(repairOrder);
+            res.setProduct(product);
+            res.setCreator(creator);
+            return res;
         }
     }
 }

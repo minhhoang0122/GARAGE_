@@ -2,10 +2,9 @@
 
 import { useState } from 'react';
 import { CheckCircle, Loader2, ShieldCheck, XCircle } from 'lucide-react';
-import { completeJob, qcPass, qcFail } from '@/modules/service/mechanic';
+import { useCompleteJob, useQCPass, useQCFail } from '@/modules/mechanic/hooks/useMechanic';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
-import { api } from '@/lib/api';
 
 interface CompleteJobButtonProps {
     orderId: number;
@@ -24,43 +23,35 @@ export default function CompleteJobButton({
     isQC = false,
     qcAction = 'pass'
 }: CompleteJobButtonProps) {
-    const [isLoading, setIsLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const router = useRouter();
     const { showToast } = useToast();
 
-    const handleAction = async () => {
-        setIsLoading(true);
-        try {
-            let result;
-            if (isQC) {
-                if (qcAction === 'pass') {
-                    result = await qcPass(orderId);
-                } else {
-                    result = await qcFail(orderId);
-                }
-            } else {
-                result = await completeJob(orderId);
-            }
+    const { mutate: completeMatch, isPending: isCompleting } = useCompleteJob();
+    const { mutate: qcPassMatch, isPending: isPassing } = useQCPass();
+    const { mutate: qcFailMatch, isPending: isFailing } = useQCFail();
 
-            if (result.success) {
-                // Invalidate multiple modules
-                api.invalidateCache('/mechanic/jobs');
-                api.invalidateCache('/mechanic/stats');
-                api.invalidateCache('/sale/stats');
-                api.invalidateCache('/finance');
+    const isLoading = isCompleting || isPassing || isFailing;
 
-                showToast('success', isQC ? (qcAction === 'pass' ? 'Đã duyệt nghiệm thu!' : 'Đã từ chối nghiệm thu!') : 'Đã hoàn thành công việc!');
-                setShowConfirm(false);
-                router.replace('/mechanic/jobs');
-                router.refresh();
+    const handleAction = () => {
+        const onSuccess = () => {
+            showToast('success', isQC ? (qcAction === 'pass' ? 'Đã duyệt nghiệm thu!' : 'Đã từ chối nghiệm thu!') : 'Đã hoàn thành công việc!');
+            setShowConfirm(false);
+            router.replace('/mechanic/jobs');
+        };
+
+        const onError = (error: any) => {
+            showToast('error', error.message || 'Thao tác thất bại');
+        };
+
+        if (isQC) {
+            if (qcAction === 'pass') {
+                qcPassMatch(orderId, { onSuccess, onError });
             } else {
-                showToast('error', result.error || 'Thao tác thất bại');
+                qcFailMatch(orderId, { onSuccess, onError });
             }
-        } catch (error) {
-            showToast('error', 'Lỗi kết nối đến máy chủ');
-        } finally {
-            setIsLoading(false);
+        } else {
+            completeMatch(orderId, { onSuccess, onError });
         }
     };
 

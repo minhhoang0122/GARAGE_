@@ -7,9 +7,13 @@ public record ReceptionInspectDTO(
                 Integer id,
                 String plate,
                 String customerName,
+                String customerPhone,
                 String vehicleBrand,
                 String vehicleModel,
                 String request,
+                Integer odo,
+                String fuelLevel,
+                String bodyCondition,
                 LocalDateTime createdAt,
                 Integer proposedItemsCount,
                 String imageUrl,
@@ -25,9 +29,13 @@ public record ReceptionInspectDTO(
                 private Integer id;
                 private String plate;
                 private String customerName;
+                private String customerPhone;
                 private String vehicleBrand;
                 private String vehicleModel;
                 private String request;
+                private Integer odo;
+                private String fuelLevel;
+                private String bodyCondition;
                 private LocalDateTime createdAt;
                 private Integer proposedItemsCount;
                 private String imageUrl;
@@ -50,6 +58,11 @@ public record ReceptionInspectDTO(
                         return this;
                 }
 
+                public ReceptionInspectDTOBuilder customerPhone(String customerPhone) {
+                        this.customerPhone = customerPhone;
+                        return this;
+                }
+
                 public ReceptionInspectDTOBuilder vehicleBrand(String vehicleBrand) {
                         this.vehicleBrand = vehicleBrand;
                         return this;
@@ -62,6 +75,21 @@ public record ReceptionInspectDTO(
 
                 public ReceptionInspectDTOBuilder request(String request) {
                         this.request = request;
+                        return this;
+                }
+
+                public ReceptionInspectDTOBuilder odo(Integer odo) {
+                        this.odo = odo;
+                        return this;
+                }
+
+                public ReceptionInspectDTOBuilder fuelLevel(String fuelLevel) {
+                        this.fuelLevel = fuelLevel;
+                        return this;
+                }
+
+                public ReceptionInspectDTOBuilder bodyCondition(String bodyCondition) {
+                        this.bodyCondition = bodyCondition;
                         return this;
                 }
 
@@ -96,8 +124,8 @@ public record ReceptionInspectDTO(
                 }
 
                 public ReceptionInspectDTO build() {
-                        return new ReceptionInspectDTO(id, plate, customerName, vehicleBrand, vehicleModel, request,
-                                        createdAt, proposedItemsCount, imageUrl, orderId, status, existingItems);
+                        return new ReceptionInspectDTO(id, plate, customerName, customerPhone, vehicleBrand, vehicleModel, request,
+                                        odo, fuelLevel, bodyCondition, createdAt, proposedItemsCount, imageUrl, orderId, status, existingItems);
                 }
         }
 }

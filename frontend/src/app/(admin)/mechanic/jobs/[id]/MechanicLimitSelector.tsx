@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Settings, Check, X, Users, Loader2 } from 'lucide-react';
 import { Button } from '@/modules/shared/components/ui/button';
-import { updateItemLimit } from '@/modules/service/mechanic';
+import { mechanicService } from '@/modules/mechanic/services/mechanic';
 import { useToast } from '@/modules/shared/components/ui/use-toast';
 
 interface MechanicLimitSelectorProps {
@@ -26,7 +26,7 @@ export default function MechanicLimitSelector({ itemId, currentCount, maxLimit =
         if (isLoading) return;
         setIsLoading(true);
         try {
-            const res = await updateItemLimit(itemId, limit);
+            const res = await mechanicService.updateItemLimit(itemId, limit);
             if (res && res.success) {
                 toast({
                     title: "Thành công",

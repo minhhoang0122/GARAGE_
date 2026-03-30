@@ -1,5 +1,6 @@
 package com.gara.entity;
 
+import com.gara.entity.enums.UserType;
 import jakarta.persistence.*;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -9,7 +10,10 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 @Entity
-@Table(name = "nguoidung")
+@Table(name = "users", indexes = {
+        @Index(name = "idx_users_username", columnList = "username", unique = true),
+        @Index(name = "idx_users_email", columnList = "email")
+})
 public class User {
 
     @Id
@@ -17,38 +21,60 @@ public class User {
     @Column(name = "id")
     private Integer id;
 
-    @Column(name = "ten_dang_nhap", unique = true, nullable = false)
-    private String tenDangNhap;
+    @Column(name = "username", unique = true, nullable = false)
+    private String username;
 
     @com.fasterxml.jackson.annotation.JsonIgnore
-    @Column(name = "mat_khau_hash", nullable = false)
-    private String matKhauHash;
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
 
-    @Column(name = "ho_ten")
-    private String hoTen;
+    @Column(name = "full_name", nullable = false)
+    private String fullName;
 
-    @Column(name = "so_dien_thoai")
-    private String soDienThoai;
+    @Column(name = "phone")
+    private String phone;
 
-    @Column(name = "email")
+    @Column(name = "email", nullable = false)
     private String email;
 
-    @Column(name = "trang_thai_hoat_dong")
-    private Boolean trangThaiHoatDong = true;
+    @Column(name = "is_active")
+    private Boolean isActive = true;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "chuyen_mon", length = 30)
-    private com.gara.entity.enums.MechanicSpecialty chuyenMon;
+    @Column(name = "specialty", length = 30)
+    private com.gara.entity.enums.MechanicSpecialty specialty;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "cap_bac", length = 20)
-    private com.gara.entity.enums.MechanicLevel capBac;
+    @Column(name = "level", length = 20)
+    private com.gara.entity.enums.MechanicLevel level;
+
+    @Column(name = "avatar")
+    private String avatar;
+
+    @Column(name = "created_at", updatable = false)
+    private java.time.LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = java.time.LocalDateTime.now();
+    }
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "user_type", nullable = false, length = 20)
+    private UserType userType = UserType.STAFF;
 
     @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(name = "nguoidung_vaitro", joinColumns = @JoinColumn(name = "nguoidung_id"), inverseJoinColumns = @JoinColumn(name = "vaitro_id"))
+    @JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new java.util.HashSet<>();
 
     // Getters and Setters
+    public java.time.LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(java.time.LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
     public Integer getId() {
         return id;
     }
@@ -57,36 +83,36 @@ public class User {
         this.id = id;
     }
 
-    public String getTenDangNhap() {
-        return tenDangNhap;
+    public String getUsername() {
+        return username;
     }
 
-    public void setTenDangNhap(String tenDangNhap) {
-        this.tenDangNhap = tenDangNhap;
+    public void setUsername(String username) {
+        this.username = username;
     }
 
-    public String getMatKhauHash() {
-        return matKhauHash;
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
-    public void setMatKhauHash(String matKhauHash) {
-        this.matKhauHash = matKhauHash;
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
-    public String getHoTen() {
-        return hoTen;
+    public String getFullName() {
+        return fullName;
     }
 
-    public void setHoTen(String hoTen) {
-        this.hoTen = hoTen;
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
     }
 
-    public String getSoDienThoai() {
-        return soDienThoai;
+    public String getPhone() {
+        return phone;
     }
 
-    public void setSoDienThoai(String soDienThoai) {
-        this.soDienThoai = soDienThoai;
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getEmail() {
@@ -97,28 +123,40 @@ public class User {
         this.email = email;
     }
 
-    public Boolean getTrangThaiHoatDong() {
-        return trangThaiHoatDong;
+    public Boolean getIsActive() {
+        return isActive;
     }
 
-    public void setTrangThaiHoatDong(Boolean trangThaiHoatDong) {
-        this.trangThaiHoatDong = trangThaiHoatDong;
+    public boolean isActive() {
+        return isActive != null && isActive;
     }
 
-    public com.gara.entity.enums.MechanicSpecialty getChuyenMon() {
-        return chuyenMon;
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
     }
 
-    public void setChuyenMon(com.gara.entity.enums.MechanicSpecialty chuyenMon) {
-        this.chuyenMon = chuyenMon;
+    public com.gara.entity.enums.MechanicSpecialty getSpecialty() {
+        return specialty;
     }
 
-    public com.gara.entity.enums.MechanicLevel getCapBac() {
-        return capBac;
+    public void setSpecialty(com.gara.entity.enums.MechanicSpecialty specialty) {
+        this.specialty = specialty;
     }
 
-    public void setCapBac(com.gara.entity.enums.MechanicLevel capBac) {
-        this.capBac = capBac;
+    public com.gara.entity.enums.MechanicLevel getLevel() {
+        return level;
+    }
+
+    public void setLevel(com.gara.entity.enums.MechanicLevel level) {
+        this.level = level;
+    }
+
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
     }
 
     public Set<Role> getRoles() {
@@ -129,8 +167,16 @@ public class User {
         this.roles = roles;
     }
 
+    public UserType getUserType() {
+        return userType;
+    }
+
+    public void setUserType(UserType userType) {
+        this.userType = userType;
+    }
+
     // Helper: Check if user is Workshop Manager
-    public boolean isQuanLy() {
+    public boolean isManager() {
         if (roles == null) return false;
         return roles.stream().anyMatch(r -> "QUAN_LY_XUONG".equals(r.getName()));
     }

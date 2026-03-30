@@ -5,9 +5,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "khachhang", indexes = {
-        @Index(name = "idx_so_dien_thoai", columnList = "so_dien_thoai"),
-        @Index(name = "idx_ngay_tao_kh", columnList = "ngay_tao")
+@Table(name = "customers", indexes = {
+        @Index(name = "idx_customers_full_name", columnList = "full_name"),
+        @Index(name = "idx_customers_phone", columnList = "phone"),
+        @Index(name = "idx_customers_created_at", columnList = "created_at")
 })
 public class Customer {
 
@@ -16,20 +17,26 @@ public class Customer {
     @Column(name = "id")
     private Integer id;
 
-    @Column(name = "ho_ten", nullable = false, length = 100)
-    private String hoTen;
+    @Column(name = "full_name", nullable = false, length = 100)
+    private String fullName;
 
-    @Column(name = "so_dien_thoai", nullable = false, length = 20)
-    private String soDienThoai;
+    @Column(name = "phone", nullable = false, length = 20)
+    private String phone;
 
-    @Column(name = "dia_chi", length = 255)
-    private String diaChi;
+    @Column(name = "address", length = 255)
+    private String address;
 
     @Column(name = "email", length = 100)
     private String email;
 
-    @Column(name = "ngay_tao")
-    private LocalDateTime ngayTao;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "notes", length = 500)
+    private String notes;
+
+    @Column(name = "customer_group", length = 50)
+    private String customerGroup;
 
     @Column(name = "user_id") // Link to system user for notifications
     private Integer userId;
@@ -40,28 +47,31 @@ public class Customer {
     private User systemUser;
 
     @com.fasterxml.jackson.annotation.JsonIgnore
-    @OneToMany(mappedBy = "khachHang", cascade = CascadeType.ALL)
-    private List<Vehicle> danhSachXe;
+    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
+    private List<Vehicle> vehicles;
 
     @PrePersist
     protected void onCreate() {
-        ngayTao = LocalDateTime.now();
+        createdAt = LocalDateTime.now();
     }
 
     public Customer() {
     }
 
-    public Customer(Integer id, String hoTen, String soDienThoai, String diaChi, String email, LocalDateTime ngayTao,
-            Integer userId, User systemUser, List<Vehicle> danhSachXe) {
+    public Customer(Integer id, String fullName, String phone, String address, String email, LocalDateTime createdAt,
+            String notes, String customerGroup,
+            Integer userId, User systemUser, List<Vehicle> vehicles) {
         this.id = id;
-        this.hoTen = hoTen;
-        this.soDienThoai = soDienThoai;
-        this.diaChi = diaChi;
+        this.fullName = fullName;
+        this.phone = phone;
+        this.address = address;
         this.email = email;
-        this.ngayTao = ngayTao;
+        this.createdAt = createdAt;
+        this.notes = notes;
+        this.customerGroup = customerGroup;
         this.userId = userId;
         this.systemUser = systemUser;
-        this.danhSachXe = danhSachXe;
+        this.vehicles = vehicles;
     }
 
     public Integer getId() {
@@ -72,28 +82,28 @@ public class Customer {
         this.id = id;
     }
 
-    public String getHoTen() {
-        return hoTen;
+    public String getFullName() {
+        return fullName;
     }
 
-    public void setHoTen(String hoTen) {
-        this.hoTen = hoTen;
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
     }
 
-    public String getSoDienThoai() {
-        return soDienThoai;
+    public String getPhone() {
+        return phone;
     }
 
-    public void setSoDienThoai(String soDienThoai) {
-        this.soDienThoai = soDienThoai;
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
-    public String getDiaChi() {
-        return diaChi;
+    public String getAddress() {
+        return address;
     }
 
-    public void setDiaChi(String diaChi) {
-        this.diaChi = diaChi;
+    public void setAddress(String address) {
+        this.address = address;
     }
 
     public String getEmail() {
@@ -104,12 +114,28 @@ public class Customer {
         this.email = email;
     }
 
-    public LocalDateTime getNgayTao() {
-        return ngayTao;
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 
-    public void setNgayTao(LocalDateTime ngayTao) {
-        this.ngayTao = ngayTao;
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
+    public String getCustomerGroup() {
+        return customerGroup;
+    }
+
+    public void setCustomerGroup(String customerGroup) {
+        this.customerGroup = customerGroup;
     }
 
     public Integer getUserId() {
@@ -128,12 +154,12 @@ public class Customer {
         this.systemUser = systemUser;
     }
 
-    public List<Vehicle> getDanhSachXe() {
-        return danhSachXe;
+    public List<Vehicle> getVehicles() {
+        return vehicles;
     }
 
-    public void setDanhSachXe(List<Vehicle> danhSachXe) {
-        this.danhSachXe = danhSachXe;
+    public void setVehicles(List<Vehicle> vehicles) {
+        this.vehicles = vehicles;
     }
 
     public static CustomerBuilder builder() {
@@ -142,32 +168,34 @@ public class Customer {
 
     public static class CustomerBuilder {
         private Integer id;
-        private String hoTen;
-        private String soDienThoai;
-        private String diaChi;
+        private String fullName;
+        private String phone;
+        private String address;
         private String email;
-        private LocalDateTime ngayTao;
+        private LocalDateTime createdAt;
+        private String notes;
+        private String customerGroup;
         private Integer userId;
         private User systemUser;
-        private List<Vehicle> danhSachXe;
+        private List<Vehicle> vehicles;
 
         public CustomerBuilder id(Integer id) {
             this.id = id;
             return this;
         }
 
-        public CustomerBuilder hoTen(String hoTen) {
-            this.hoTen = hoTen;
+        public CustomerBuilder fullName(String fullName) {
+            this.fullName = fullName;
             return this;
         }
 
-        public CustomerBuilder soDienThoai(String soDienThoai) {
-            this.soDienThoai = soDienThoai;
+        public CustomerBuilder phone(String phone) {
+            this.phone = phone;
             return this;
         }
 
-        public CustomerBuilder diaChi(String diaChi) {
-            this.diaChi = diaChi;
+        public CustomerBuilder address(String address) {
+            this.address = address;
             return this;
         }
 
@@ -176,8 +204,18 @@ public class Customer {
             return this;
         }
 
-        public CustomerBuilder ngayTao(LocalDateTime ngayTao) {
-            this.ngayTao = ngayTao;
+        public CustomerBuilder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public CustomerBuilder notes(String notes) {
+            this.notes = notes;
+            return this;
+        }
+
+        public CustomerBuilder customerGroup(String customerGroup) {
+            this.customerGroup = customerGroup;
             return this;
         }
 
@@ -191,13 +229,13 @@ public class Customer {
             return this;
         }
 
-        public CustomerBuilder danhSachXe(List<Vehicle> danhSachXe) {
-            this.danhSachXe = danhSachXe;
+        public CustomerBuilder vehicles(List<Vehicle> vehicles) {
+            this.vehicles = vehicles;
             return this;
         }
 
         public Customer build() {
-            return new Customer(id, hoTen, soDienThoai, diaChi, email, ngayTao, userId, systemUser, danhSachXe);
+            return new Customer(id, fullName, phone, address, email, createdAt, notes, customerGroup, userId, systemUser, vehicles);
         }
     }
 }

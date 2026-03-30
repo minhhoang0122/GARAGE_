@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Hand, ShieldCheck, Wrench, Clock } from 'lucide-react';
-import { claimJob } from '@/modules/service/mechanic';
+import { useClaimJob } from '@/modules/mechanic/hooks/useMechanic';
 import { useToast } from '@/contexts/ToastContext';
-import { api } from '@/lib/api';
+import { useSession } from 'next-auth/react';
  
 type ClaimJobButtonProps = {
     orderId: number;
@@ -14,9 +14,11 @@ type ClaimJobButtonProps = {
 };
  
 export default function ClaimJobButton({ orderId, claimedByName, isClaimedByMe }: ClaimJobButtonProps) {
-    const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const { data: session } = useSession();
     const { showToast } = useToast();
+    const { mutate: claimMatch, isPending: loading } = useClaimJob();
+
  
     // Already claimed by current user - Premium Glassmorphism UI
     if (isClaimedByMe) {
@@ -57,21 +59,17 @@ export default function ClaimJobButton({ orderId, claimedByName, isClaimedByMe }
     }
 
     // Not claimed - show button
-    const handleClaim = async () => {
-        setLoading(true);
-        const result = await claimJob(orderId);
-        if (result.success) {
-            // Invalidate mechanic dashboard and stats
-            api.invalidateCache('/mechanic/jobs');
-            api.invalidateCache('/mechanic/stats');
-
-            showToast('success', 'Nhận việc thành công!');
-            router.refresh();
-        } else {
-            showToast('error', result.error || 'Thao tác thất bại');
-        }
-        setLoading(false);
+    const handleClaim = () => {
+        claimMatch({ orderId, userName: session?.user?.name || 'Kỹ thuật viên' }, {
+            onSuccess: () => {
+                showToast('success', 'Nhận việc thành công!');
+            },
+            onError: (error: any) => {
+                showToast('error', error.message || 'Thao tác thất bại');
+            }
+        });
     };
+
 
     return (
         <button

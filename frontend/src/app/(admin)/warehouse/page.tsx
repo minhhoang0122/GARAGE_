@@ -4,34 +4,40 @@ import { useMemo } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Package, PackageMinus, AlertTriangle, TrendingDown, History } from 'lucide-react';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
-import { api } from '@/lib/api';
-import IndustrialStatCard from '@/modules/shared/components/common/IndustrialStatCard';
 import { Card } from '@/modules/shared/components/ui/card';
-import { useQuery } from '@tanstack/react-query';
+import IndustrialStatCard from '@/modules/shared/components/common/IndustrialStatCard';
+import { useWarehouseStats, usePendingExports, useInventory } from '@/modules/warehouse/hooks/useWarehouse';
+import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
+import { toast } from '@/modules/shared/components/ui/use-toast';
 
 export default function WarehouseDashboard() {
-    const { data: session } = useSession();
-    // @ts-ignore
-    const token = session?.user?.accessToken;
-
-    const { data: stats = { pendingOrders: 0, lowStockItems: 0, recentExports: 0, recentImports: 0 } } = useQuery({
-        queryKey: ['warehouse', 'stats'],
-        queryFn: () => api.get('/warehouse/stats', token),
-        enabled: !!token
+    // Realtime update stats when events happen
+    useRealtimeUpdate(['warehouse', 'stats'], {
+        filter: (data) => ['STOCK_SHORTAGE', 'IMPORT_APPROVED', 'ORDER_SUBMITTED'].includes(data.sseType),
+        onUpdate: (data) => {
+            if (data.sseType === 'STOCK_SHORTAGE') {
+                toast({
+                    variant: 'destructive',
+                    title: 'Cảnh báo tồn kho',
+                    description: data.message || 'Một số mặt hàng đang thiếu hụt trầm trọng.',
+                });
+            }
+        }
     });
 
-    const { data: pendingOrders = [] } = useQuery({
-        queryKey: ['warehouse', 'pending'],
-        queryFn: () => api.get('/warehouse/pending', token),
-        enabled: !!token
+    // Realtime update pending exports
+    useRealtimeUpdate(['warehouse', 'pending'], {
+        filter: (data) => data.sseType === 'ORDER_SUBMITTED' || data.sseType === 'ORDER_EXPORTED'
     });
 
-    const { data: products = [] } = useQuery({
-        queryKey: ['warehouse', 'products'],
-        queryFn: () => api.get('/warehouse/products', token),
-        enabled: !!token
+    // Realtime update inventory
+    useRealtimeUpdate(['warehouse', 'products'], {
+        filter: (data) => data.sseType === 'IMPORT_APPROVED' || data.sseType === 'STOCK_SHORTAGE'
     });
+
+    const { data: stats = { pendingOrders: 0, lowStockItems: 0, recentExports: 0, recentImports: 0 } } = useWarehouseStats();
+    const { data: pendingOrders = [] } = usePendingExports();
+    const { data: products = [] } = useInventory();
 
     const lowStockItems = useMemo(() => 
         products.filter((p: any) => !p.isService && p.stock <= (p.minStock || 10)),

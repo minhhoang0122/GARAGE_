@@ -8,11 +8,11 @@ import java.math.BigDecimal;
  */
 public record PublicProductDTO(
         Integer id,
-        String maHang,
-        String tenHang,
-        BigDecimal giaBanNiemYet,
-        BigDecimal thueVat,
-        Boolean laDichVu,
-        Integer baoHanhSoThang,
-        Integer baoHanhKm) {
+        String sku,
+        String name,
+        BigDecimal retailPrice,
+        BigDecimal vatRate,
+        Boolean isService,
+        Integer warrantyMonths,
+        Integer warrantyKm) {
 }

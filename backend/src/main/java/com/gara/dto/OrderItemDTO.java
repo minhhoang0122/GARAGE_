@@ -11,7 +11,7 @@ public record OrderItemDTO(
         String productName,
         Integer quantity,
         BigDecimal unitPrice,
-        BigDecimal totalPrice,
+        BigDecimal total,
         BigDecimal discountPercent,
         String type,
         String itemStatus,
@@ -36,7 +36,7 @@ public record OrderItemDTO(
         private String productName;
         private Integer quantity;
         private BigDecimal unitPrice;
-        private BigDecimal totalPrice;
+        private BigDecimal total;
         private BigDecimal discountPercent;
         private String type;
         private String itemStatus;
@@ -80,8 +80,8 @@ public record OrderItemDTO(
             return this;
         }
 
-        public OrderItemDTOBuilder totalPrice(BigDecimal totalPrice) {
-            this.totalPrice = totalPrice;
+        public OrderItemDTOBuilder total(BigDecimal total) {
+            this.total = total;
             return this;
         }
 
@@ -147,7 +147,7 @@ public record OrderItemDTO(
 
         public OrderItemDTO build() {
             return new OrderItemDTO(id, productId, productCode, productName, quantity, unitPrice,
-                    totalPrice, discountPercent, type, itemStatus, stock, proposedById, proposedByName,
+                    total, discountPercent, type, itemStatus, stock, proposedById, proposedByName,
                     proposedByRole, isWarranty, isTechnicalAddition, proposedAt, assignments, version);
         }
     }

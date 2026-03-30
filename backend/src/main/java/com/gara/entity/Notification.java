@@ -4,48 +4,51 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "thongbao")
+@Table(name = "notifications")
 public class Notification {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Integer id;
 
-    @Column(name = "nguoi_dung_id")
+    @Column(name = "user_id")
     private Integer userId;
 
-    @Column(name = "vai_tro")
+    @Column(name = "role")
     private String role; // Role-based notification (e.g. THO, NHAN_VIEN_KHO)
 
     @org.hibernate.annotations.Nationalized
-    @Column(name = "tieu_de", columnDefinition = "VARCHAR(255)")
+    @Column(name = "title", columnDefinition = "VARCHAR(255)")
     private String title;
 
     @org.hibernate.annotations.Nationalized
-    @Column(name = "noi_dung", columnDefinition = "TEXT")
+    @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "loai")
+    @Column(name = "type")
     private String type; // INFO, WARNING, SUCCESS, ERROR
 
-    @Column(name = "lien_ket")
+    @Column(name = "link")
     private String link;
 
-    @Column(name = "da_xem")
+    @Column(name = "is_read")
     private Boolean isRead = false;
 
-    @Column(name = "ngay_tao")
+    @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Column(name = "ref_id")
+    private Integer refId;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nguoi_dung_id", insertable = false, updatable = false)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
     public Notification() {
     }
 
     public Notification(Integer id, Integer userId, String role, String title, String content, String type, String link,
-            Boolean isRead, LocalDateTime createdAt, User user) {
+            Boolean isRead, LocalDateTime createdAt, User user, Integer refId) {
         this.id = id;
         this.userId = userId;
         this.role = role;
@@ -56,6 +59,7 @@ public class Notification {
         this.isRead = isRead != null ? isRead : false;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
         this.user = user;
+        this.refId = refId;
     }
 
     public Integer getId() {
@@ -138,6 +142,14 @@ public class Notification {
         this.user = user;
     }
 
+    public Integer getRefId() {
+        return refId;
+    }
+
+    public void setRefId(Integer refId) {
+        this.refId = refId;
+    }
+
     public static NotificationBuilder builder() {
         return new NotificationBuilder();
     }
@@ -153,6 +165,7 @@ public class Notification {
         private Boolean isRead = false;
         private LocalDateTime createdAt = LocalDateTime.now();
         private User user;
+        private Integer refId;
 
         public NotificationBuilder id(Integer id) {
             this.id = id;
@@ -204,8 +217,13 @@ public class Notification {
             return this;
         }
 
+        public NotificationBuilder refId(Integer refId) {
+            this.refId = refId;
+            return this;
+        }
+
         public Notification build() {
-            return new Notification(id, userId, role, title, content, type, link, isRead, createdAt, user);
+            return new Notification(id, userId, role, title, content, type, link, isRead, createdAt, user, refId);
         }
     }
 }

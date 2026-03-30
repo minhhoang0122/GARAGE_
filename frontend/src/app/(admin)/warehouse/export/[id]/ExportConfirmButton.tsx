@@ -2,10 +2,9 @@
 
 import { useState } from 'react';
 import { PackageCheck, Loader2 } from 'lucide-react';
-import { confirmExport } from '@/modules/inventory/warehouse';
+import { useConfirmExport } from '@/modules/warehouse/hooks/useWarehouse';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/contexts/ToastContext';
-import { api } from '@/lib/api';
+import { useToast } from '@/modules/shared/components/ui/use-toast';
 
 interface ExportConfirmButtonProps {
     orderId: number;
@@ -13,34 +12,23 @@ interface ExportConfirmButtonProps {
 }
 
 export default function ExportConfirmButton({ orderId, disabled = false }: ExportConfirmButtonProps) {
-    const [isLoading, setIsLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
-    const router = useRouter();
-    const { showToast } = useToast();
+    const { toast } = useToast();
+    const confirmExportMutation = useConfirmExport();
 
     const handleConfirm = async () => {
-        setIsLoading(true);
-        try {
-            const result = await confirmExport(orderId);
-            if (result.success) {
-                // Invalidate cache for dashboards
-                api.invalidateCache('/warehouse/stats');
-                api.invalidateCache('/warehouse/pending');
-                api.invalidateCache('/sale/stats');
-                api.invalidateCache(`/sale/orders/${orderId}`);
-
-                showToast('success', 'Đã xác nhận xuất kho thành công!');
+        confirmExportMutation.mutate(orderId, {
+            onSuccess: () => {
+                toast({ title: "Thành công", description: "Đã xác nhận xuất kho thành công!" });
                 setShowConfirm(false);
-                router.refresh();
-            } else {
-                showToast('error', result.error || 'Thao tác thất bại');
+            },
+            onError: (error: any) => {
+                toast({ title: "Lỗi", description: error.message || "Thao tác thất bại", variant: "destructive" });
             }
-        } catch (error) {
-            showToast('error', 'Lỗi kết nối máy chủ');
-        } finally {
-            setIsLoading(false);
-        }
+        });
     };
+
+    const isLoading = confirmExportMutation.isPending;
 
     if (disabled) {
         return (

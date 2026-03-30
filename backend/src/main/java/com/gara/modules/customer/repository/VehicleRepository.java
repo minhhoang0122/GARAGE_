@@ -11,15 +11,15 @@ import java.util.Optional;
 
 public interface VehicleRepository extends JpaRepository<Vehicle, Integer> {
     // Exact match for Plate search
-    Optional<Vehicle> findByBienSo(String bienSo);
+    Optional<Vehicle> findByLicensePlate(String licensePlate);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT v FROM Vehicle v WHERE v.bienSo = :bienSo")
-    Optional<Vehicle> findByBienSoWithLock(@Param("bienSo") String bienSo);
+    @Query("SELECT v FROM Vehicle v WHERE v.licensePlate = :licensePlate")
+    Optional<Vehicle> findByLicensePlateWithLock(@Param("licensePlate") String licensePlate);
 
     // Like search for autocomplete
-    java.util.List<Vehicle> findByBienSoContaining(String bienSo);
+    java.util.List<Vehicle> findByLicensePlateContaining(String licensePlate);
 
     // Customer portal: get all vehicles owned by a customer
-    java.util.List<Vehicle> findByKhachHangId(Integer khachHangId);
+    java.util.List<Vehicle> findByCustomerId(Integer customerId);
 }

@@ -8,14 +8,14 @@ import java.util.List;
 
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, Integer> {
-    List<AuditLog> findByBangAndBanGhiId(String bang, Integer banGhiId);
+    List<AuditLog> findByTableNameAndRecordId(String tableName, Integer recordId);
 
-    List<AuditLog> findAllByOrderByNgayTaoDesc();
+    List<AuditLog> findAllByOrderByCreatedAtDesc();
 
-    @org.springframework.data.jpa.repository.Query("SELECT a FROM AuditLog a LEFT JOIN FETCH a.nguoiThucHien ORDER BY a.ngayTao DESC")
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM AuditLog a LEFT JOIN FETCH a.user ORDER BY a.createdAt DESC")
     List<AuditLog> findAllWithUser();
 
     // Optimized: Find Return logs by Product ID content match
-    @org.springframework.data.jpa.repository.Query("SELECT a FROM AuditLog a WHERE a.bang = 'Warehouse' AND a.hanhDong = 'RETURN' AND a.duLieuMoi LIKE %:pattern%")
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM AuditLog a WHERE a.tableName = 'Warehouse' AND a.action = 'RETURN' AND a.newData LIKE %:pattern%")
     List<AuditLog> findReturnLogsByProduct(@org.springframework.data.repository.query.Param("pattern") String pattern);
 }

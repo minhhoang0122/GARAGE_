@@ -15,9 +15,19 @@ import java.util.Map;
 public class PublicTrackingController {
 
     private final ReceptionRepository receptionRepository;
+    private final com.gara.modules.public_api.service.PublicTrackingService publicTrackingService;
 
-    public PublicTrackingController(ReceptionRepository receptionRepository) {
+    public PublicTrackingController(ReceptionRepository receptionRepository, 
+                                   com.gara.modules.public_api.service.PublicTrackingService publicTrackingService) {
         this.receptionRepository = receptionRepository;
+        this.publicTrackingService = publicTrackingService;
+    }
+
+    @GetMapping("/tracking/{uuid}")
+    public ResponseEntity<?> getTrackingByUuid(@PathVariable String uuid) {
+        return publicTrackingService.getTrackingByUuid(uuid)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/tracking")
@@ -29,7 +39,7 @@ public class PublicTrackingController {
         // Tối ưu query format
         String processedBienSo = bienSo.trim().toUpperCase();
 
-        List<Reception> records = receptionRepository.findByXeBienSoOrderByNgayGioDesc(processedBienSo);
+        List<Reception> records = receptionRepository.findByVehicleLicensePlateOrderByReceptionDateDesc(processedBienSo);
 
         if (records.isEmpty()) {
             return ResponseEntity.status(404).body(Map.of(
@@ -39,26 +49,26 @@ public class PublicTrackingController {
 
         // Lấy phiếu nhận xe gần nhất
         Reception latestReception = records.get(0);
-        RepairOrder order = latestReception.getDonHangSuaChua();
+        RepairOrder order = latestReception.getRepairOrder();
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
         Map<String, Object> response = new java.util.HashMap<>();
         response.put("success", true);
-        response.put("bienSo", latestReception.getXeBienSo());
-        response.put("modelXe", latestReception.getXe() != null ? latestReception.getXe().getModel() : "Không rõ");
+        response.put("bienSo", latestReception.getVehicle().getLicensePlate());
+        response.put("modelXe", latestReception.getVehicle() != null ? latestReception.getVehicle().getModel() : "Không rõ");
         response.put("ngayTiepNhan",
-                latestReception.getNgayGio() != null ? latestReception.getNgayGio().format(formatter) : "");
-        response.put("yeuCauSoBo", latestReception.getYeuCauSoBo());
+                latestReception.getReceptionDate() != null ? latestReception.getReceptionDate().format(formatter) : "");
+        response.put("yeuCauSoBo", latestReception.getPreliminaryRequest());
 
         // Nếu đã duyệt báo giá và tạo Order
         if (order != null) {
-            response.put("trangThai", order.getTrangThai().name());
-            response.put("trangThaiLabel", getLabelByStatus(order.getTrangThai().name()));
-            response.put("tongTien", order.getTongCong());
-            response.put("daThanhToan", order.getSoTienDaTra());
+            response.put("trangThai", order.getStatus().name());
+            response.put("trangThaiLabel", getLabelByStatus(order.getStatus().name()));
+            response.put("tongTien", order.getGrandTotal());
+            response.put("daThanhToan", order.getAmountPaid());
         } else {
-            response.put("trangThai", "DANG_KHAM");
+            response.put("trangThai", "WAITING_FOR_DIAGNOSIS");
             response.put("trangThaiLabel", "Đang khám xe & Lên báo giá");
             response.put("tongTien", 0);
         }
@@ -68,12 +78,12 @@ public class PublicTrackingController {
 
     private String getLabelByStatus(String status) {
         return switch (status) {
-            case "TIEP_NHAN" -> "Đang chờ vào xưởng";
-            case "DANG_SUA_CHUA" -> "Đang thi công trên cầu nâng";
-            case "CHO_PHU_TUNG" -> "Đang chờ nhập vật tư/phụ tùng";
-            case "HOAN_THANH" -> "Đã rửa xe - Chờ bàn giao";
-            case "DA_GIAO_XE" -> "Đã xuất xưởng";
-            case "HUY" -> "Đã hủy bỏ";
+            case "RECEIVED" -> "Đang chờ vào xưởng";
+            case "IN_PROGRESS" -> "Đang thi công trên cầu nâng";
+            case "WAITING_FOR_PARTS" -> "Đang chờ nhập vật tư/phụ tùng";
+            case "COMPLETED" -> "Đã rửa xe - Hoàn thành";
+            case "CLOSED" -> "Đã xuất xưởng";
+            case "CANCELLED" -> "Đã hủy bỏ";
             default -> "Đang xử lý";
         };
     }

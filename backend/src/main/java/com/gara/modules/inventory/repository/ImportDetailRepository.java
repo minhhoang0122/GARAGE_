@@ -10,17 +10,12 @@ import java.util.List;
 @Repository
 public interface ImportDetailRepository extends JpaRepository<ImportDetail, Integer> {
 
-    // Find batches with remaining quantity > 0, sorted by Import Date Ascending
-    // (FIFO)
-    // Also handle null soLuongConLai as full quantity for backward compatibility
-    // logic (if needed)
-    // But for now we assume they are initialized. If null, we treat as 0 or full?
-    // Let's assume initialized.
-    @Query("SELECT d FROM ImportDetail d JOIN d.phieuNhap n WHERE d.hangHoa.id = :productId AND d.soLuongConLai > 0 ORDER BY n.ngayNhap ASC")
+    // Find batches with remaining quantity > 0, sorted by Import Date Ascending (FIFO)
+    @Query("SELECT d FROM ImportDetail d JOIN d.importNote n WHERE d.product.id = :productId AND d.remainingQuantity > 0 ORDER BY n.importDate ASC")
     List<ImportDetail> findAvailableBatches(Integer productId);
 
-    @Query("SELECT d FROM ImportDetail d JOIN d.phieuNhap n WHERE d.hangHoa.id = :productId ORDER BY n.ngayNhap DESC")
-    List<ImportDetail> findAllByHangHoaIdOrderByNgayNhapDesc(Integer productId);
+    @Query("SELECT d FROM ImportDetail d JOIN d.importNote n WHERE d.product.id = :productId ORDER BY n.importDate DESC")
+    List<ImportDetail> findAllByProductIdOrderByImportDateDesc(Integer productId);
 
-    List<ImportDetail> findAllByHangHoaId(Integer productId);
+    List<ImportDetail> findAllByProductId(Integer productId);
 }

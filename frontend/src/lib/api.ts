@@ -1,330 +1,244 @@
+import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { getSession, signOut } from 'next-auth/react';
 
-const getApiUrl = () => {
-    const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
-    const isProduction = process.env.NODE_ENV === 'production';
-    
-    if (typeof window === 'undefined') {
-        if (isProduction && url.includes('localhost')) {
-            console.warn('WARNING: Running in PRODUCTION but API_URL is pointing to LOCALHOST. Authentication will fail.');
-        }
+const baseEnvUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api';
+export const API_URL = baseEnvUrl.endsWith('/api') ? baseEnvUrl : (baseEnvUrl.endsWith('/') ? `${baseEnvUrl}api` : `${baseEnvUrl}/api`);
+
+// Cache for public data or speed (Alternative to TanStack Query where needed)
+const memoryCache = new Map<string, { data: any; expiry: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Create Axios Instance
+export const axiosInstance: AxiosInstance = axios.create({
+    baseURL: API_URL,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    timeout: 15000,
+});
+
+// Session Caching to prevent spamming /api/auth/session
+let cachedSession: any = null;
+let lastFetchTime = 0;
+const SESSION_CACHE_TTL = 10000; // 10 seconds
+
+const getFastSession = async () => {
+    const now = Date.now();
+    if (cachedSession && (now - lastFetchTime < SESSION_CACHE_TTL)) {
+        return cachedSession;
     }
-    return `${url}/api`;
+    
+    // Fetch new session
+    try {
+        cachedSession = await getSession();
+        lastFetchTime = Date.now();
+        return cachedSession;
+    } catch (error) {
+        console.error('Failed to get session:', error);
+        return null;
+    }
 };
 
-export const API_URL = getApiUrl();
-
-// In-memory cache for instant access (faster than sessionStorage)
-const memoryCache = new Map<string, { data: any; timestamp: number }>();
-
-// Persistent cache using sessionStorage (survives navigation)
-const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
-const STALE_TTL = 5 * 60 * 1000; // 5 minutes (serve stale while revalidating)
-
-// Pending requests to prevent duplicate fetches
-const pendingRequests = new Map<string, Promise<any>>();
-
-function getCache(key: string): { data: any; timestamp: number; isStale: boolean } | null {
-    // Check memory cache first (fastest)
-    const memCached = memoryCache.get(key);
-    if (memCached) {
-        const age = Date.now() - memCached.timestamp;
-        return { ...memCached, isStale: age > CACHE_TTL };
-    }
-
-    // Fallback to sessionStorage
-    if (typeof window === 'undefined') return null;
-    try {
-        const item = sessionStorage.getItem(`api_cache:${key}`);
-        if (item) {
-            const parsed = JSON.parse(item);
-            const age = Date.now() - parsed.timestamp;
-            // Also populate memory cache
-            memoryCache.set(key, parsed);
-            return { ...parsed, isStale: age > CACHE_TTL };
+// Request Interceptor: Auto-attach Token
+axiosInstance.interceptors.request.use(
+    async (config: InternalAxiosRequestConfig) => {
+        // If a token is already manually attached (backward compatibility), use it
+        if (config.headers.Authorization) {
+            return config;
         }
-    } catch { }
-    return null;
-}
 
-function setCache(key: string, data: any) {
-    const entry = { data, timestamp: Date.now() };
-
-    // Set in memory (instant access)
-    memoryCache.set(key, entry);
-
-    // Persist to sessionStorage
-    if (typeof window !== 'undefined') {
-        try {
-            sessionStorage.setItem(`api_cache:${key}`, JSON.stringify(entry));
-        } catch { }
-    }
-}
-
-async function handleResponseError(res: Response) {
-    if (res.status === 401 || res.status === 403) {
+        // Otherwise, try to get token from session (Client-side only)
         if (typeof window !== 'undefined') {
-            const { signOut } = await import('next-auth/react');
-            signOut({ callbackUrl: '/login?error=' + (res.status === 403 ? 'AccountLocked' : 'SessionExpired') });
+            try {
+                const session = await getFastSession();
+                const token = session?.user?.accessToken;
+                if (token) {
+                    if (config.headers) {
+                        config.headers.set('Authorization', `Bearer ${token}`);
+                    }
+                }
+            } catch (error) {
+                console.error('API Request Interceptor Error:', error);
+            }
         }
-        throw new Error(res.status === 401 ? 'Phiên đăng nhập hết hạn' : 'Tài khoản đã bị khóa');
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
+// Response Interceptor: Centralized Error Handling
+// CRITICAL: Normalize responses to maintain {success: true, ...} format
+// that the entire frontend depends on (legacy AIP wrapper compatibility).
+axiosInstance.interceptors.response.use(
+    (response: AxiosResponse) => {
+        const data = response.data;
+        const method = response.config.method?.toUpperCase();
+
+        // For mutating methods (POST/PUT/PATCH/DELETE):
+        // If backend returns empty/null/string, wrap in {success: true}
+        // If backend returns object without .success, inject success: true
+        if (method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+            if (data === null || data === undefined || data === '' || typeof data === 'string') {
+                return { success: true, message: data || 'OK' };
+            }
+            if (typeof data === 'object' && !Array.isArray(data) && data.success === undefined) {
+                return { ...data, success: true };
+            }
+        }
+
+        // For GET or responses that already have success field, pass through
+        return data;
+    },
+    async (error) => {
+        if (error.response) {
+            const { status, data } = error.response;
+
+            // Auto Logout on 401
+            if (status === 401 && typeof window !== 'undefined') {
+                await signOut({ callbackUrl: '/login?error=SessionExpired' });
+                return Promise.reject({ success: false, message: 'Phiên đăng nhập hết hạn' });
+            }
+
+            // Handling 403
+            if (status === 403) {
+                return Promise.reject({ success: false, message: 'Bạn không có quyền thực hiện hành động này' });
+            }
+
+            if (status === 404) {
+                return Promise.reject({ success: false, message: 'Không tìm thấy dữ liệu (404)' });
+            }
+
+            // Return error data from server, ensure {success: false} format
+            if (data && typeof data === 'object') {
+                return Promise.reject({ success: false, ...data });
+            }
+            return Promise.reject({ success: false, message: data || `Lỗi ${status}` });
+        } else if (error.request) {
+            return Promise.reject({ success: false, message: 'Không thể kết nối tới máy chủ. Vui lòng kiểm tra mạng.' });
+        }
+        return Promise.reject({ success: false, message: error.message || 'Lỗi không xác định' });
     }
-    if (res.status === 404) throw new Error('Không tìm thấy dữ liệu');
-
-    const errorData = await res.json().catch(() => ({}));
-    const errorMessage = errorData.message || errorData.error || `Lỗi API (${res.status})`;
-
-    if (res.status === 500) {
-        console.error('SERVER 500 ERROR:', errorData);
-    }
-
-    throw new Error(errorMessage);
-}
+);
 
 export const api = {
     /**
-     * Get data with instant cache return + background revalidation
-     * Always returns immediately if cached (even if stale)
+     * GET method with optional manual token override
      */
-    async getCached(path: string, token?: string, onUpdate?: (data: any) => void): Promise<any> {
-        const cached = getCache(path);
+    async get(path: string, token?: string, signal?: AbortSignal): Promise<any> {
+        const config: any = { signal };
+        if (token) {
+            config.headers = { Authorization: `Bearer ${token}` };
+        }
+        return axiosInstance.get(path, config) as any;
+    },
+
+    async post(path: string, data?: any, token?: string): Promise<any> {
+        const config: any = {};
+        if (token) {
+            config.headers = { Authorization: `Bearer ${token}` };
+        }
+        return axiosInstance.post(path, data, config) as any;
+    },
+
+    async put(path: string, data?: any, token?: string): Promise<any> {
+        const config: any = {};
+        if (token) {
+            config.headers = { Authorization: `Bearer ${token}` };
+        }
+        return axiosInstance.put(path, data, config) as any;
+    },
+
+    async patch(path: string, data?: any, token?: string): Promise<any> {
+        const config: any = {};
+        if (token) {
+            config.headers = { Authorization: `Bearer ${token}` };
+        }
+        return axiosInstance.patch(path, data, config) as any;
+    },
+
+    async delete(path: string, token?: string): Promise<any> {
+        const config: any = {};
+        if (token) {
+            config.headers = { Authorization: `Bearer ${token}` };
+        }
+        return axiosInstance.delete(path, config) as any;
+    },
+
+    /**
+     * Legacy caching support (Used in some public pages)
+     * Supports SWR pattern via optional callback
+     */
+    async getCached(path: string, token?: string, ttlOrCallback?: number | ((data: any) => void)) {
+        const ttl = typeof ttlOrCallback === 'number' ? ttlOrCallback : CACHE_TTL;
+        const onFreshData = typeof ttlOrCallback === 'function' ? ttlOrCallback : null;
+
         const now = Date.now();
+        const cached = memoryCache.get(path);
 
-        // If we have cached data (even stale), return it immediately
-        if (cached) {
-            // If fresh enough, just return
-            if (!cached.isStale) {
-                return cached.data;
+        // If we have valid cache, return it immediately but trigger revalidate if callback exists
+        if (cached && now < cached.expiry) {
+            if (onFreshData) {
+                // Background revalidation
+                this.get(path, token).then(freshData => {
+                    memoryCache.set(path, { data: freshData, expiry: Date.now() + ttl });
+                    onFreshData(freshData);
+                }).catch(() => { });
             }
-
-            // If stale but within STALE_TTL, return cached + revalidate in background
-            if (now - cached.timestamp < STALE_TTL) {
-                // Fire background revalidation
-                this.get(path, token)
-                    .then(fresh => {
-                        setCache(path, fresh);
-                        // Notify caller if they want to update UI with fresh data
-                        if (onUpdate) onUpdate(fresh);
-                    })
-                    .catch(() => { });
-                return cached.data;
-            }
+            return cached.data;
         }
 
-        // No cache or too old - must fetch fresh
-        return this._dedupedGet(path, token);
+        const data = await this.get(path, token);
+        memoryCache.set(path, { data, expiry: now + ttl });
+        return data;
     },
 
-    /**
-     * Prefetch data in background (use for anticipated navigation)
-     */
-    prefetch(paths: string[], token?: string) {
-        paths.forEach(path => {
-            const cached = getCache(path);
-            if (!cached || cached.isStale) {
-                this.get(path, token)
-                    .then(data => setCache(path, data))
-                    .catch(() => { });
-            }
-        });
-    },
-
-    /**
-     * Deduplicated GET - prevents duplicate requests for same path
-     */
-    async _dedupedGet(path: string, token?: string): Promise<any> {
-        // If there's already a pending request for this path, wait for it
-        if (pendingRequests.has(path)) {
-            return pendingRequests.get(path);
-        }
-
-        // Create new request
-        const request = this.get(path, token)
-            .then(data => {
-                setCache(path, data);
-                pendingRequests.delete(path);
-                return data;
-            })
-            .catch(err => {
-                pendingRequests.delete(path);
-                throw err;
-            });
-
-        pendingRequests.set(path, request);
-        return request;
-    },
-
-    // Invalidate cache for a path or prefix (call after mutations)
     invalidateCache(pathOrPrefix?: string) {
         if (pathOrPrefix) {
-            // 1. Clear from memoryCache (using startsWith for prefix matching)
             for (const key of memoryCache.keys()) {
                 if (key.startsWith(pathOrPrefix)) {
                     memoryCache.delete(key);
                 }
             }
-
-            // 2. Clear from sessionStorage
-            if (typeof window !== 'undefined') {
-                try {
-                    Object.keys(sessionStorage).forEach(key => {
-                        if (key.startsWith(`api_cache:${pathOrPrefix}`)) {
-                            sessionStorage.removeItem(key);
-                        }
-                    });
-                } catch (e) {
-                    console.error('Error invalidating sessionStorage:', e);
-                }
-            }
         } else {
-            // Clear all
             memoryCache.clear();
-            if (typeof window !== 'undefined') {
-                try {
-                    Object.keys(sessionStorage)
-                        .filter(k => k.startsWith('api_cache:'))
-                        .forEach(k => sessionStorage.removeItem(k));
-                } catch (e) { }
-            }
         }
     },
 
-    // Optimistic update - update cache immediately before API call
-    optimisticUpdate(path: string, updater: (old: any) => any) {
-        const cached = getCache(path);
+    /**
+     * Prefetch multiple endpoints for better UX
+     */
+    prefetch(paths: string[], token: string) {
+        paths.forEach(path => this.getCached(path, token).catch(() => { }));
+    },
+
+    /**
+     * Manual cache update for optimistic UI
+     * Returns the old data to allow for manual rollback
+     */
+    optimisticUpdate<T>(path: string, updater: (oldData: T) => T): T | null {
+        const cached = memoryCache.get(path);
         if (cached) {
-            const updated = updater(cached.data);
-            setCache(path, updated);
-            return updated;
+            const oldData = cached.data;
+            const newData = updater(oldData);
+            memoryCache.set(path, { ...cached, data: newData });
+            return oldData;
         }
         return null;
     },
 
-    async login(username: string, password: string) {
-        const res = await fetch(`${API_URL}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
-        });
-
-        if (!res.ok) {
-            const error = await res.json().catch(() => ({}));
-            throw new Error(error.message || error.error || 'Đăng nhập thất bại');
-        }
-
-        return res.json();
+    // Auth helpers
+    async login(username: string, password: string): Promise<any> {
+        return axiosInstance.post('/auth/login', { username, password }) as any;
     },
 
-    async get(path: string, token?: string, signal?: AbortSignal) {
-        const headers: any = {
-            'Content-Type': 'application/json',
-            'Accept-Encoding': 'gzip, deflate'
-        };
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        const res = await fetch(`${API_URL}${path}`, {
-            headers,
-            cache: 'no-store', // Disable Next.js fetch caching
-            signal,
-        });
-
-        if (!res.ok) {
-            await handleResponseError(res);
-        }
-
-        return res.json();
-    },
-
-    async post(path: string, data: any, token: string, signal?: AbortSignal) {
-        const res = await fetch(`${API_URL}${path}`, {
-            method: 'POST',
+    /**
+     * Upload helper for FormData (images, etc)
+     */
+    async upload(path: string, formData: FormData): Promise<any> {
+        return axiosInstance.post(path, formData, {
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'multipart/form-data',
             },
-            body: JSON.stringify(data),
-            signal,
-        });
-
-        if (!res.ok) {
-            await handleResponseError(res);
-        }
-
-        return res.json();
-    },
-
-    async put(path: string, data: any, token: string, signal?: AbortSignal) {
-        const res = await fetch(`${API_URL}${path}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data),
-            signal,
-        });
-
-        if (!res.ok) {
-            await handleResponseError(res);
-        }
-
-        const text = await res.text();
-        return text ? JSON.parse(text) : {};
-    },
-
-    async patch(path: string, data: any, token: string, signal?: AbortSignal) {
-        const res = await fetch(`${API_URL}${path}`, {
-            method: 'PATCH',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data),
-            signal,
-        });
-
-        if (!res.ok) {
-            await handleResponseError(res);
-        }
-
-        const text = await res.text();
-        return text ? JSON.parse(text) : {};
-    },
-
-    async upload(path: string, formData: FormData, token: string) {
-        const res = await fetch(`${API_URL}${path}`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                // DO NOT set Content-Type for FormData, browser will do it with boundary
-            },
-            body: formData,
-        });
-
-        if (!res.ok) {
-            await handleResponseError(res);
-        }
-
-        return res.json();
-    },
-
-    async delete(path: string, token: string, signal?: AbortSignal) {
-        const res = await fetch(`${API_URL}${path}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            signal,
-        });
-
-        if (!res.ok) {
-            await handleResponseError(res);
-        }
-
-        const text = await res.text();
-        return text ? JSON.parse(text) : {};
+        }) as any;
     }
 };
-

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Car, FileText, CheckCircle, Shield, ArrowRight, Plus, Clock, User } from 'lucide-react';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import { getStatusBadge } from '@/lib/status';
 import IndustrialStatCard from '@/modules/shared/components/common/IndustrialStatCard';
@@ -13,8 +12,8 @@ import { EmptyState } from '@/modules/shared/components/ui/empty-state';
 import { useRouter } from 'next/navigation';
 
 // Vehicle Row Component - Artisanal Technical Redesign
-function VehicleRow({ id, plate, customer, time, status, user, odo }: {
-    id: number; plate: string; customer: string; time: string; status: string; user?: string; odo?: number;
+function VehicleRow({ id, plate, customer, time, status, brand, model, odo }: {
+    id: number; plate: string; customer: string; time: string; status: string; brand?: string; model?: string; odo?: number;
 }) {
     return (
         <Link href={`/sale/reception/${id}`} className="px-4 py-3.5 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-all border-l-4 border-transparent hover:border-slate-900 dark:hover:border-white group cursor-pointer block">
@@ -30,16 +29,16 @@ function VehicleRow({ id, plate, customer, time, status, user, odo }: {
                     <div className="flex items-center gap-3">
                         <div className="flex flex-col">
                             <h4 className="text-[13px] font-semibold text-slate-900 dark:text-white uppercase tracking-tight">{customer}</h4>
-                            {user && (
-                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1">
-                                    <User className="w-3 h-3" /> {user}
+                            {(brand || model) && (
+                                <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                                    <Car className="w-3 h-3" /> {brand} {model}
                                 </p>
                             )}
                         </div>
                     </div>
                     {odo && (
                         <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter">
-                            Technical Stat: <span className="text-slate-900 dark:text-slate-200">{odo.toLocaleString()} KM</span>
+                            Số KM: <span className="text-slate-900 dark:text-slate-200">{odo.toLocaleString()} KM</span>
                         </div>
                     )}
                 </div>
@@ -56,14 +55,16 @@ function VehicleRow({ id, plate, customer, time, status, user, odo }: {
 }
 
 // Order Row Component - Modernized
-function OrderRow({ id, plate, amount, status }: {
+function OrderRow({ id, plate, amount, status, brand, model }: {
     id: string; plate: string; amount: string;
-    status: string;
+    status: string; brand?: string; model?: string;
 }) {
     return (
         <Link href={`/sale/orders/${id.replace('DH', '')}?source=dashboard`} className="px-4 py-3.5 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-all border-l-4 border-transparent hover:border-slate-900 group cursor-pointer block">
             <div className="flex flex-col gap-1">
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-400 uppercase tracking-tighter group-hover:tracking-normal transition-all">{id}</p>
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest group-hover:tracking-normal transition-all flex items-center gap-1.5">
+                    {id} <span className="opacity-30">•</span> {brand} {model}
+                </p>
                 <p className="text-base font-semibold text-slate-900 dark:text-slate-100 tracking-tight">{plate}</p>
             </div>
             <div className="flex flex-col items-end gap-1">
@@ -74,14 +75,15 @@ function OrderRow({ id, plate, amount, status }: {
     );
 }
 
-import { useQuery } from '@tanstack/react-query';
+import { useSaleStats } from '@/modules/sale/hooks/useSale';
+import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
+import { queryKeys } from '@/lib/query-keys';
+
 
 // CLIENT COMPONENT with TanStack Query
 export default function SaleDashboard() {
-    const { data: session } = useSession();
     const router = useRouter(); // Added router
-    // @ts-ignore
-    const token = session?.user?.accessToken;
+
 
     const { data: stats = {
         countWaiting: 0,
@@ -90,11 +92,13 @@ export default function SaleDashboard() {
         countWarranty: 0,
         waitingVehicles: [],
         recentOrders: []
-    } } = useQuery({
-        queryKey: ['sale', 'stats'],
-        queryFn: () => api.get('/sale/stats', token),
-        enabled: !!token
-    });
+    } } = useSaleStats();
+
+    // Realtime Sync
+    useRealtimeUpdate(queryKeys.sale.all);
+    useRealtimeUpdate(queryKeys.reception.all);
+    useRealtimeUpdate(queryKeys.order.all);
+
 
     const {
         countWaiting,
@@ -141,16 +145,17 @@ export default function SaleDashboard() {
                                 />
                             </div>
                         ) : (
-                            waitingVehicles.map((v: any) => (
+                            waitingVehicles.map((v) => (
                                 <VehicleRow
-                                    key={v.ID}
-                                    id={v.ID}
-                                    plate={v.XeBienSo}
-                                    customer={v.KhachHangName || v.KhachHang}
-                                    time={new Date(v.ThoiGian || v.NgayGio).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                    status={v.TrangThai || "TIEP_NHAN"}
-                                    odo={v.ODO}
-                                    user={v.NguoiTiepNhanName}
+                                    key={v.id}
+                                    id={v.id}
+                                    plate={v.plate}
+                                    customer={v.customerName}
+                                    time={new Date(v.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                    status={v.status}
+                                    odo={v.odometer}
+                                    brand={v.vehicleBrand}
+                                    model={v.vehicleModel}
                                 />
                             ))
                         )}
@@ -176,13 +181,15 @@ export default function SaleDashboard() {
                                 />
                             </div>
                         ) : (
-                            recentOrders.map((order: any) => (
+                            recentOrders.map((order) => (
                                 <OrderRow
-                                    key={order.ID}
-                                    id={`DH${order.ID}`}
-                                    plate={order.XeBienSo}
-                                    amount={new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(order.TongCong))}
-                                    status={order.TrangThai}
+                                    key={order.id}
+                                    id={`DH${order.id}`}
+                                    plate={order.plate}
+                                    amount={new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.grandTotal)}
+                                    status={order.status}
+                                    brand={order.vehicleBrand}
+                                    model={order.vehicleModel}
                                 />
                             ))
                         )}

@@ -1,6 +1,7 @@
 import { Wrench, CheckCircle2, Users, ClipboardList } from "lucide-react";
 import AssignmentList from "./AssignmentList";
 import MechanicLimitSelector from "./MechanicLimitSelector";
+import { isAssignPending, isAssignApproved, isAssignCompleted } from "@/lib/status";
 
 interface ParticipationSummaryProps {
     items: any[];
@@ -12,10 +13,10 @@ interface ParticipationSummaryProps {
 export default function ParticipationSummary({ items, jobLead, isLead, currentUserId }: ParticipationSummaryProps) {
     // 1. Group items by mechanic for the summary view
     const mechanicWork: Record<string, any[]> = {};
-    items.forEach(item => {
+    (items || []).forEach(item => {
         if (item.assignments && item.assignments.length > 0) {
             item.assignments.forEach((assign: any) => {
-                if (assign.status === 'APPROVED' || assign.status === 'COMPLETED') {
+                if (isAssignApproved(assign.status) || isAssignCompleted(assign.status)) {
                     if (!mechanicWork[assign.mechanicName]) mechanicWork[assign.mechanicName] = [];
                     mechanicWork[assign.mechanicName].push({
                         name: item.productName,
@@ -44,9 +45,9 @@ export default function ParticipationSummary({ items, jobLead, isLead, currentUs
 
                     <div className="p-6">
                         <div className="space-y-6">
-                            {items.map(item => {
+                            {(items || []).map(item => {
                                 const hasAssignments = item.assignments && item.assignments.length > 0;
-                                const pendingCount = item.assignments?.filter((a: any) => a.status === 'PENDING').length || 0;
+                                const pendingCount = (item.assignments || []).filter((a: any) => isAssignPending(a.status)).length || 0;
 
                                 return (
                                     <div key={item.id} className="group relative">
@@ -67,7 +68,7 @@ export default function ParticipationSummary({ items, jobLead, isLead, currentUs
                                                 )}
                                                 <MechanicLimitSelector
                                                     itemId={item.id}
-                                                    currentCount={item.assignments?.filter((a: any) => a.status === 'APPROVED' || a.status === 'COMPLETED').length || 0}
+                                                    currentCount={(item.assignments || []).filter((a: any) => isAssignApproved(a.status) || isAssignCompleted(a.status)).length || 0}
                                                     maxLimit={item.maxMechanics || 4}
                                                     isLead={true}
                                                 />

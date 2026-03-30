@@ -22,11 +22,20 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
                 { label: 'Dịch vụ & Giá', href: '/admin/services', icon: 'Tag' },
                 { label: 'Tài chính', href: '/admin/finance', icon: 'Wallet' },
                 { label: 'Khách hàng', href: '/sale/customers', icon: 'Users' },
+                { label: 'Nhà cung cấp', href: '/warehouse/suppliers', icon: 'Truck' },
                 { label: 'Tài khoản khách', href: '/admin/customers/accounts', icon: 'Users' },
                 { label: 'Nhân sự', href: '/admin/users', icon: 'UserCog' },
                 { label: 'Báo cáo', href: '/dashboard', icon: 'BarChart3' },
                 { label: 'Cấu hình', href: '/admin/config', icon: 'Settings' },
                 { label: 'Nhật ký', href: '/admin/logs', icon: 'History' },
+            ],
+        },
+        {
+            title: 'Quản lý Nội dung',
+            items: [
+                { label: 'Landing Page', href: '/admin/cms/landing', icon: 'Component' },
+                { label: 'Bài viết Blog', href: '/admin/cms/blog', icon: 'FileText' },
+                { label: 'Thông báo', href: '/admin/cms/announcements', icon: 'Megaphone' },
             ],
         },
     ],
@@ -52,6 +61,7 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
                 { label: 'Xuất kho', href: '/warehouse/export', icon: 'PackageMinus' },
                 { label: 'Tồn kho', href: '/warehouse/inventory', icon: 'Boxes' },
                 { label: 'Lịch sử', href: '/warehouse/history', icon: 'History' },
+                { label: 'Nhà cung cấp', href: '/warehouse/suppliers', icon: 'Truck' },
             ],
         },
     ],
@@ -79,10 +89,11 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
 
 // Tên hiển thị cho vai trò
 export const ROLE_DISPLAY_NAMES: Record<string, string> = {
-    ADMIN: 'Chủ Gara',
-    SALE: 'Nhân viên Bán hàng',
+    ADMIN: 'Quản trị viên',
+    SALE: 'Nhân viên Tiếp nhận',
     KHO: 'Nhân viên Kho',
-    QUAN_LY_XUONG: 'Quản Đốc Xưởng',
-    THO_SUA_CHUA: 'Thợ Sửa chữa',
-    KE_TOAN: 'Thu ngân',
+    QUAN_LY_XUONG: 'Quản đốc xưởng',
+    THO_SUA_CHUA: 'Kỹ thuật viên',
+    CUVAN: 'Cố vấn dịch vụ',
+    THO: 'Kỹ thuật viên',
 };

@@ -44,52 +44,52 @@ public class DataSeeder {
 
             Product[] products = {
                 // Parts
-                Product.builder().maHang("DAUNHOT_CASTROL_10W40")
-                    .tenHang("Dầu nhớt Castrol Power 1 10W-40 (1L)")
-                    .giaVon(new BigDecimal("120000"))
-                    .giaBanNiemYet(new BigDecimal("150000")).soLuongTon(100)
-                    .laDichVu(false).build(),
-                Product.builder().maHang("LOCDAU_TOYOTA")
-                    .tenHang("Lọc dầu Toyota Innova/Fortuner")
-                    .giaVon(new BigDecimal("80000"))
-                    .giaBanNiemYet(new BigDecimal("120000")).soLuongTon(50)
-                    .laDichVu(false).build(),
-                Product.builder().maHang("BOPHANH_TRUOC_VIOS")
-                    .tenHang("Má phanh trước Vios 2018+")
-                    .giaVon(new BigDecimal("450000"))
-                    .giaBanNiemYet(new BigDecimal("850000")).soLuongTon(20)
-                    .laDichVu(false).build(),
-                Product.builder().maHang("NUOCLAMMAT_BLUE")
-                    .tenHang("Nước làm mát màu xanh (Can 1L)")
-                    .giaVon(new BigDecimal("60000"))
-                    .giaBanNiemYet(new BigDecimal("90000")).soLuongTon(60)
-                    .laDichVu(false).build(),
-                Product.builder().maHang("GAT_MUA_BOSCH").tenHang("Gạt mưa Bosch 24 inch")
-                    .giaVon(new BigDecimal("150000"))
-                    .giaBanNiemYet(new BigDecimal("250000")).soLuongTon(30)
-                    .laDichVu(false).build(),
-                Product.builder().maHang("LOCGIO_DONGCO").tenHang("Lọc gió động cơ Honda Civic")
-                    .giaVon(new BigDecimal("180000"))
-                    .giaBanNiemYet(new BigDecimal("280000")).soLuongTon(15)
-                    .laDichVu(false).build(),
+                Product.builder().sku("DAUNHOT_CASTROL_10W40")
+                    .name("Dầu nhớt Castrol Power 1 10W-40 (1L)")
+                    .costPrice(new BigDecimal("120000"))
+                    .retailPrice(new BigDecimal("150000")).stockQuantity(100)
+                    .isService(false).build(),
+                Product.builder().sku("LOCDAU_TOYOTA")
+                    .name("Lọc dầu Toyota Innova/Fortuner")
+                    .costPrice(new BigDecimal("80000"))
+                    .retailPrice(new BigDecimal("120000")).stockQuantity(50)
+                    .isService(false).build(),
+                Product.builder().sku("BOPHANH_TRUOC_VIOS")
+                    .name("Má phanh trước Vios 2018+")
+                    .costPrice(new BigDecimal("450000"))
+                    .retailPrice(new BigDecimal("850000")).stockQuantity(20)
+                    .isService(false).build(),
+                Product.builder().sku("NUOCLAMMAT_BLUE")
+                    .name("Nước làm mát màu xanh (Can 1L)")
+                    .costPrice(new BigDecimal("60000"))
+                    .retailPrice(new BigDecimal("90000")).stockQuantity(60)
+                    .isService(false).build(),
+                Product.builder().sku("GAT_MUA_BOSCH").name("Gạt mưa Bosch 24 inch")
+                    .costPrice(new BigDecimal("150000"))
+                    .retailPrice(new BigDecimal("250000")).stockQuantity(30)
+                    .isService(false).build(),
+                Product.builder().sku("LOCGIO_DONGCO").name("Lọc gió động cơ Honda Civic")
+                    .costPrice(new BigDecimal("180000"))
+                    .retailPrice(new BigDecimal("280000")).stockQuantity(15)
+                    .isService(false).build(),
 
                 // Services
-                Product.builder().maHang("DV_KIEMTRA").tenHang("Công kiểm tra tổng quát")
-                    .giaVon(BigDecimal.ZERO)
-                    .giaBanNiemYet(new BigDecimal("200000")).laDichVu(true)
-                    .soLuongTon(0).build(),
-                Product.builder().maHang("DV_BAODUONG_CAP1").tenHang("Bảo dưỡng cấp 1 (5000km)")
-                    .giaVon(BigDecimal.ZERO).giaBanNiemYet(new BigDecimal("350000"))
-                    .laDichVu(true)
-                    .soLuongTon(0).build(),
-                Product.builder().maHang("DV_RUAXE").tenHang("Rửa xe hút bụi chi tiết")
-                    .giaVon(BigDecimal.ZERO)
-                    .giaBanNiemYet(new BigDecimal("80000")).laDichVu(true)
-                    .soLuongTon(0).build(),
-                Product.builder().maHang("DV_THAYDAU").tenHang("Công thay dầu máy")
-                    .giaVon(BigDecimal.ZERO)
-                    .giaBanNiemYet(new BigDecimal("50000")).laDichVu(true)
-                    .soLuongTon(0).build()
+                Product.builder().sku("DV_KIEMTRA").name("Công kiểm tra tổng quát")
+                    .costPrice(BigDecimal.ZERO)
+                    .retailPrice(new BigDecimal("200000")).isService(true)
+                    .stockQuantity(0).build(),
+                Product.builder().sku("DV_BAODUONG_CAP1").name("Bảo dưỡng cấp 1 (5000km)")
+                    .costPrice(BigDecimal.ZERO).retailPrice(new BigDecimal("350000"))
+                    .isService(true)
+                    .stockQuantity(0).build(),
+                Product.builder().sku("DV_RUAXE").name("Rửa xe hút bụi chi tiết")
+                    .costPrice(BigDecimal.ZERO)
+                    .retailPrice(new BigDecimal("80000")).isService(true)
+                    .stockQuantity(0).build(),
+                Product.builder().sku("DV_THAYDAU").name("Công thay dầu máy")
+                    .costPrice(BigDecimal.ZERO)
+                    .retailPrice(new BigDecimal("50000")).isService(true)
+                    .stockQuantity(0).build()
             };
 
             productRepository.saveAll(Arrays.asList(products));

@@ -1,7 +1,28 @@
 package com.gara.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
-public record ProposalItemDTO(Integer productId, Integer quantity, String note) {
+import java.math.BigDecimal;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ProposalItemDTO {
+    private Integer id;
+    private Integer productId;
+    private String productCode;
+    private String productName;
+    private Double quantity;
+    private BigDecimal unitPrice;
+    private String note;
+    private Boolean isService;
+    private String status;
+    private Boolean isTechnicalAddition;
+    private String proposedByName;
+    private String proposedByRole;
+    private String proposedAt;
 }

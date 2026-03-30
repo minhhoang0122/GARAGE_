@@ -21,18 +21,13 @@ const statusMap: Record<string, { label: string; color: string }> = {
 
 
 export default function SaleWarrantyClaimsPage() {
-    const { data: session } = useSession();
     const [expandedId, setExpandedId] = useState<number | null>(null);
-
-    // @ts-ignore
-    const token = session?.user?.accessToken;
 
     const { data: claims = [], isLoading } = useQuery({
         queryKey: ['warranty-claims'],
         queryFn: async () => {
-            return await api.get('/sale/warranty-claims', token);
-        },
-        enabled: !!token
+            return await api.get('/sale/warranty-claims');
+        }
     });
 
     if (isLoading) {

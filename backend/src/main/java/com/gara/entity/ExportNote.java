@@ -5,69 +5,55 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "exportnote")
+@Table(name = "export_notes")
 public class ExportNote {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "loai_xuat", length = 50)
-    private String loaiXuat = "SUA_CHUA";
+    @Column(name = "export_type", length = 50)
+    private String exportType = "SUA_CHUA";
 
-    @Column(name = "ngay_xuat")
-    private LocalDateTime ngayXuat;
-
-    // Foreign Keys
-    @Column(name = "nguoi_tao_id", insertable = false, updatable = false)
-    private Integer nguoiTaoId;
-
-    @Column(name = "don_hang_sua_chua_id", insertable = false, updatable = false)
-    private Integer donHangSuaChuaId;
+    @Column(name = "export_date")
+    private LocalDateTime exportDate;
 
     // Relations
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nguoi_tao_id", nullable = false)
-    private User nguoiTao;
+    @JoinColumn(name = "created_by_id", nullable = false)
+    private User creator;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "don_hang_sua_chua_id", nullable = true)
-    private RepairOrder donHangSuaChua;
+    @JoinColumn(name = "repair_order_id", nullable = true)
+    private RepairOrder repairOrder;
 
-    @OneToMany(mappedBy = "phieuXuatKho", cascade = CascadeType.ALL)
-    private List<ExportDetail> chiTietXuatKho;
+    @OneToMany(mappedBy = "exportNote", cascade = CascadeType.ALL)
+    private List<ExportDetail> exportDetails;
 
     public ExportNote() {}
 
     @PrePersist
     protected void onCreate() {
-        if (ngayXuat == null) {
-            ngayXuat = LocalDateTime.now();
+        if (exportDate == null) {
+            exportDate = LocalDateTime.now();
         }
     }
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
     
-    public String getLoaiXuat() { return loaiXuat; }
-    public void setLoaiXuat(String loaiXuat) { this.loaiXuat = loaiXuat; }
+    public String getExportType() { return exportType; }
+    public void setExportType(String exportType) { this.exportType = exportType; }
 
-    public LocalDateTime getNgayXuat() { return ngayXuat; }
-    public void setNgayXuat(LocalDateTime ngayXuat) { this.ngayXuat = ngayXuat; }
+    public LocalDateTime getExportDate() { return exportDate; }
+    public void setExportDate(LocalDateTime exportDate) { this.exportDate = exportDate; }
 
-    public Integer getNguoiTaoId() { return nguoiTaoId; }
-    public void setNguoiTaoId(Integer nguoiTaoId) { this.nguoiTaoId = nguoiTaoId; }
+    public User getCreator() { return creator; }
+    public void setCreator(User creator) { this.creator = creator; }
 
-    public Integer getDonHangSuaChuaId() { return donHangSuaChuaId; }
-    public void setDonHangSuaChuaId(Integer donHangSuaChuaId) { this.donHangSuaChuaId = donHangSuaChuaId; }
+    public RepairOrder getRepairOrder() { return repairOrder; }
+    public void setRepairOrder(RepairOrder repairOrder) { this.repairOrder = repairOrder; }
 
-    public User getNguoiTao() { return nguoiTao; }
-    public void setNguoiTao(User nguoiTao) { this.nguoiTao = nguoiTao; }
-
-    public RepairOrder getDonHangSuaChua() { return donHangSuaChua; }
-    public void setDonHangSuaChua(RepairOrder donHangSuaChua) { this.donHangSuaChua = donHangSuaChua; }
-
-    public List<ExportDetail> getChiTietXuatKho() { return chiTietXuatKho; }
-    public void setChiTietXuatKho(List<ExportDetail> chiTietXuatKho) { this.chiTietXuatKho = chiTietXuatKho; }
+    public List<ExportDetail> getExportDetails() { return exportDetails; }
+    public void setExportDetails(List<ExportDetail> exportDetails) { this.exportDetails = exportDetails; }
 }

@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class SystemConfigService {
@@ -26,13 +25,15 @@ public class SystemConfigService {
         this.systemConfigRepository = systemConfigRepository;
     }
 
-    @Cacheable("systemConfig")
+    @Cacheable("system_configs")
     public Map<String, String> getAllConfigs() {
         return systemConfigRepository.findAll().stream()
-                .collect(Collectors.toMap(SystemConfig::getConfigKey, SystemConfig::getConfigValue));
+                .collect(java.util.HashMap::new, 
+                    (map, config) -> map.put(config.getConfigKey(), config.getConfigValue() != null ? config.getConfigValue() : ""),
+                    java.util.Map::putAll);
     }
 
-    @CacheEvict(value = "systemConfig", allEntries = true)
+    @CacheEvict(value = "system_configs", allEntries = true)
     @PreAuthorize("hasRole('ADMIN')")
     public void updateConfigs(Map<String, String> configs) {
         StringBuilder changes = new StringBuilder();
@@ -58,13 +59,12 @@ public class SystemConfigService {
             try {
                 com.gara.entity.User currentUser = userService.getCurrentUser();
                 asyncAuditService.logAsync(com.gara.entity.AuditLog.builder()
-                        .bang("SYSTEM_CONFIG")
-                        .banGhiId(0)
-                        .hanhDong("UPDATE")
-                        .nguoiThucHienId(currentUser.getId())
-                        .duLieuMoi(changes.toString())
-                        .lyDo("Cập nhật cấu hình hệ thống")
-                        .ngayTao(java.time.LocalDateTime.now())
+                        .tableName("SYSTEM_CONFIG")
+                        .recordId(0)
+                        .action("UPDATE")
+                        .userId(currentUser.getId())
+                        .newData(changes.toString())
+                        .reason("Cập nhật cấu hình hệ thống")
                         .build());
             } catch (Exception e) {
                 // Ignore audit error to not block config update
@@ -74,7 +74,7 @@ public class SystemConfigService {
     }
 
     // Helper to get specific config
-    @Cacheable(value = "systemConfig", key = "#key")
+    @Cacheable(value = "system_configs", key = "#key")
     public String getConfig(String key, String defaultValue) {
         return systemConfigRepository.findById(key)
                 .map(SystemConfig::getConfigValue)

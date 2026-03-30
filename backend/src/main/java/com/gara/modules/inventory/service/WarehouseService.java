@@ -12,6 +12,9 @@ import com.gara.modules.service.service.OrderCalculationService;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.gara.modules.support.service.AsyncNotificationService;
+import com.gara.modules.support.service.SseService;
+import java.time.LocalDateTime;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -28,7 +31,6 @@ public class WarehouseService {
     private final OrderItemRepository orderItemRepository;
     private final ExportNoteRepository exportNoteRepository;
     private final RepairOrderRepository orderRepository;
-    private final InventoryReservationService inventoryService;
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
     private final ImportNoteRepository importNoteRepository;
@@ -36,24 +38,26 @@ public class WarehouseService {
     private final ExportDetailRepository exportDetailRepository;
     private final com.gara.modules.support.service.AsyncAuditService asyncAuditService;
     private final OrderCalculationService orderCalculationService;
+    private final AsyncNotificationService asyncNotificationService;
+    private final SseService sseService;
 
     public WarehouseService(ProductRepository productRepository,
             OrderItemRepository orderItemRepository,
             ExportNoteRepository exportNoteRepository,
             RepairOrderRepository orderRepository,
-            InventoryReservationService inventoryService,
             UserRepository userRepository,
             AuditLogRepository auditLogRepository,
             ImportNoteRepository importNoteRepository,
             ImportDetailRepository importDetailRepository,
             ExportDetailRepository exportDetailRepository,
             com.gara.modules.support.service.AsyncAuditService asyncAuditService,
-            OrderCalculationService orderCalculationService) {
+            OrderCalculationService orderCalculationService,
+            AsyncNotificationService asyncNotificationService,
+            SseService sseService) {
         this.productRepository = productRepository;
         this.orderItemRepository = orderItemRepository;
         this.exportNoteRepository = exportNoteRepository;
         this.orderRepository = orderRepository;
-        this.inventoryService = inventoryService;
         this.userRepository = userRepository;
         this.auditLogRepository = auditLogRepository;
         this.importNoteRepository = importNoteRepository;
@@ -61,15 +65,16 @@ public class WarehouseService {
         this.exportDetailRepository = exportDetailRepository;
         this.asyncAuditService = asyncAuditService;
         this.orderCalculationService = orderCalculationService;
+        this.asyncNotificationService = asyncNotificationService;
+        this.sseService = sseService;
     }
 
     public List<ProductDTO> getProducts(String search) {
         List<Product> products;
         if (search != null && !search.isEmpty()) {
-            products = productRepository.findByTenHangContainingIgnoreCase(search);
+            products = productRepository.findByNameContainingIgnoreCase(search);
         } else {
-            // Optimized: Use paginated query instead of findAll()
-            products = productRepository.findProductsPaginated();
+            products = productRepository.findAll();
         }
 
         return products.stream().map(this::mapToDTO).toList();
@@ -81,151 +86,87 @@ public class WarehouseService {
         return mapToDTO(product);
     }
 
-    /**
-     * Confirm Export Order
-     * 1. Check Reservation / Stock
-     * 2. Decrement Stock
-     * 3. Create Export Note
-     * 4. Update Order Status
-     */
     @Transactional
     public Integer exportOrder(Integer orderId, Integer userId) {
-        User user = userRepository.findById(userId).orElseThrow();
-        if (!user.hasPermission("EXPORT_ORDER_WAREHOUSE") && !user.isAdmin()) {
-            throw new RuntimeException("Bạn không có quyền thực hiện xuất kho.");
-        }
-
         RepairOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
 
-        // Bug 95: Support multiple partial exports. 
-        // We calculate what still needs to be exported rather than blocking after the first note.
-
-        // Rule 10.4: Check Deposit
-        // Rule: Verify Status
-        OrderStatus status = order.getTrangThai();
-        if (!OrderStatus.DA_DUYET.equals(status) && !OrderStatus.DANG_SUA.equals(status)) {
-            throw new RuntimeException(
-                    "Không thể xuất kho. Đơn hàng chưa được duyệt hoặc không ở trạng thái sửa chữa (Trạng thái: "
-                            + status.name() + ").");
+        if (OrderStatus.COMPLETED.equals(order.getStatus()) || OrderStatus.SETTLED.equals(order.getStatus())) {
+            throw new RuntimeException("Order is already completed or settled.");
         }
 
-        java.math.BigDecimal threshold = new java.math.BigDecimal("5000000");
-        java.math.BigDecimal minRate = new java.math.BigDecimal("0.3");
-        if (order.getTongCong().compareTo(threshold) > 0) {
-            java.math.BigDecimal minDeposit = order.getTongCong().multiply(minRate);
-            if (order.getTienCoc().compareTo(minDeposit) < 0) {
-                throw new RuntimeException("Đơn hàng chưa đủ tiền cọc để xuất kho (Cần tối thiểu 30%).");
-            }
-        }
+        User creator = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
 
-        // 1. Get Items to Export (Customer Accepted, Not Service)
-        List<OrderItem> items = order.getChiTietDonHang().stream()
-                .filter(i -> ItemStatus.KHACH_DONG_Y.equals(i.getTrangThai()) && !i.getHangHoa().getLaDichVu())
+        List<OrderItem> items = order.getOrderItems().stream()
+                .filter(i -> ItemStatus.CUSTOMER_APPROVED.equals(i.getStatus()) && !i.getProduct().getIsService())
                 .toList();
 
         if (items.isEmpty()) {
-            // If called from auto-export (completeJob), just return null if nothing to
-            // export
-            return null;
+            throw new RuntimeException("No parts approved for export.");
         }
 
-        // 2. Fetch and Convert Reservations for SPECIFIC items being exported (Bug 119)
-        java.util.List<Integer> productIdsToExport = items.stream()
-                .map(i -> i.getHangHoa().getId())
-                .toList();
-        List<InventoryReservation> convertedReservations = inventoryService.convertReservation(orderId, productIdsToExport);
-        java.util.Set<Integer> reservedProductIds = convertedReservations.stream()
-                .map(res -> res.getHangHoa().getId())
-                .collect(java.util.stream.Collectors.toSet());
-
-        // 3. Create Export Note Builder
-        ExportNote exportNote = new ExportNote();
-        exportNote.setLoaiXuat("SUA_CHUA");
-        exportNote.setNguoiTao(user);
-        exportNote.setDonHangSuaChua(order);
-        exportNote.setChiTietXuatKho(new ArrayList<>());
-
-        // 4. Process Items with Row-level Locking (Rule 13)
         for (OrderItem item : items) {
-            Product product = productRepository.findByIdWithLock(item.getHangHoa().getId())
-                    .orElseThrow(() -> new RuntimeException("Product not found: " + item.getHangHoa().getId()));
-
-            // Stock Check Logic: Only check if NOT already reserved for this item
-            if (!reservedProductIds.contains(product.getId())) {
-                if (product.getSoLuongTon() < item.getSoLuong()) {
-                    throw new RuntimeException("Không đủ tồn kho cho " + product.getTenHang() + ". Tồn: "
-                            + product.getSoLuongTon() + ", Cần: " + item.getSoLuong());
-                }
+            Product product = item.getProduct();
+            if (product.getStockQuantity() < item.getQuantity()) {
+                throw new RuntimeException("Insufficient stock for: " + product.getName() + 
+                    " (Required: " + item.getQuantity() + ", Available: " + product.getStockQuantity() + ")");
             }
+        }
 
-            // --- FIFO DEDUCTION START ---
-            int remainingToDeduct = item.getSoLuong();
+        ExportNote exportNote = new ExportNote();
+        exportNote.setRepairOrder(order);
+        exportNote.setCreator(creator);
+        exportNote.setExportType("REPAIR");
+        exportNote.setExportDetails(new ArrayList<>());
+        
+        for (OrderItem item : items) {
+            Product product = item.getProduct();
+            int remainingQuantity = item.getQuantity();
 
-            // Get Batches with remaining quantity > 0, sorted by Date ASC (FIFO)
             List<ImportDetail> batches = importDetailRepository.findAvailableBatches(product.getId());
 
             for (ImportDetail batch : batches) {
-                if (remainingToDeduct <= 0)
-                    break;
-
-                int availableInBatch = batch.getSoLuongConLai() != null ? batch.getSoLuongConLai() : 0;
-                if (availableInBatch <= 0)
-                    continue;
-
-                int deduct = Math.min(availableInBatch, remainingToDeduct);
-
-                batch.setSoLuongConLai(availableInBatch - deduct);
+                if (remainingQuantity <= 0) break;
+                int canTake = Math.min(batch.getRemainingQuantity(), remainingQuantity);
+                batch.setRemainingQuantity(batch.getRemainingQuantity() - canTake);
                 importDetailRepository.save(batch);
-
-                remainingToDeduct -= deduct;
-            }
-            // --- FIFO DEDUCTION END ---
-
-            // Decrement Global Stock
-            product.setSoLuongTon(product.getSoLuongTon() - item.getSoLuong());
-
-            // Fix: Prevent Negative Stock (Strict Check)
-            if (product.getSoLuongTon() < 0) {
-                throw new RuntimeException("Lỗi nghiêm trọng: Tồn kho bị âm cho sản phẩm " + product.getTenHang()
-                        + " (ID: " + product.getId() + ")");
+                remainingQuantity -= canTake;
             }
 
+            product.setStockQuantity(product.getStockQuantity() - item.getQuantity());
             productRepository.save(product);
 
-            // Add Detail
             ExportDetail detail = new ExportDetail();
-            detail.setPhieuXuatKho(exportNote);
-            detail.setHangHoa(product);
-            detail.setSoLuong(item.getSoLuong());
-            detail.setDonGiaXuat(item.getDonGiaGoc());
-            detail.setThanhTien(item.getThanhTien());
+            detail.setExportNote(exportNote);
+            detail.setProduct(product);
+            detail.setQuantity(item.getQuantity());
+            detail.setExportPrice(item.getUnitPrice());
+            detail.setTotalAmount(item.getTotalAmount());
+            exportNote.getExportDetails().add(detail);
 
-            exportNote.getChiTietXuatKho().add(detail);
-
-            // Mark Item as DANG_SUA (In progress) if was just approved
-            if (ItemStatus.KHACH_DONG_Y.equals(item.getTrangThai())) {
-                item.setTrangThai(ItemStatus.DANG_SUA);
-                orderItemRepository.save(item);
-            }
+            item.setStatus(ItemStatus.EXPORTED);
+            orderItemRepository.save(item);
         }
 
-        // 5. Save Export Note
         exportNoteRepository.save(exportNote);
 
-        // 6. Update Order Status
-        if (OrderStatus.DA_DUYET.equals(order.getTrangThai())) {
-            order.setTrangThai(OrderStatus.DANG_SUA);
+        if (OrderStatus.APPROVED.equals(order.getStatus()) || OrderStatus.WAITING_FOR_PARTS.equals(order.getStatus())) {
+            order.setStatus(OrderStatus.IN_PROGRESS);
             orderRepository.save(order);
         }
 
+        auditLogRepository.save(AuditLog.builder()
+                .tableName("ExportNote")
+                .recordId(exportNote.getId())
+                .action("CREATE")
+                .newData("Created for Order #" + orderId)
+                .userId(userId)
+                .build());
+                
         return exportNote.getId();
     }
 
-    /**
-     * Reverse Logistics: Return items from Work Order to Stock
-     * Trigger: Technician/Warehouse clerk returns unused parts
-     */
     @Transactional
     public void returnStock(Integer orderId, Integer productId, Integer quantity, String reason, Integer userId) {
         User user = userRepository.findById(userId)
@@ -238,57 +179,47 @@ public class WarehouseService {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        // Rule: Only allow return if was exported
-        boolean hasExportNote = !order.getPhieuXuatKho().isEmpty();
+        boolean hasExportNote = !order.getExportNotes().isEmpty();
         if (!hasExportNote) {
             throw new RuntimeException("Đơn hàng chưa thực hiện xuất kho, không thể hoàn nhập.");
         }
 
-        OrderItem orderItem = order.getChiTietDonHang().stream()
-                .filter(i -> i.getHangHoa().getId().equals(productId)
-                        && !ItemStatus.KHACH_TU_CHOI.equals(i.getTrangThai()))
+        OrderItem orderItem = order.getOrderItems().stream()
+                .filter(i -> i.getProduct().getId().equals(productId)
+                        && !ItemStatus.CUSTOMER_REJECTED.equals(i.getStatus()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Sản phẩm không có trong đơn hàng."));
 
-        if (orderItem.getSoLuong() < quantity) {
+        if (orderItem.getQuantity() < quantity) {
             throw new RuntimeException("Số lượng hoàn trả vượt quá số lượng trong đơn hàng.");
         }
         
-        // Bug 122 Fix: Add check for exported quantity (if tracking)
-        // Note: Currently RepairOrder tracking soLuongDaXuat might be needed if we want strict enforcement.
-        // For now, we ensure the total stock doesn't become inconsistent.
-
-        // Use Row-level Lock (Rule 13)
         Product product = productRepository.findByIdWithLock(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
-        // 1. Update Stock
-        product.setSoLuongTon(product.getSoLuongTon() + quantity);
+        product.setStockQuantity(product.getStockQuantity() + quantity);
         productRepository.save(product);
 
-        // 2. Update Order Item
-        if (orderItem.getSoLuong() == quantity) {
-            orderItem.setTrangThai(ItemStatus.KHACH_TU_CHOI); // Cancel this item effectively
-            orderItem.setSoLuong(0);
-            orderItem.setThanhTien(BigDecimal.ZERO);
+        if (orderItem.getQuantity() == quantity) {
+            orderItem.setStatus(ItemStatus.CUSTOMER_REJECTED);
+            orderItem.setQuantity(0);
+            orderItem.setTotalAmount(BigDecimal.ZERO);
         } else {
-            orderItem.setSoLuong(orderItem.getSoLuong() - quantity);
-            orderItem.setThanhTien(orderItem.getDonGiaGoc().multiply(new BigDecimal(orderItem.getSoLuong())));
+            orderItem.setQuantity(orderItem.getQuantity() - quantity);
+            orderItem.setTotalAmount(orderItem.getUnitPrice().multiply(new BigDecimal(orderItem.getQuantity())));
         }
         orderItemRepository.save(orderItem);
 
-        // Bug 113 Fix: Use incremental update for better performance
-        BigDecimal deltaValue = orderItem.getDonGiaGoc().multiply(new BigDecimal(quantity)).negate();
+        BigDecimal deltaValue = orderItem.getUnitPrice().multiply(new BigDecimal(quantity)).negate();
         orderCalculationService.updateTotalsIncrementally(order.getId(), deltaValue, false);
 
-        // 4. Traceability (Audit Log)
         AuditLog log = AuditLog.builder()
-                .bang("Warehouse")
-                .banGhiId(orderId)
-                .hanhDong("RETURN")
-                .duLieuMoi("Returned Part ID: " + productId + ", Qty: " + quantity)
-                .lyDo(reason)
-                .nguoiThucHienId(userId)
+                .tableName("Warehouse")
+                .recordId(orderId)
+                .action("RETURN")
+                .newData("Returned Part ID: " + productId + ", Qty: " + quantity)
+                .reason(reason)
+                .userId(userId)
                 .build();
         auditLogRepository.save(log);
     }
@@ -296,33 +227,33 @@ public class WarehouseService {
     private ProductDTO mapToDTO(Product p) {
         return ProductDTO.builder()
                 .id(p.getId())
-                .code(p.getMaHang())
-                .name(p.getTenHang())
-                .price(p.getGiaBanNiemYet())
-                .costPrice(p.getGiaVon())
-                .stock(p.getSoLuongTon())
-                .minStock(p.getDinhMucTonToiThieu())
-                .isService(p.getLaDichVu())
-                .allowWarranty(p.getChoPhepBaoHanh())
+                .code(p.getSku())
+                .name(p.getName())
+                .price(p.getRetailPrice())
+                .costPrice(p.getCostPrice())
+                .stock(p.getStockQuantity())
+                .minStock(p.getMinStockLevel())
+                .isService(p.getIsService())
+                .allowWarranty(p.getIsWarrantyEligible())
                 .build();
     }
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getPendingExportOrders() {
-        List<OrderStatus> statuses = java.util.Arrays.asList(OrderStatus.DA_DUYET, OrderStatus.CHO_SUA_CHUA,
-                OrderStatus.DANG_SUA);
+        List<OrderStatus> statuses = java.util.Arrays.asList(OrderStatus.APPROVED, OrderStatus.WAITING_FOR_PARTS,
+                OrderStatus.IN_PROGRESS);
         List<RepairOrder> orders = orderRepository.findWithDetailsByStatusIn(statuses);
 
         return orders.stream()
                 .map(order -> {
-                    boolean hasExported = !order.getPhieuXuatKho().isEmpty();
-                    if (OrderStatus.DANG_SUA.equals(order.getTrangThai()) && hasExported) {
+                    boolean hasExported = !order.getExportNotes().isEmpty();
+                    if (OrderStatus.IN_PROGRESS.equals(order.getStatus()) && hasExported) {
                         return null;
                     }
 
-                    List<OrderItem> parts = order.getChiTietDonHang().stream()
-                            .filter(i -> !i.getHangHoa().getLaDichVu()
-                                    && ItemStatus.KHACH_DONG_Y.equals(i.getTrangThai()))
+                    List<OrderItem> parts = order.getOrderItems().stream()
+                            .filter(i -> !i.getProduct().getIsService()
+                                    && ItemStatus.CUSTOMER_APPROVED.equals(i.getStatus()))
                             .toList();
 
                     if (parts.isEmpty())
@@ -330,18 +261,18 @@ public class WarehouseService {
 
                     Map<String, Object> map = new HashMap<>();
                     map.put("id", order.getId());
-                    map.put("plate", order.getPhieuTiepNhan().getXe().getBienSo());
-                    map.put("customerName", order.getPhieuTiepNhan().getXe().getKhachHang().getHoTen());
-                    map.put("createdAt", order.getNgayTao());
-                    map.put("finishedAt", hasExported ? order.getPhieuXuatKho().get(0).getNgayXuat() : null);
+                    map.put("plate", order.getReception().getVehicle().getLicensePlate());
+                    map.put("customerName", order.getReception().getVehicle().getCustomer().getFullName());
+                    map.put("createdAt", order.getCreatedAt());
+                    map.put("finishedAt", hasExported ? order.getExportNotes().get(0).getExportDate() : null);
                     map.put("itemCount", parts.size());
 
                     BigDecimal totalValue = parts.stream()
-                            .map(OrderItem::getThanhTien)
+                            .map(OrderItem::getTotalAmount)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
                     map.put("totalValue", totalValue);
                     map.put("hasExported", hasExported);
-                    map.put("status", order.getTrangThai() != null ? order.getTrangThai().name() : null);
+                    map.put("status", order.getStatus() != null ? order.getStatus().name() : null);
 
                     return map;
                 })
@@ -354,39 +285,39 @@ public class WarehouseService {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        boolean hasExported = !order.getPhieuXuatKho().isEmpty();
+        boolean hasExported = !order.getExportNotes().isEmpty();
         java.util.Set<Integer> exportedProductIds = new java.util.HashSet<>();
         if (hasExported) {
-            order.getPhieuXuatKho()
-                    .forEach(p -> p.getChiTietXuatKho()
-                            .forEach(d -> exportedProductIds.add(d.getHangHoa().getId())));
+            order.getExportNotes()
+                    .forEach(p -> p.getExportDetails()
+                            .forEach(d -> exportedProductIds.add(d.getProduct().getId())));
         }
 
-        List<Map<String, Object>> items = order.getChiTietDonHang().stream()
-                .filter(i -> !i.getHangHoa().getLaDichVu() && ItemStatus.KHACH_DONG_Y.equals(i.getTrangThai()))
+        List<Map<String, Object>> items = order.getOrderItems().stream()
+                .filter(i -> !i.getProduct().getIsService() && ItemStatus.CUSTOMER_APPROVED.equals(i.getStatus()))
                 .map(i -> {
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", i.getId());
-                    m.put("productId", i.getHangHoa().getId());
-                    m.put("productCode", i.getHangHoa().getMaHang());
-                    m.put("productName", i.getHangHoa().getTenHang());
-                    m.put("quantity", i.getSoLuong());
-                    m.put("unitPrice", i.getDonGiaGoc());
-                    m.put("stockQty", i.getHangHoa().getSoLuongTon());
-                    m.put("isExported", exportedProductIds.contains(i.getHangHoa().getId()));
+                    m.put("productId", i.getProduct().getId());
+                    m.put("productCode", i.getProduct().getSku());
+                    m.put("productName", i.getProduct().getName());
+                    m.put("quantity", i.getQuantity());
+                    m.put("unitPrice", i.getUnitPrice());
+                    m.put("stockQty", i.getProduct().getStockQuantity());
+                    m.put("isExported", exportedProductIds.contains(i.getProduct().getId()));
                     return m;
                 })
                 .toList();
 
         Map<String, Object> result = new HashMap<>();
         result.put("id", order.getId());
-        result.put("status", order.getTrangThai() != null ? order.getTrangThai().name() : null);
-        result.put("plate", order.getPhieuTiepNhan().getXe().getBienSo());
-        result.put("customerName", order.getPhieuTiepNhan().getXe().getKhachHang().getHoTen());
-        result.put("customerPhone", order.getPhieuTiepNhan().getXe().getKhachHang().getSoDienThoai());
-        result.put("vehicleBrand", order.getPhieuTiepNhan().getXe().getNhanHieu());
-        result.put("vehicleModel", order.getPhieuTiepNhan().getXe().getModel());
-        result.put("createdAt", order.getNgayTao());
+        result.put("status", order.getStatus() != null ? order.getStatus().name() : null);
+        result.put("plate", order.getReception().getVehicle().getLicensePlate());
+        result.put("customerName", order.getReception().getVehicle().getCustomer().getFullName());
+        result.put("customerPhone", order.getReception().getVehicle().getCustomer().getPhone());
+        result.put("vehicleBrand", order.getReception().getVehicle().getBrand());
+        result.put("vehicleModel", order.getReception().getVehicle().getModel());
+        result.put("createdAt", order.getCreatedAt());
         result.put("items", items);
         result.put("hasExported", hasExported);
 
@@ -395,12 +326,12 @@ public class WarehouseService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getDashboardStats() {
-        long pendingOrders = orderRepository.countByTrangThai(OrderStatus.DA_DUYET);
+        long pendingOrders = orderRepository.countByStatus(OrderStatus.APPROVED);
         long lowStockItems = productRepository.countLowStockProducts();
         java.time.LocalDateTime todayStart = java.time.LocalDate.now().atStartOfDay();
 
-        long recentExports = exportNoteRepository.countByNgayXuatAfter(todayStart);
-        long recentImports = importNoteRepository.countByNgayNhapAfter(todayStart);
+        long recentExports = exportNoteRepository.countByExportDateAfter(todayStart);
+        long recentImports = importNoteRepository.countByImportDateAfter(todayStart);
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("pendingOrders", pendingOrders);
@@ -412,30 +343,30 @@ public class WarehouseService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getExportSlip(Integer orderId) {
-        ExportNote note = exportNoteRepository.findTopByDonHangSuaChuaIdOrderByNgayXuatDesc(orderId)
+        ExportNote note = exportNoteRepository.findTopByRepairOrderIdOrderByExportDateDesc(orderId)
                 .orElseThrow(() -> new RuntimeException("Export slip not found"));
 
-        List<Map<String, Object>> items = note.getChiTietXuatKho().stream()
+        List<Map<String, Object>> items = note.getExportDetails().stream()
                 .map(i -> {
                     Map<String, Object> m = new HashMap<>();
                     m.put("ID", i.getId());
-                    m.put("productCode", i.getHangHoa().getMaHang());
-                    m.put("productName", i.getHangHoa().getTenHang());
-                    m.put("quantity", i.getSoLuong());
-                    m.put("unitPrice", i.getDonGiaXuat());
-                    m.put("total", i.getThanhTien());
+                    m.put("productCode", i.getProduct().getSku());
+                    m.put("productName", i.getProduct().getName());
+                    m.put("quantity", i.getQuantity());
+                    m.put("unitPrice", i.getExportPrice());
+                    m.put("total", i.getTotalAmount());
                     return m;
                 }).toList();
 
         Map<String, Object> result = new HashMap<>();
         result.put("ID", note.getId());
-        result.put("ngayXuat", note.getNgayXuat());
+        result.put("exportDate", note.getExportDate());
         result.put("orderId", orderId);
-        result.put("plate", note.getDonHangSuaChua().getPhieuTiepNhan().getXe().getBienSo());
-        result.put("customerName", note.getDonHangSuaChua().getPhieuTiepNhan().getXe().getKhachHang().getHoTen());
+        result.put("plate", note.getRepairOrder().getReception().getVehicle().getLicensePlate());
+        result.put("customerName", note.getRepairOrder().getReception().getVehicle().getCustomer().getFullName());
         result.put("customerPhone",
-                note.getDonHangSuaChua().getPhieuTiepNhan().getXe().getKhachHang().getSoDienThoai());
-        result.put("creatorName", note.getNguoiTao() != null ? note.getNguoiTao().getHoTen() : "N/A");
+                note.getRepairOrder().getReception().getVehicle().getCustomer().getPhone());
+        result.put("creatorName", note.getCreator() != null ? note.getCreator().getFullName() : "N/A");
         result.put("items", items);
 
         return result;
@@ -455,13 +386,13 @@ public class WarehouseService {
         String status = "PENDING";
 
         ImportNote note = new ImportNote();
-        note.setMaPhieu("PN" + System.currentTimeMillis());
-        note.setNguoiNhap(user);
-        note.setNgayNhap(java.time.LocalDateTime.now());
-        note.setNhaCungCap(req.supplierName());
-        note.setGhiChu(req.note());
-        note.setTrangThai(status);
-        note.setChiTietNhap(new ArrayList<>());
+        note.setImportCode("PN" + System.currentTimeMillis());
+        note.setCreator(user);
+        note.setImportDate(java.time.LocalDateTime.now());
+        note.setSupplierName(req.supplierName());
+        note.setNote(req.note());
+        note.setStatus(status);
+        note.setImportDetails(new ArrayList<>());
 
         BigDecimal totalImportValue = BigDecimal.ZERO;
 
@@ -492,36 +423,50 @@ public class WarehouseService {
             // Only prepare details for the pending note
 
             ImportDetail detail = new ImportDetail();
-            detail.setPhieuNhap(note);
-            detail.setHangHoa(product);
-            detail.setSoLuong(importQty);
-            detail.setDonGiaNhap(importCost);
-            detail.setThueVAT(importVat); 
-            detail.setThanhTien(newImportValue); 
-            detail.setHanSuDung(item.expiryDate());
-            detail.setSoLuongConLai(importQty);
+            detail.setImportNote(note);
+            detail.setProduct(product);
+            detail.setQuantity(importQty);
+            detail.setImportPrice(importCost);
+            detail.setVatRate(importVat); 
+            detail.setTotalAmount(newImportValue); 
+            detail.setExpiryDate(item.expiryDate());
+            detail.setRemainingQuantity(importQty);
 
-            note.getChiTietNhap().add(detail);
+            note.getImportDetails().add(detail);
             detailsToSave.add(detail);
             totalImportValue = totalImportValue.add(newImportValue);
         }
 
-        note.setTongTien(totalImportValue);
+        note.setTotalAmount(totalImportValue);
         importNoteRepository.save(note);
 
-        // Execute BATCH SAVES
-        // Removed productsToSave since we don't update stock in PENDING state
         if (!detailsToSave.isEmpty()) {
             importDetailRepository.saveAll(detailsToSave);
         }
 
         asyncAuditService.logAsync(AuditLog.builder()
-                .bang("PhieuNhapKho")
-                .banGhiId(note.getId())
-                .hanhDong("CREATE")
-                .duLieuMoi("Import from " + req.supplierName() + " - Total: " + totalImportValue)
-                .nguoiThucHienId(userId)
+                .tableName("ImportNote")
+                .recordId(note.getId())
+                .action("CREATE")
+                .newData("Import from " + req.supplierName() + " - Total: " + totalImportValue)
+                .userId(userId)
                 .build());
+
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
+                .role("ADMIN")
+                .title("Có phiếu nhập kho mới chờ duyệt")
+                .content("Phiếu nhập " + note.getImportCode() + " từ " + req.supplierName() + " cần được phê duyệt.")
+                .type("INFO")
+                .link("/admin/inventory/import/" + note.getId())
+                .refId(note.getId())
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
+                .build());
+
+        Map<String, Object> sseData = new HashMap<>();
+        sseData.put("importNoteId", note.getId());
+        sseData.put("message", "New import note pending approval");
+        sseService.broadcastToTopic("role:ADMIN", "IMPORT_PENDING_APPROVAL", sseData);
 
         return note.getId();
     }
@@ -531,50 +476,50 @@ public class WarehouseService {
         Product product = productRepository.findByIdWithLock(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
-        int oldStock = product.getSoLuongTon();
+        int oldStock = product.getStockQuantity();
         int diff = actualQuantity - oldStock;
 
         if (diff == 0)
             return;
 
-        product.setSoLuongTon(actualQuantity);
+        product.setStockQuantity(actualQuantity);
         productRepository.save(product);
 
         auditLogRepository.save(AuditLog.builder()
-                .bang("InventoryCheck")
-                .banGhiId(productId)
-                .hanhDong("ADJUST")
-                .duLieuCu("Old Stock: " + oldStock)
-                .duLieuMoi("New Stock: " + actualQuantity)
-                .lyDo(reason)
-                .nguoiThucHienId(userId)
+                .tableName("InventoryCheck")
+                .recordId(productId)
+                .action("ADJUST")
+                .oldData("Old Stock: " + oldStock)
+                .newData("New Stock: " + actualQuantity)
+                .reason(reason)
+                .userId(userId)
                 .build());
     }
 
     @Transactional(readOnly = true)
     public List<ImportHistoryDto> getImportHistory() {
         List<ImportNote> notes = importNoteRepository.findAll(
-                Sort.by(Sort.Direction.DESC, "ngayNhap"));
+                Sort.by(Sort.Direction.DESC, "importDate"));
 
         return notes.stream()
                 .limit(100)
                 .map(note -> new ImportHistoryDto(
                         note.getId(),
-                        note.getMaPhieu(),
-                        note.getNgayNhap(),
-                        note.getNhaCungCap(),
-                        note.getTongTien(),
-                        note.getNguoiNhap() != null ? note.getNguoiNhap().getHoTen() : "N/A",
-                        note.getTrangThai(),
-                        note.getChiTietNhap().stream()
+                        note.getImportCode(),
+                        note.getImportDate(),
+                        note.getSupplierName(),
+                        note.getTotalAmount(),
+                        note.getCreator() != null ? note.getCreator().getFullName() : "N/A",
+                        note.getStatus(),
+                        note.getImportDetails().stream()
                                 .map(d -> new ImportItemDto(
                                         d.getId(),
-                                        d.getHangHoa().getTenHang(),
-                                        d.getSoLuong(),
-                                        d.getDonGiaNhap(),
-                                        d.getThueVAT(),
-                                        d.getThanhTien(),
-                                        d.getHanSuDung()))
+                                        d.getProduct().getName(),
+                                        d.getQuantity(),
+                                        d.getImportPrice(),
+                                        d.getVatRate(),
+                                        d.getTotalAmount(),
+                                        d.getExpiryDate()))
                                 .toList()))
                 .toList();
     }
@@ -586,33 +531,33 @@ public class WarehouseService {
         return notes.stream().limit(100).map(note -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", note.getId());
-            map.put("date", note.getNgayXuat());
+            map.put("date", note.getExportDate());
 
             String vehicleInfo = "N/A (Hủy/Khác)";
-            if (note.getLoaiXuat() != null && note.getLoaiXuat().equals("SUA_CHUA")) {
-                if (note.getDonHangSuaChua() != null && note.getDonHangSuaChua().getPhieuTiepNhan() != null) {
-                    vehicleInfo = note.getDonHangSuaChua().getPhieuTiepNhan().getXe().getBienSo();
+            if (note.getExportType() != null && note.getExportType().equals("REPAIR")) {
+                if (note.getRepairOrder() != null && note.getRepairOrder().getReception() != null) {
+                    vehicleInfo = note.getRepairOrder().getReception().getVehicle().getLicensePlate();
                 } else {
                     vehicleInfo = "N/A (Lỗi dữ liệu)";
                 }
             }
             map.put("vehicle", vehicleInfo);
-            map.put("creator", note.getNguoiTao() != null ? note.getNguoiTao().getHoTen() : "N/A");
+            map.put("creator", note.getCreator() != null ? note.getCreator().getFullName() : "N/A");
 
             BigDecimal total = BigDecimal.ZERO;
-            if (note.getChiTietXuatKho() != null) {
-                total = note.getChiTietXuatKho().stream()
-                        .map(d -> d.getThanhTien() != null ? d.getThanhTien() : BigDecimal.ZERO)
+            if (note.getExportDetails() != null) {
+                total = note.getExportDetails().stream()
+                        .map(d -> d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
             }
             map.put("total", total);
 
             List<Map<String, Object>> items = new ArrayList<>();
-            if (note.getChiTietXuatKho() != null) {
-                items = note.getChiTietXuatKho().stream().map(d -> {
+            if (note.getExportDetails() != null) {
+                items = note.getExportDetails().stream().map(d -> {
                     Map<String, Object> itemMap = new HashMap<>();
-                    itemMap.put("productName", d.getHangHoa().getTenHang());
-                    itemMap.put("quantity", d.getSoLuong());
+                    itemMap.put("productName", d.getProduct().getName());
+                    itemMap.put("quantity", d.getQuantity());
                     return itemMap;
                 }).toList();
             }
@@ -629,11 +574,11 @@ public class WarehouseService {
         return batches.stream().map(b -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", b.getId());
-            map.put("importDate", b.getPhieuNhap().getNgayNhap());
-            map.put("expiryDate", b.getHanSuDung());
-            map.put("initialQty", b.getSoLuong());
-            map.put("remainingQty", b.getSoLuongConLai());
-            map.put("supplier", b.getPhieuNhap().getNhaCungCap());
+            map.put("importDate", b.getImportNote().getImportDate());
+            map.put("expiryDate", b.getExpiryDate());
+            map.put("initialQty", b.getQuantity());
+            map.put("remainingQty", b.getRemainingQuantity());
+            map.put("supplier", b.getImportNote().getSupplierName());
             return map;
         }).toList();
     }
@@ -643,35 +588,35 @@ public class WarehouseService {
         ImportDetail batch = importDetailRepository.findById(batchId)
                 .orElseThrow(() -> new RuntimeException("Batch not found"));
 
-        if (batch.getSoLuongConLai() <= 0) {
-            throw new RuntimeException("Lô hàng đã hết hoặc đã hủy");
+        if (batch.getRemainingQuantity() <= 0) {
+            throw new RuntimeException("Batch is empty or cancelled.");
         }
 
         User user = userRepository.findById(userId).orElseThrow();
-        Product product = batch.getHangHoa();
+        Product product = batch.getProduct();
 
         ExportNote exportNote = new ExportNote();
-        exportNote.setLoaiXuat("HUY_HANG");
-        exportNote.setNguoiTao(user);
-        exportNote.setNgayXuat(java.time.LocalDateTime.now());
-        exportNote.setChiTietXuatKho(new ArrayList<>());
+        exportNote.setExportType("DISPOSE");
+        exportNote.setCreator(user);
+        exportNote.setExportDate(java.time.LocalDateTime.now());
+        exportNote.setExportDetails(new ArrayList<>());
 
         exportNote = exportNoteRepository.save(exportNote);
 
-        product.setSoLuongTon(product.getSoLuongTon() - batch.getSoLuongConLai());
+        product.setStockQuantity(product.getStockQuantity() - batch.getRemainingQuantity());
         productRepository.save(product);
 
         ExportDetail detail = new ExportDetail();
-        detail.setPhieuXuatKho(exportNote);
-        detail.setHangHoa(product);
-        detail.setSoLuong(batch.getSoLuongConLai());
-        detail.setDonGiaXuat(BigDecimal.ZERO);
-        detail.setThanhTien(BigDecimal.ZERO);
+        detail.setExportNote(exportNote);
+        detail.setProduct(product);
+        detail.setQuantity(batch.getRemainingQuantity());
+        detail.setExportPrice(BigDecimal.ZERO);
+        detail.setTotalAmount(BigDecimal.ZERO);
 
-        exportNote.getChiTietXuatKho().add(detail);
+        exportNote.getExportDetails().add(detail);
         exportNoteRepository.save(exportNote);
 
-        batch.setSoLuongConLai(0);
+        batch.setRemainingQuantity(0);
         importDetailRepository.save(batch);
     }
 
@@ -679,45 +624,45 @@ public class WarehouseService {
     public List<Map<String, Object>> getProductMovements(Integer productId) {
         List<Map<String, Object>> movements = new ArrayList<>();
 
-        importDetailRepository.findAllByHangHoaId(productId).forEach(d -> {
+        importDetailRepository.findAllByProductId(productId).forEach(d -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", d.getId());
-            m.put("date", d.getPhieuNhap().getNgayNhap());
+            m.put("date", d.getImportNote().getImportDate());
             m.put("action", "NHAP_KHO");
-            m.put("quantity", d.getSoLuong());
-            m.put("reason", "Nhập hàng từ " + d.getPhieuNhap().getNhaCungCap());
-            m.put("user", d.getPhieuNhap().getNguoiNhap() != null ? d.getPhieuNhap().getNguoiNhap().getHoTen() : "N/A");
+            m.put("quantity", d.getQuantity());
+            m.put("reason", "Nhập hàng từ " + d.getImportNote().getSupplierName());
+            m.put("user", d.getImportNote().getCreator() != null ? d.getImportNote().getCreator().getFullName() : "N/A");
             movements.add(m);
         });
 
-        exportDetailRepository.findAllByHangHoaId(productId).forEach(d -> {
+        exportDetailRepository.findAllByProductId(productId).forEach(d -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", d.getId());
-            m.put("date", d.getPhieuXuatKho().getNgayXuat());
-            m.put("action", d.getPhieuXuatKho().getLoaiXuat());
-            m.put("quantity", -d.getSoLuong());
+            m.put("date", d.getExportNote().getExportDate());
+            m.put("action", d.getExportNote().getExportType());
+            m.put("quantity", -d.getQuantity());
 
             String reason = "Xuất kho";
-            if ("HUY_HANG".equals(d.getPhieuXuatKho().getLoaiXuat())) {
+            if ("DISPOSE".equals(d.getExportNote().getExportType()) || "HUY_HANG".equals(d.getExportNote().getExportType())) {
                 reason = "Thanh lý lô hàng";
-            } else if (d.getPhieuXuatKho().getDonHangSuaChua() != null) {
+            } else if (d.getExportNote().getRepairOrder() != null) {
                 reason = "Xuất sửa chữa xe "
-                        + d.getPhieuXuatKho().getDonHangSuaChua().getPhieuTiepNhan().getXe().getBienSo();
+                        + d.getExportNote().getRepairOrder().getReception().getVehicle().getLicensePlate();
             }
             m.put("reason", reason);
             m.put("user",
-                    d.getPhieuXuatKho().getNguoiTao() != null ? d.getPhieuXuatKho().getNguoiTao().getHoTen() : "N/A");
+                    d.getExportNote().getCreator() != null ? d.getExportNote().getCreator().getFullName() : "N/A");
             movements.add(m);
         });
 
-        auditLogRepository.findByBangAndBanGhiId("InventoryCheck", productId).forEach(log -> {
+        auditLogRepository.findByTableNameAndRecordId("InventoryCheck", productId).forEach(log -> {
             Map<String, Object> m = new HashMap<>();
             m.put("id", log.getId());
-            m.put("date", log.getNgayTao());
+            m.put("date", log.getCreatedAt());
             m.put("action", "DIEU_CHINH");
             m.put("quantity", 0);
-            m.put("reason", "Kiểm kho: " + log.getLyDo());
-            m.put("user", log.getNguoiThucHien() != null ? log.getNguoiThucHien().getHoTen() : "System");
+            m.put("reason", "Kiểm kho: " + log.getReason());
+            m.put("user", log.getUser() != null ? log.getUser().getFullName() : "System");
             movements.add(m);
         });
 
@@ -726,20 +671,20 @@ public class WarehouseService {
                 .forEach(log -> {
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", log.getId());
-                    m.put("date", log.getNgayTao());
+                    m.put("date", log.getCreatedAt());
                     m.put("action", "HOAN_NHAP");
 
                     int qty = 0;
                     try {
-                        String info = log.getDuLieuMoi();
+                        String info = log.getNewData();
                         String qtyStr = info.substring(info.lastIndexOf("Qty: ") + 5);
                         qty = Integer.parseInt(qtyStr);
                     } catch (Exception e) {
                     }
 
                     m.put("quantity", qty);
-                    m.put("reason", "Thợ trả đồ: " + log.getLyDo());
-                    m.put("user", log.getNguoiThucHien() != null ? log.getNguoiThucHien().getHoTen() : "N/A");
+                    m.put("reason", "Thợ trả đồ: " + log.getReason());
+                    m.put("user", log.getUser() != null ? log.getUser().getFullName() : "N/A");
                     movements.add(m);
                 });
 
@@ -757,21 +702,21 @@ public class WarehouseService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("id", note.getId());
-        result.put("code", note.getMaPhieu());
-        result.put("date", note.getNgayNhap());
-        result.put("supplier", note.getNhaCungCap());
-        result.put("note", note.getGhiChu());
-        result.put("total", note.getTongTien());
-        result.put("creator", note.getNguoiNhap() != null ? note.getNguoiNhap().getHoTen() : "N/A");
+        result.put("code", note.getImportCode());
+        result.put("date", note.getImportDate());
+        result.put("supplier", note.getSupplierName());
+        result.put("note", note.getNote());
+        result.put("total", note.getTotalAmount());
+        result.put("creator", note.getCreator() != null ? note.getCreator().getFullName() : "N/A");
 
-        List<Map<String, Object>> items = note.getChiTietNhap().stream()
+        List<Map<String, Object>> items = note.getImportDetails().stream()
                 .map(d -> {
                     Map<String, Object> itemMap = new HashMap<>();
-                    itemMap.put("productName", d.getHangHoa().getTenHang());
-                    itemMap.put("productCode", d.getHangHoa().getMaHang());
-                    itemMap.put("quantity", d.getSoLuong());
-                    itemMap.put("unitPrice", d.getDonGiaNhap());
-                    itemMap.put("total", d.getThanhTien());
+                    itemMap.put("productName", d.getProduct().getName());
+                    itemMap.put("productCode", d.getProduct().getSku());
+                    itemMap.put("quantity", d.getQuantity());
+                    itemMap.put("unitPrice", d.getImportPrice());
+                    itemMap.put("total", d.getTotalAmount());
                     return itemMap;
                 }).toList();
 
@@ -782,28 +727,28 @@ public class WarehouseService {
     public List<ImportHistoryDto> getAllImports(String status) {
         List<ImportNote> notes;
         if (status != null && !"ALL".equals(status) && !status.isEmpty()) {
-            notes = importNoteRepository.findByTrangThai(status);
+            notes = importNoteRepository.findByStatus(status);
         } else {
-            notes = importNoteRepository.findAll(Sort.by(Sort.Direction.DESC, "ngayNhap"));
+            notes = importNoteRepository.findAll(Sort.by(Sort.Direction.DESC, "importDate"));
         }
 
         return notes.stream().map(note -> new ImportHistoryDto(
                 note.getId(),
-                note.getMaPhieu(),
-                note.getNgayNhap(),
-                note.getNhaCungCap(),
-                note.getTongTien(),
-                note.getNguoiNhap() != null ? note.getNguoiNhap().getHoTen() : "N/A",
-                note.getTrangThai(),
-                note.getChiTietNhap().stream()
+                note.getImportCode(),
+                note.getImportDate(),
+                note.getSupplierName(),
+                note.getTotalAmount(),
+                note.getCreator() != null ? note.getCreator().getFullName() : "N/A",
+                note.getStatus(),
+                note.getImportDetails().stream()
                         .map(d -> new ImportItemDto(
                                 d.getId(),
-                                d.getHangHoa().getTenHang(),
-                                d.getSoLuong(),
-                                d.getDonGiaNhap(),
-                                d.getThueVAT(),
-                                d.getThanhTien(),
-                                d.getHanSuDung()))
+                                d.getProduct().getName(),
+                                d.getQuantity(),
+                                d.getImportPrice(),
+                                d.getVatRate(),
+                                d.getTotalAmount(),
+                                d.getExpiryDate()))
                         .toList()))
                 .toList();
     }
@@ -820,46 +765,41 @@ public class WarehouseService {
         ImportNote note = importNoteRepository.findByIdWithDetails(importId)
                 .orElseThrow(() -> new RuntimeException("Import Note not found"));
 
-        if (!"PENDING".equals(note.getTrangThai())) {
+        if (!"PENDING".equals(note.getStatus())) {
             throw new RuntimeException("Chỉ có thể duyệt phiếu nhập ở trạng thái PENDING");
         }
 
-        for (ImportDetail detail : note.getChiTietNhap()) {
-            Product product = detail.getHangHoa();
+        for (ImportDetail detail : note.getImportDetails()) {
+            Product product = detail.getProduct();
 
             // Update Inventory
-            int oldStock = product.getSoLuongTon();
-            int importQty = detail.getSoLuong();
-            product.setSoLuongTon(oldStock + importQty);
+            int oldStock = product.getStockQuantity();
+            int importQty = detail.getQuantity();
+            product.setStockQuantity(oldStock + importQty);
 
             // Update Cost Price (Weighted Average)
-            BigDecimal currentTotalValue = product.getGiaVon().multiply(new BigDecimal(oldStock));
-            BigDecimal newImportValue = detail.getDonGiaNhap().multiply(new BigDecimal(importQty));
+            BigDecimal currentTotalValue = product.getCostPrice().multiply(new BigDecimal(oldStock));
+            BigDecimal newImportValue = detail.getImportPrice().multiply(new BigDecimal(importQty));
             BigDecimal newTotalQty = new BigDecimal(oldStock + importQty);
 
             if (newTotalQty.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal newAvgCost = currentTotalValue.add(newImportValue)
                         .divide(newTotalQty, 2, java.math.RoundingMode.HALF_UP);
-                product.setGiaVon(newAvgCost);
+                product.setCostPrice(newAvgCost);
             }
-
-            // product.setThueVAT(detail.getThueVAT()); // Removed as per simplified rules (VAT=0)
-
-            // Pricing strategy removed as per user request
-            // We only update stock and average cost.
             
             productRepository.save(product);
         }
 
-        note.setTrangThai("COMPLETED");
+        note.setStatus("COMPLETED");
         importNoteRepository.save(note);
 
         auditLogRepository.save(AuditLog.builder()
-                .bang("PhieuNhapKho")
-                .banGhiId(note.getId())
-                .hanhDong("APPROVE")
-                .duLieuMoi("Approved by User ID: " + userId)
-                .nguoiThucHienId(userId)
+                .tableName("ImportNote")
+                .recordId(note.getId())
+                .action("APPROVE")
+                .newData("Approved by User ID: " + userId)
+                .userId(userId)
                 .build());
     }
 
@@ -875,19 +815,19 @@ public class WarehouseService {
         ImportNote note = importNoteRepository.findById(importId)
                 .orElseThrow(() -> new RuntimeException("Import Note not found"));
 
-        if (!"PENDING".equals(note.getTrangThai())) {
+        if (!"PENDING".equals(note.getStatus())) {
             throw new RuntimeException("Chỉ có thể từ chối phiếu nhập ở trạng thái PENDING");
         }
 
-        note.setTrangThai("REJECTED");
+        note.setStatus("REJECTED");
         importNoteRepository.save(note);
 
         auditLogRepository.save(AuditLog.builder()
-                .bang("PhieuNhapKho")
-                .banGhiId(note.getId())
-                .hanhDong("REJECT")
-                .duLieuMoi("Rejected by User ID: " + userId)
-                .nguoiThucHienId(userId)
+                .tableName("ImportNote")
+                .recordId(note.getId())
+                .action("REJECT")
+                .newData("Rejected by User ID: " + userId)
+                .userId(userId)
                 .build());
     }
 
@@ -904,18 +844,18 @@ public class WarehouseService {
             Product product = productRepository.findByIdWithLock(update.productId())
                     .orElseThrow(() -> new RuntimeException("Product not found: " + update.productId()));
 
-            BigDecimal oldPrice = product.getGiaBanNiemYet();
-            product.setGiaBanNiemYet(update.newPrice());
+            BigDecimal oldPrice = product.getRetailPrice();
+            product.setRetailPrice(update.newPrice());
             productRepository.save(product);
 
             if (oldPrice.compareTo(update.newPrice()) != 0) {
                 auditLogRepository.save(AuditLog.builder()
-                        .bang("HangHoa")
-                        .banGhiId(product.getId())
-                        .hanhDong("UPDATE_PRICE")
-                        .duLieuCu("Old Price: " + oldPrice)
-                        .duLieuMoi("New Price: " + update.newPrice())
-                        .nguoiThucHienId(userId)
+                        .tableName("Product")
+                        .recordId(product.getId())
+                        .action("UPDATE_PRICE")
+                        .oldData("Old Price: " + oldPrice)
+                        .newData("New Price: " + update.newPrice())
+                        .userId(userId)
                         .build());
             }
         }
@@ -926,28 +866,28 @@ public class WarehouseService {
         List<ExportDetail> exports = exportDetailRepository.findByOrderId(orderId);
 
         for (ExportDetail export : exports) {
-            Product product = export.getHangHoa();
-            int quantityToReturn = export.getSoLuong();
+            Product product = export.getProduct();
+            int quantityToReturn = export.getQuantity();
             
             // Global Stock Update
-            product.setSoLuongTon(product.getSoLuongTon() + quantityToReturn);
+            product.setStockQuantity(product.getStockQuantity() + quantityToReturn);
             productRepository.save(product);
 
             // Bug 124 Fix: Restore Batch Stock (LIFO Reverse approach)
             // Since ExportDetail doesn't link to a specific batch, we return to the newest batches 
             // of the same product to ensure they are available for sale again.
-            List<ImportDetail> batches = importDetailRepository.findAllByHangHoaIdOrderByNgayNhapDesc(product.getId());
+            List<ImportDetail> batches = importDetailRepository.findAllByProductIdOrderByImportDateDesc(product.getId());
             int remainingToRestore = quantityToReturn;
             
             for (ImportDetail batch : batches) {
                 if (remainingToRestore <= 0) break;
                 
-                // We can't exceed original batch size (soLuong)
-                int capacity = batch.getSoLuong() - (batch.getSoLuongConLai() != null ? batch.getSoLuongConLai() : 0);
+                // We can't exceed original batch size (quantity)
+                int capacity = batch.getQuantity() - (batch.getRemainingQuantity() != null ? batch.getRemainingQuantity() : 0);
                 if (capacity <= 0) continue;
                 
                 int restore = Math.min(capacity, remainingToRestore);
-                batch.setSoLuongConLai((batch.getSoLuongConLai() != null ? batch.getSoLuongConLai() : 0) + restore);
+                batch.setRemainingQuantity((batch.getRemainingQuantity() != null ? batch.getRemainingQuantity() : 0) + restore);
                 importDetailRepository.save(batch);
                 
                 remainingToRestore -= restore;
@@ -955,13 +895,13 @@ public class WarehouseService {
 
             // Use system audit log for inventory changes
             asyncAuditService.logAsync(AuditLog.builder()
-                    .bang("Product")
-                    .banGhiId(product.getId())
-                    .hanhDong("UPDATE")
-                    .duLieuMoi("Hoàn kho: +" + quantityToReturn + ". Tồn mới: " + product.getSoLuongTon() + 
+                    .tableName("Product")
+                    .recordId(product.getId())
+                    .action("UPDATE")
+                    .newData("Hoàn kho: +" + quantityToReturn + ". Tồn mới: " + product.getStockQuantity() + 
                                (remainingToRestore > 0 ? " (Cảnh báo: " + remainingToRestore + " không thể trả lại lô cũ)" : ""))
-                    .lyDo("Hủy đơn hàng #" + orderId)
-                    .nguoiThucHienId(userId)
+                    .reason("Hủy đơn hàng #" + orderId)
+                    .userId(userId)
                     .build());
         }
     }

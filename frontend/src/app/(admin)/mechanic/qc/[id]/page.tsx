@@ -7,10 +7,11 @@ import { CheckCircle, Loader2, AlertCircle, Car, User, Clock, ArrowLeft } from '
 import { useToast } from '@/contexts/ToastContext';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import Link from 'next/link';
+import { mechanicService } from '@/modules/mechanic/services/mechanic';
 
 export default function OrderTechnicalReviewPage() {
     const { id } = useParams();
-    const { data: session, status: authStatus } = useSession();
+    const { status: authStatus } = useSession();
     const router = useRouter();
     const { showToast } = useToast();
     const [order, setOrder] = useState<any>(null);
@@ -27,12 +28,8 @@ export default function OrderTechnicalReviewPage() {
     const fetchOrder = async () => {
         setLoading(true);
         try {
-            const token = (session?.user as any)?.accessToken;
-            // Fetch all pending and then filter for simplicity, or use a specific detail endpoint if exists
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/api/mechanic/technical-review`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await res.json();
+            // Fetch all pending and then filter for simplicity
+            const data = await mechanicService.getTechnicalReviewOrders();
             const specificOrder = data?.find((o: any) => o.id === Number(id));
             setOrder(specificOrder || { id: Number(id), items: [], notFound: true });
         } catch (error) {
@@ -47,22 +44,13 @@ export default function OrderTechnicalReviewPage() {
         setSubmitting(true);
         try {
             const itemIds = order.items.filter((i: any) => i.itemStatus === 'CHO_KY_THUAT_DUYET').map((i: any) => i.id);
-            const token = (session?.user as any)?.accessToken;
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/api/mechanic/jobs/${id}/confirm-technical`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify(itemIds),
-            });
+            const res = await mechanicService.confirmTechnicalReview(Number(id), itemIds);
 
-            if (res.ok) {
+            if (res.success) {
                 showToast('success', 'Đã duyệt kỹ thuật thành công');
                 router.push('/mechanic/qc');
             } else {
-                const err = await res.json();
-                showToast('error', err.error || 'Duyệt thất bại');
+                showToast('error', res.error || 'Duyệt thất bại');
             }
         } catch (error) {
             showToast('error', 'Lỗi kết nối');

@@ -26,7 +26,7 @@ export default function IndustrialStatCard({ icon, value, label, color = 'blue',
 
             <div className="flex items-start justify-between mb-2">
                 <div className="min-w-0">
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1" title={label}>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1" title={label}>
                         {label}
                     </p>
                     <h3 className="text-2xl font-bold tabular-nums tracking-tight text-slate-900 dark:text-white truncate">

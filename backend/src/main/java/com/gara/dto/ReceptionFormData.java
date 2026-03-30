@@ -12,7 +12,7 @@ public record ReceptionFormData(
         String soKhung,
         String soMay,
         @NotBlank(message = "Tên khách hàng không được để trống") String tenKhach,
-        @NotBlank(message = "Số điện thoại không được để trống") @Pattern(regexp = "^(0|\\+84)[0-9]{8,9}$", message = "Số điện thoại không hợp lệ") String sdtKhach,
+        @NotBlank(message = "Số điện thoại không được để trống") @Pattern(regexp = "^(\\+84|0)[0-9\\s.-]{9,15}$", message = "Số điện thoại không hợp lệ") String sdtKhach,
         String diaChiKhach,
         String emailKhach,
         Double mucXang,

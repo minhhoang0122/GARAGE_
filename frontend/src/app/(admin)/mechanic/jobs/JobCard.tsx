@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { Wrench, ChevronRight, User, Calendar, Clock, Car } from 'lucide-react';
-import { JobSummary } from '@/modules/service/mechanic';
+import { RepairJob } from '@/modules/mechanic/services/mechanic';
+import { isWaitingForRepair, isWaitingForCustomer, isWaitingForQC } from '@/lib/status';
 
 // Helper to determine brand color/badge
 const getBrandStyle = (brand: string) => {
@@ -16,17 +17,17 @@ const getBrandStyle = (brand: string) => {
     return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300';
 };
 
-export default function JobCard({ job }: { job: JobSummary }) {
+export default function JobCard({ job }: { job: RepairJob }) {
     const progress = job.totalItems > 0
         ? Math.round((job.completedItems / job.totalItems) * 100)
         : 0;
     const isUnassigned = !job.claimedById;
     const isCompleted = progress === 100;
 
-    // Status Logic
-    const isWaiting = job.status === 'CHO_SUA_CHUA' || job.status === 'DA_DUYET'; // Jobs ready to claim
-    const isPendingApproval = job.status === 'CHO_KH_DUYET'; // Waiting for customer
-    const isQC = job.status === 'CHO_KCS'; // Waiting for QC
+    // Status Logic - Using legacy-aware helpers
+    const isWaiting = isWaitingForRepair(job.status); // Jobs ready to claim
+    const isPendingApproval = isWaitingForCustomer(job.status); // Waiting for customer
+    const isQC = isWaitingForQC(job.status); // Waiting for QC
 
     return (
         <div className="group relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-blue-900/10 transition-all duration-300 overflow-hidden flex flex-col">

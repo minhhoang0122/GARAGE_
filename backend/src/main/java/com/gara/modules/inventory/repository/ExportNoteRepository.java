@@ -8,18 +8,18 @@ import java.util.Optional;
 
 @Repository
 public interface ExportNoteRepository extends JpaRepository<ExportNote, Integer> {
-    long countByNgayXuatAfter(LocalDateTime date);
+    long countByExportDateAfter(LocalDateTime date);
 
-    Optional<ExportNote> findTopByDonHangSuaChuaIdOrderByNgayXuatDesc(Integer orderId);
+    Optional<ExportNote> findTopByRepairOrderIdOrderByExportDateDesc(Integer orderId);
 
     // N+1 FIX: Eager load details for export history
     @org.springframework.data.jpa.repository.Query("SELECT DISTINCT e FROM ExportNote e " +
-            "LEFT JOIN FETCH e.chiTietXuatKho d " +
-            "LEFT JOIN FETCH d.hangHoa " +
-            "LEFT JOIN FETCH e.donHangSuaChua r " +
-            "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-            "LEFT JOIN FETCH ptn.xe " +
-            "LEFT JOIN FETCH e.nguoiTao " +
-            "ORDER BY e.ngayXuat DESC")
+            "LEFT JOIN FETCH e.exportDetails d " +
+            "LEFT JOIN FETCH d.product " +
+            "LEFT JOIN FETCH e.repairOrder r " +
+            "LEFT JOIN FETCH r.reception rpt " +
+            "LEFT JOIN FETCH rpt.vehicle v " +
+            "LEFT JOIN FETCH e.creator " +
+            "ORDER BY e.exportDate DESC")
     java.util.List<ExportNote> findAllWithDetails();
 }

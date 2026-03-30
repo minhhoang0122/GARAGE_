@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { ArrowLeft, Check, X, Search, Filter, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { warehouseApi } from '@/api';
 import { Badge } from "@/modules/shared/components/ui/badge";
 import { Button } from "@/modules/shared/components/ui/button";
 import { Input } from "@/modules/shared/components/ui/input";
@@ -27,7 +27,7 @@ interface ImportNote {
     nhaCungCap: string;
     tongTien: number;
     nguoiNhap?: {
-        hoTen: string;
+        fullName: string;
     };
     trangThai: string;
     chiTietNhap: any[];
@@ -39,7 +39,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function ImportManagementPage() {
     const queryClient = useQueryClient();
-    const { data: session } = useSession();
     const { hasPermission, isAdmin } = usePermission();
 
     const isAdminOrManager = isAdmin || hasPermission('MANAGE_INVENTORY');
@@ -48,20 +47,18 @@ export default function ImportManagementPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const { toast } = useToast();
 
-    // @ts-ignore
-    const token = session?.user?.accessToken;
-
     const { data: imports = [], isLoading } = useQuery({
         queryKey: ['warehouse-imports', statusFilter],
         queryFn: async () => {
-            const query = statusFilter === 'ALL' ? '' : `?status=${statusFilter}`;
-            return await api.get(`/warehouse/imports${query}`, token);
-        },
-        enabled: !!token
+            const response = await warehouseApi.getImports({ 
+                status: statusFilter === 'ALL' ? undefined : statusFilter 
+            });
+            return response.data as ImportNote[];
+        }
     });
 
     const approveMutation = useMutation({
-        mutationFn: (id: number) => api.post(`/warehouse/import/${id}/approve`, {}, token),
+        mutationFn: (id: number) => warehouseApi.approveImport({ id }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['warehouse-imports'] });
             toast({ title: "Thành công", description: "Đã duyệt phiếu nhập thành công", variant: "default" });
@@ -72,7 +69,7 @@ export default function ImportManagementPage() {
     });
 
     const rejectMutation = useMutation({
-        mutationFn: (id: number) => api.post(`/warehouse/import/${id}/reject`, {}, token),
+        mutationFn: (id: number) => warehouseApi.rejectImport({ id }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['warehouse-imports'] });
             toast({ title: "Thành công", description: "Đã từ chối phiếu nhập", variant: "default" });
@@ -105,7 +102,7 @@ export default function ImportManagementPage() {
         }
     };
 
-    const filteredImports = imports.filter(item =>
+    const filteredImports = imports.filter((item: ImportNote) =>
         item.nhaCungCap.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.maPhieu.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -182,12 +179,12 @@ export default function ImportManagementPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredImports.map((item) => (
+                                filteredImports.map((item: ImportNote) => (
                                     <TableRow key={item.id}>
                                         <TableCell className="font-medium">{item.maPhieu}</TableCell>
                                         <TableCell>{formatDate(item.ngayNhap)}</TableCell>
                                         <TableCell>{item.nhaCungCap}</TableCell>
-                                        <TableCell>{item.nguoiNhap?.hoTen || 'N/A'}</TableCell>
+                                        <TableCell>{item.nguoiNhap?.fullName || 'N/A'}</TableCell>
                                         <TableCell className="text-right font-semibold">
                                             {formatCurrency(item.tongTien)}
                                         </TableCell>

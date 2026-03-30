@@ -20,6 +20,12 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
                 // Thử lại tối đa 1 lần nếu request lỗi
                 retry: 1,
             },
+            mutations: {
+                onError: (error: any) => {
+                    const { toast } = require('sonner');
+                    toast.error(error.message || 'Thao tác thất bại. Vui lòng thử lại.');
+                }
+            }
         },
     }));
 

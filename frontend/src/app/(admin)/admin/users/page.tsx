@@ -19,8 +19,9 @@ import {
     CheckCircle2,
     XCircle
 } from 'lucide-react';
-import { getStaffUsers as getUsers, createUser, updateUser, toggleUserActive } from '@/modules/identity/user';
+import { identityService } from '@/modules/identity/services/identityService';
 import { getStatusBadge } from '@/lib/status';
+import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 import { Button } from '@/modules/shared/components/ui/button';
 import { toast } from 'sonner';
 import { Input } from '@/modules/shared/components/ui/input';
@@ -36,12 +37,13 @@ import {
     FormLabel,
     FormMessage,
 } from '@/modules/shared/components/ui/form';
+import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
 
 const userSchema = z.object({
-    tenDangNhap: z.string().min(3, 'Tên đăng nhập tối thiểu 3 ký tự'),
-    matKhauHash: z.string().optional().or(z.literal('')),
-    hoTen: z.string().min(2, 'Họ tên tối thiểu 2 ký tự'),
-    soDienThoai: z.string().optional(),
+    username: z.string().min(3, 'Tên đăng nhập tối thiểu 3 ký tự'),
+    password: z.string().optional().or(z.literal('')),
+    fullName: z.string().min(2, 'Họ tên tối thiểu 2 ký tự'),
+    phone: z.string().optional(),
     roleCodes: z.array(z.string()).min(1, 'Chọn ít nhất 1 vai trò')
 });
 
@@ -57,10 +59,10 @@ export default function UsersPage() {
     const form = useForm<UserFormValues>({
         resolver: zodResolver(userSchema),
         defaultValues: {
-            tenDangNhap: '',
-            matKhauHash: '',
-            hoTen: '',
-            soDienThoai: '',
+            username: '',
+            password: '',
+            fullName: '',
+            phone: '',
             roleCodes: ['SALE']
         }
     });
@@ -68,20 +70,20 @@ export default function UsersPage() {
     // Queries
     const { data: users = [], isLoading, refetch } = useQuery({
         queryKey: ['users', 'staff'],
-        queryFn: getUsers
+        queryFn: identityService.getStaffUsers
     });
 
     const filteredUsers = users.filter((u: any) => 
-        u.hoTen?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        u.tenDangNhap?.toLowerCase().includes(searchTerm.toLowerCase())
+        u.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        u.username?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     // Mutations
     const saveMutation = useMutation({
         mutationFn: async (data: UserFormValues) => {
             return editingUser 
-                ? await updateUser(editingUser.id, data)
-                : await createUser(data);
+                ? await identityService.updateUser(editingUser.id, data)
+                : await identityService.createUser(data);
         },
         onSuccess: (result) => {
             if (result.success) {
@@ -100,7 +102,7 @@ export default function UsersPage() {
     });
 
     const toggleMutation = useMutation({
-        mutationFn: toggleUserActive,
+        mutationFn: identityService.toggleUserActive,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
             toast.success('Đã cập nhật trạng thái');
@@ -117,10 +119,10 @@ export default function UsersPage() {
     const handleEdit = (user: any) => {
         setEditingUser(user);
         form.reset({
-            tenDangNhap: user.tenDangNhap,
-            matKhauHash: '',
-            hoTen: user.hoTen,
-            soDienThoai: user.soDienThoai || '',
+            username: user.username,
+            password: '',
+            fullName: user.fullName,
+            phone: user.phone || '',
             roleCodes: user.roles ? user.roles.map((r: any) => r.name) : []
         });
         setIsModalOpen(true);
@@ -128,9 +130,9 @@ export default function UsersPage() {
 
     const handleToggle = async (user: any) => {
         const confirmed = await confirm({
-            title: user.trangThaiHoatDong ? 'Khóa tài khoản?' : 'Kích hoạt tài khoản?',
-            message: `Xác nhận ${user.trangThaiHoatDong ? 'KHÓA' : 'KÍCH HOẠT'} tài khoản của ${user.hoTen}?`,
-            type: user.trangThaiHoatDong ? 'danger' : 'warning',
+            title: user.isActive ? 'Khóa tài khoản?' : 'Kích hoạt tài khoản?',
+            message: `Xác nhận ${user.isActive ? 'KHÓA' : 'KÍCH HOẠT'} tài khoản của ${user.fullName}?`,
+            type: user.isActive ? 'danger' : 'warning',
             confirmText: 'Xác nhận'
         });
         if (confirmed) {
@@ -166,18 +168,16 @@ export default function UsersPage() {
                     </div>
                 </div>
 
-                {/* Users List */}
                 <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
-                    <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="bg-slate-50 dark:bg-slate-950/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 dark:border-slate-800">
-                                    <th className="text-left px-8 py-5">Nhân viên</th>
-                                    <th className="text-left px-8 py-5">Tài khoản</th>
-                                    <th className="text-left px-8 py-5">Liên hệ</th>
-                                    <th className="text-left px-8 py-5">Vai trò</th>
-                                    <th className="text-center px-8 py-5">Trạng thái</th>
-                                    <th className="text-right px-8 py-5">Thao tác</th>
+                                <tr className="bg-slate-50 dark:bg-slate-950/50 text-[11px] font-bold text-slate-500 border-b border-slate-100 dark:border-slate-800">
+                                    <th className="text-left px-8 py-4">Nhân viên</th>
+                                    <th className="text-left px-8 py-4 hidden md:table-cell">Tài khoản</th>
+                                    <th className="text-left px-8 py-4 hidden lg:table-cell">Liên hệ</th>
+                                    <th className="text-left px-8 py-4 hidden md:table-cell">Vai trò</th>
+                                    <th className="text-center px-4 md:px-8 py-4">Trạng thái</th>
+                                    <th className="text-right px-8 py-4">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
@@ -194,53 +194,56 @@ export default function UsersPage() {
                                         <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                                             <td className="px-8 py-5">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-black text-sm">
-                                                        {user.hoTen?.charAt(0).toUpperCase()}
-                                                    </div>
+                                                    <BaseAvatar 
+                                                        src={user.avatar} 
+                                                        name={user.fullName} 
+                                                        size="md"
+                                                        className="shadow-sm border border-slate-100 dark:border-slate-800"
+                                                    />
                                                     <div>
-                                                        <p className="font-bold text-slate-800 dark:text-slate-100">{user.hoTen}</p>
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase">ID: #{user.id}</p>
+                                                        <p className="font-bold text-slate-800 dark:text-slate-100">{user.fullName}</p>
+                                                        <p className="text-[10px] font-medium text-slate-400">ID: #{user.id}</p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-5">
+                                            <td className="px-8 py-5 hidden md:table-cell">
                                                 <div className="flex items-center gap-2">
                                                     <Key className="w-3.5 h-3.5 text-slate-400" />
-                                                    <span className="font-mono text-xs font-bold text-slate-600 dark:text-slate-300">{user.tenDangNhap}</span>
+                                                    <span className="font-mono text-xs font-bold text-slate-600 dark:text-slate-300">{user.username}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-5">
+                                            <td className="px-8 py-5 hidden lg:table-cell">
                                                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                                                    <Phone className="w-3.5 h-3.5" />
-                                                   <span>{user.soDienThoai || 'N/A'}</span>
+                                                   <span>{user.phone || 'N/A'}</span>
                                                </div>
                                             </td>
-                                            <td className="px-8 py-5">
+                                            <td className="px-8 py-5 hidden md:table-cell">
                                                 <div className="flex flex-wrap gap-1.5">
                                                     {user.roles?.map((role: any) => (
-                                                        <span key={role.name} className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${
+                                                        <span key={role.name} className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                                                             role.name === 'ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' :
                                                             role.name === 'KHO' ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' :
                                                             'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
                                                         }`}>
-                                                            {role.name}
+                                                            {ROLE_DISPLAY_NAMES[role.name] || role.name}
                                                         </span>
                                                     ))}
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-5 text-center">
-                                                {user.trangThaiHoatDong ? (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50">
-                                                        <CheckCircle2 className="w-3 h-3" /> Hoạt động
+                                            <td className="px-4 md:px-8 py-5 text-center">
+                                                {user.isActive ? (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50">
+                                                        <CheckCircle2 className="w-3 h-3" /> <span className="hidden sm:inline">Hoạt động</span>
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50">
-                                                        <XCircle className="w-3 h-3" /> Đã khóa
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50">
+                                                        <XCircle className="w-3 h-3" /> <span className="hidden sm:inline">Đã khóa</span>
                                                     </span>
                                                 )}
                                             </td>
                                             <td className="px-8 py-5 text-right">
-                                                <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                                     <Button variant="ghost" size="icon" onClick={() => handleEdit(user)} className="h-9 w-9 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">
                                                         <Edit className="w-4 h-4" />
                                                     </Button>
@@ -249,9 +252,9 @@ export default function UsersPage() {
                                                             variant="ghost" 
                                                             size="icon" 
                                                             onClick={() => handleToggle(user)} 
-                                                            className={`h-9 w-9 ${user.trangThaiHoatDong ? 'text-slate-400 hover:text-red-500 hover:bg-red-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`}
+                                                            className={`h-9 w-9 ${user.isActive ? 'text-slate-400 hover:text-red-500 hover:bg-red-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`}
                                                         >
-                                                            {user.trangThaiHoatDong ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                                                            {user.isActive ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                                                         </Button>
                                                     )}
                                                 </div>
@@ -261,7 +264,6 @@ export default function UsersPage() {
                                 )}
                             </tbody>
                         </table>
-                    </div>
                 </div>
             </div>
 
@@ -284,10 +286,10 @@ export default function UsersPage() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <FormField
                                         control={form.control}
-                                        name="hoTen"
+                                        name="fullName"
                                         render={({ field }) => (
                                             <FormItem className="col-span-2">
-                                                <FormLabel className="text-xs font-bold text-slate-500 uppercase">Họ và tên</FormLabel>
+                                                <FormLabel className="text-xs font-bold text-slate-500">Họ và tên</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="Nguyễn Văn A" className="h-11 rounded-xl" {...field} />
                                                 </FormControl>
@@ -298,10 +300,10 @@ export default function UsersPage() {
                                     
                                     <FormField
                                         control={form.control}
-                                        name="tenDangNhap"
+                                        name="username"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-xs font-bold text-slate-500 uppercase">Tên đăng nhập</FormLabel>
+                                                <FormLabel className="text-xs font-bold text-slate-500">Tên đăng nhập</FormLabel>
                                                 <FormControl>
                                                     <Input disabled={!!editingUser} placeholder="username" className="h-11 rounded-xl font-mono" {...field} />
                                                 </FormControl>
@@ -312,10 +314,10 @@ export default function UsersPage() {
 
                                     <FormField
                                         control={form.control}
-                                        name="soDienThoai"
+                                        name="phone"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-xs font-bold text-slate-500 uppercase">Số điện thoại</FormLabel>
+                                                <FormLabel className="text-xs font-bold text-slate-500">Số điện thoại</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="090..." className="h-11 rounded-xl" {...field} />
                                                 </FormControl>
@@ -327,10 +329,10 @@ export default function UsersPage() {
 
                                 <FormField
                                     control={form.control}
-                                    name="matKhauHash"
+                                    name="password"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs font-bold text-slate-500 uppercase">{editingUser ? 'Mật khẩu mới (Để trống nếu không đổi)' : 'Mật khẩu ban đầu'}</FormLabel>
+                                            <FormLabel className="text-xs font-bold text-slate-500">{editingUser ? 'Mật khẩu mới (Để trống nếu không đổi)' : 'Mật khẩu ban đầu'}</FormLabel>
                                             <FormControl>
                                                 <Input type="password" placeholder="••••••••" className="h-11 rounded-xl font-mono" {...field} />
                                             </FormControl>
@@ -340,7 +342,7 @@ export default function UsersPage() {
                                 />
 
                                 <div>
-                                    <FormLabel className="text-xs font-bold text-slate-500 uppercase mb-3 block text-center">Vai trò & Phân quyền</FormLabel>
+                                    <FormLabel className="text-xs font-bold text-slate-500 mb-3 block text-center">Vai trò & Phân quyền</FormLabel>
                                     <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                                         {[
                                             { value: 'SALE', label: 'Sale (Cố vấn)' },
@@ -367,7 +369,7 @@ export default function UsersPage() {
                                             </label>
                                         ))}
                                     </div>
-                                    {form.formState.errors.roleCodes && (
+                                    {form.formState.errors.roleCodes?.message && (
                                         <p className="text-[10px] text-red-500 mt-2 font-bold text-center">{form.formState.errors.roleCodes.message}</p>
                                     )}
                                 </div>

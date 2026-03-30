@@ -2,31 +2,8 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { api } from '@/lib/api';
-import { useSession } from 'next-auth/react';
-import { Search, Save, RefreshCw, AlertCircle, CheckCircle2, Info } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
-import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
-type Product = {
-    id: number;
-    maHang: string;
-    tenHang: string;
-    description: string;
-    giaBanNiemYet: number;
-    giaVon: number;
-    laDichVu: boolean;
-    baoHanhSoThang: number;
-    baoHanhKm: number;
-};
-
-// Pending changes state structure
-type PendingChange = {
-    price?: number;
-    warrantyMonths?: number;
-    warrantyKm?: number;
-};
+import { Save, RefreshCw } from 'lucide-react';
+import { useAdminConfigs, useUpdateConfigs } from '@/modules/admin/hooks/useAdmin';
 
 export default function ConfigurationPage() {
     return (
@@ -39,27 +16,19 @@ export default function ConfigurationPage() {
 }
 
 function ConfigurationContent() {
-    const { data: session } = useSession();
-    const token = (session?.user as any)?.accessToken;
-
     return (
         <div className="max-w-4xl mx-auto space-y-6 pb-20">
             {/* Notification Config Only */}
-            <NotificationConfigTab token={token} />
+            <NotificationConfigTab />
         </div>
     );
 }
 
-function NotificationConfigTab({ token }: { token?: string }) {
-    const queryClient = useQueryClient();
+function NotificationConfigTab() {
     const [configs, setConfigs] = useState<Record<string, string>>({});
-    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-    const { data: initialConfigs, isLoading: loading } = useQuery<Record<string, string>>({
-        queryKey: ['config'],
-        queryFn: () => api.get('/config', token),
-        enabled: !!token
-    });
+    const { data: initialConfigs, isLoading: loading } = useAdminConfigs();
+    const updateConfigsMutation = useUpdateConfigs();
 
     // Sync local state when query finishes
     useEffect(() => {
@@ -68,19 +37,8 @@ function NotificationConfigTab({ token }: { token?: string }) {
         }
     }, [initialConfigs]);
 
-    const saveMutation = useMutation({
-        mutationFn: (newConfigs: Record<string, string>) => api.post('/config', newConfigs, token as string),
-        onSuccess: () => {
-            setMessage({ type: 'success', text: 'Đã lưu cấu hình thông báo' });
-            queryClient.invalidateQueries({ queryKey: ['config'] });
-        },
-        onError: () => {
-            setMessage({ type: 'error', text: 'Lỗi khi lưu cấu hình' });
-        }
-    });
-
     const handleSave = async () => {
-        saveMutation.mutate(configs);
+        updateConfigsMutation.mutate(configs);
     };
 
     const handleChange = (key: string, value: string) => {
@@ -88,7 +46,7 @@ function NotificationConfigTab({ token }: { token?: string }) {
     };
 
     if (loading) return <div className="p-8 text-center text-slate-500 dark:text-slate-400">Đang tải cấu hình...</div>;
-    const saving = saveMutation.isPending;
+    const saving = updateConfigsMutation.isPending;
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 space-y-6 transition-colors">
@@ -172,13 +130,6 @@ function NotificationConfigTab({ token }: { token?: string }) {
                     Lưu cấu hình
                 </button>
             </div>
-            {message && (
-                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${message.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'}`}>
-                    {message.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                    {message.text}
-                </div>
-            )}
         </div>
     );
 }
-

@@ -47,7 +47,7 @@ public class TransactionService {
                         .referenceCode(t.getReferenceCode())
                         .note(t.getNote())
                         .createdAt(t.getCreatedAt())
-                        .createdBy(t.getCreatedBy().getHoTen())
+                        .createdBy(t.getCreatedBy().getFullName())
                         .build())
                 .toList();
     }
@@ -63,7 +63,7 @@ public class TransactionService {
                         .referenceCode(t.getReferenceCode())
                         .note(t.getNote())
                         .createdAt(t.getCreatedAt())
-                        .createdBy(t.getCreatedBy() != null ? t.getCreatedBy().getHoTen() : "System")
+                        .createdBy(t.getCreatedBy() != null ? t.getCreatedBy().getFullName() : "System")
                         .build())
                 .toList();
     }
@@ -98,14 +98,14 @@ public class TransactionService {
         User user = userRepository.findById(userId).orElseThrow();
 
         // Safe null check
-        if (order.getTienCoc() == null)
-            order.setTienCoc(BigDecimal.ZERO);
-        if (order.getTongCong() == null)
-            order.setTongCong(BigDecimal.ZERO);
+        if (order.getDeposit() == null)
+            order.setDeposit(BigDecimal.ZERO);
+        if (order.getGrandTotal() == null)
+            order.setGrandTotal(BigDecimal.ZERO);
 
         // Validation based on Type via Modern Switch
         switch (type) {
-            case DEPOSIT -> order.setTienCoc(order.getTienCoc().add(amount));
+            case DEPOSIT -> order.setDeposit(order.getDeposit().add(amount));
             case REFUND -> {
                 BigDecimal paidSoFar = transactionRepository.sumTotalPaidByOrderId(orderId);
 
@@ -140,12 +140,12 @@ public class TransactionService {
         
         // Bug 130 Fix: Detailed Audit Log for all financial transactions
         asyncAuditService.logAsync(AuditLog.builder()
-                .bang("FinancialTransaction")
-                .banGhiId(trans.getId())
-                .hanhDong("INSERT")
-                .duLieuMoi("Type: " + type + ", Amount: " + amount + ", Method: " + method + ", Ref: " + referenceCode)
-                .lyDo("Ghi nhận giao dịch tài chính cho đơn hàng #" + orderId + (note != null ? ": " + note : ""))
-                .nguoiThucHienId(userId)
+                .tableName("FinancialTransaction")
+                .recordId(trans.getId())
+                .action("INSERT")
+                .newData("Type: " + type + ", Amount: " + amount + ", Method: " + method + ", Ref: " + referenceCode)
+                .reason("Ghi nhận giao dịch tài chính cho đơn hàng #" + orderId + (note != null ? ": " + note : ""))
+                .userId(userId)
                 .build());
 
         // Recalculate Order Payment Status immediately
@@ -165,37 +165,37 @@ public class TransactionService {
         if (totalPaidUpdated == null) totalPaidUpdated = BigDecimal.ZERO;
 
         // Update SoTienDaTra (Amount Paid)
-        order.setSoTienDaTra(totalPaidUpdated);
+        order.setAmountPaid(totalPaidUpdated);
 
         // Update CongNo (Debt)
-        if (order.getTongCong() == null)
-            order.setTongCong(BigDecimal.ZERO);
-        BigDecimal debt = order.getTongCong().subtract(totalPaidUpdated);
+        if (order.getGrandTotal() == null)
+            order.setGrandTotal(BigDecimal.ZERO);
+        BigDecimal debt = order.getGrandTotal().subtract(totalPaidUpdated);
 
-        // Auto-complete order if fully paid and in CHO_THANH_TOAN
-        if (debt.compareTo(BigDecimal.ZERO) <= 0 && OrderStatus.CHO_THANH_TOAN.equals(order.getTrangThai())) {
-            order.setTrangThai(OrderStatus.HOAN_THANH);
-            order.setNgayThanhToan(java.time.LocalDateTime.now());
+        // Auto-complete order if fully paid and in WAITING_FOR_PAYMENT
+        if (debt.compareTo(BigDecimal.ZERO) <= 0 && OrderStatus.WAITING_FOR_PAYMENT.equals(order.getStatus())) {
+            order.setStatus(OrderStatus.COMPLETED);
+            order.setPaymentDate(java.time.LocalDateTime.now());
         }
         
         // Bug 116 Fix: Status Reversion on Refund
-        // If a refund makes Debt > 0 and the order was HOAN_THANH, move it back to CHO_THANH_TOAN
-        if (debt.compareTo(BigDecimal.ZERO) > 0 && OrderStatus.HOAN_THANH.equals(order.getTrangThai())) {
-             order.setTrangThai(OrderStatus.CHO_THANH_TOAN);
-             order.setNgayThanhToan(null); // Clear payment date as it's no longer fully paid
+        // If a refund makes Debt > 0 and the order was COMPLETED, move it back to WAITING_FOR_PAYMENT
+        if (debt.compareTo(BigDecimal.ZERO) > 0 && OrderStatus.COMPLETED.equals(order.getStatus())) {
+             order.setStatus(OrderStatus.WAITING_FOR_PAYMENT);
+             order.setPaymentDate(null); // Clear payment date as it's no longer fully paid
 
              // Bug 117 Fix: Audit status reversion
              asyncAuditService.logAsync(AuditLog.builder()
-                     .bang("DonHangSuaChua")
-                     .banGhiId(order.getId())
-                     .hanhDong("UPDATE")
-                     .duLieuCu(OrderStatus.HOAN_THANH.name())
-                     .duLieuMoi(OrderStatus.CHO_THANH_TOAN.name())
-                     .lyDo("Thu hồi trạng thái do hoàn tiền (Refund). Nợ mới: " + debt)
+                     .tableName("RepairOrder")
+                     .recordId(order.getId())
+                     .action("UPDATE")
+                     .oldData(OrderStatus.COMPLETED.name())
+                     .newData(OrderStatus.WAITING_FOR_PAYMENT.name())
+                     .reason("Thu hồi trạng thái do hoàn tiền (Refund). Nợ mới: " + debt)
                      .build());
         }
 
-        order.setCongNo(debt.compareTo(BigDecimal.ZERO) > 0 ? debt : BigDecimal.ZERO);
+        order.setBalanceDue(debt.compareTo(BigDecimal.ZERO) > 0 ? debt : BigDecimal.ZERO);
         orderRepository.save(order);
     }
 }

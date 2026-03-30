@@ -83,10 +83,10 @@ public class ReportService {
                 List<Map<String, Object>> lowStockItems = lowStockProducts.stream()
                                 .map(p -> Map.<String, Object>of(
                                                 "id", p.getId(),
-                                                "name", p.getTenHang(),
-                                                "sku", p.getMaHang(),
-                                                "quantity", p.getSoLuongTon(),
-                                                "minStock", p.getDinhMucTonToiThieu()))
+                                                "name", p.getName(),
+                                                "sku", p.getSku(),
+                                                "quantity", p.getStockQuantity(),
+                                                "minStock", p.getMinStockLevel()))
                                 .toList();
 
                 return Map.of(
@@ -100,14 +100,14 @@ public class ReportService {
         public Map<String, Object> getAdminDashboardStats() {
                 LocalDateTime todayStart = LocalDate.now().atStartOfDay();
 
-                long waitingVehicles = orderRepository.countByTrangThaiIn(
-                                Arrays.asList(OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN));
+                long waitingVehicles = orderRepository.countByStatusIn(
+                                Arrays.asList(OrderStatus.RECEIVED, OrderStatus.WAITING_FOR_DIAGNOSIS));
 
-                long pendingQuotes = orderRepository.countByTrangThai(OrderStatus.CHO_KH_DUYET);
+                long pendingQuotes = orderRepository.countByStatus(OrderStatus.WAITING_FOR_CUSTOMER_APPROVAL);
 
-                long inProgressJobs = orderRepository.countByTrangThaiIn(
-                                Arrays.asList(OrderStatus.DA_DUYET, OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
-                                                OrderStatus.CHO_KCS));
+                long inProgressJobs = orderRepository.countByStatusIn(
+                                Arrays.asList(OrderStatus.APPROVED, OrderStatus.WAITING_FOR_PARTS, OrderStatus.IN_PROGRESS,
+                                                OrderStatus.WAITING_FOR_QC));
 
                 BigDecimal todayRevenue = transactionRepository.sumRevenueBetween(todayStart, LocalDateTime.now());
                 BigDecimal todayRefund = transactionRepository.sumRefundBetween(todayStart, LocalDateTime.now());

@@ -7,6 +7,10 @@ public record LoginResponse(
                 Integer userId,
                 String username,
                 String fullName,
+                String avatar,
+                String email,
+                String phone,
+                java.time.LocalDateTime createdAt,
                 List<String> roles,
                 List<String> permissions) {
 
@@ -19,6 +23,10 @@ public record LoginResponse(
                 private Integer userId;
                 private String username;
                 private String fullName;
+                private String avatar;
+                private String email;
+                private String phone;
+                private java.time.LocalDateTime createdAt;
                 private List<String> roles;
                 private List<String> permissions;
 
@@ -42,6 +50,26 @@ public record LoginResponse(
                         return this;
                 }
 
+                public LoginResponseBuilder avatar(String avatar) {
+                        this.avatar = avatar;
+                        return this;
+                }
+
+                public LoginResponseBuilder email(String email) {
+                        this.email = email;
+                        return this;
+                }
+
+                public LoginResponseBuilder phone(String phone) {
+                        this.phone = phone;
+                        return this;
+                }
+
+                public LoginResponseBuilder createdAt(java.time.LocalDateTime createdAt) {
+                        this.createdAt = createdAt;
+                        return this;
+                }
+
                 public LoginResponseBuilder roles(List<String> roles) {
                         this.roles = roles;
                         return this;
@@ -53,7 +81,7 @@ public record LoginResponse(
                 }
 
                 public LoginResponse build() {
-                        return new LoginResponse(token, userId, username, fullName, roles, permissions);
+                        return new LoginResponse(token, userId, username, fullName, avatar, email, phone, createdAt, roles, permissions);
                 }
         }
 }

@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, CalendarPlus, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { useCreateBooking } from '@/modules/customer/hooks/useCustomer';
 
 export default function CustomerBookingPage() {
     const { data: session, status: authStatus } = useSession();
     const router = useRouter();
     const [form, setForm] = useState({ bienSoXe: '', ghiChu: '' });
-    const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
-    const [error, setError] = useState('');
+
+    const bookingMutation = useCreateBooking();
 
     useEffect(() => {
         if (authStatus === 'unauthenticated') { router.push('/customer/login'); }
@@ -20,42 +21,17 @@ export default function CustomerBookingPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
-        setLoading(true);
-
-        const token = (session?.user as any)?.accessToken;
-
-        try {
-            const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/api/customer/booking`,
-                {
-                    method: 'POST',
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        bienSoXe: form.bienSoXe.trim(),
-                        modelXe: null,
-                        ngayHen: null,
-                        ghiChu: form.ghiChu || null,
-                        selectedServiceIds: [],
-                    }),
-                }
-            );
-
-            const data = await res.json();
-            if (!res.ok || !data.success) {
-                setError(data.message || 'Đặt lịch thất bại.');
-                return;
-            }
-            setSuccess(true);
-        } catch {
-            setError('Có lỗi xảy ra. Vui lòng thử lại.');
-        } finally {
-            setLoading(false);
-        }
+        
+        bookingMutation.mutate({
+            bienSoXe: form.bienSoXe.trim(),
+            ghiChu: form.ghiChu || null,
+        }, {
+            onSuccess: () => setSuccess(true),
+        });
     };
+
+    const loading = bookingMutation.isPending;
+    const error = (bookingMutation.error as any)?.message;
 
     if (authStatus === 'loading') {
         return <div className="min-h-screen bg-stone-950 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={32} /></div>;

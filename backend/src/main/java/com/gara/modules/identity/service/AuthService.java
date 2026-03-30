@@ -41,17 +41,17 @@ public class AuthService {
             throw new RuntimeException("Tài khoản đã bị tạm khóa (15 phút) do đăng nhập sai quá nhiều lần");
         }
 
-        User user = userRepository.findByTenDangNhap(username)
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> {
                     loginAttemptService.loginFailed(username);
                     return new RuntimeException("Tên đăng nhập không tồn tại");
                 });
 
-        if (!user.getTrangThaiHoatDong()) {
+        if (!user.getIsActive()) {
             throw new RuntimeException("Tài khoản đã bị khóa");
         }
 
-        if (!passwordEncoder.matches(request.password(), user.getMatKhauHash())) {
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             loginAttemptService.loginFailed(username);
             throw new RuntimeException("Mật khẩu không đúng");
         }
@@ -70,13 +70,17 @@ public class AuthService {
                     .collect(Collectors.toList())
                 : java.util.Collections.emptyList();
 
-        String token = jwtUtil.generateToken(user.getId(), user.getTenDangNhap(), roles, permissions);
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), roles, permissions);
 
         return LoginResponse.builder()
                 .token(token)
                 .userId(user.getId())
-                .username(user.getTenDangNhap())
-                .fullName(user.getHoTen())
+                .username(user.getUsername())
+                .fullName(user.getFullName())
+                .avatar(user.getAvatar())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .createdAt(user.getCreatedAt())
                 .roles(roles)
                 .permissions(permissions)
                 .build();
@@ -133,6 +137,17 @@ public class AuthService {
             {"VIEW_OWN_ORDERS", "Xem đơn sửa chữa của mình", "CUSTOMER"},
             {"CREATE_BOOKING", "Đặt lịch hẹn sửa chữa", "CUSTOMER"},
         });
+
+        // SALE permissions
+        assignPermissionsToRole(roleRepository, "SALE", new String[][]{
+            {"VIEW_ORDER_LIST", "Xem danh sách đơn hàng", "SALE"},
+            {"CREATE_RECEPTION", "Tiếp nhận xe mới", "SALE"},
+            {"CREATE_PROPOSAL", "Lập báo giá", "SALE"},
+            {"VIEW_ALL_CUSTOMERS", "Xem danh sách khách hàng", "SALE"},
+            {"UPDATE_ORDER_DETAIL", "Sửa đổi chi tiết đơn hàng", "SALE"},
+            {"PROCESS_PAYMENT", "Thực hiện thanh toán/đặt cọc", "SALE"},
+            {"VIEW_FINANCE_STATS", "Xem thống kê tài chính cơ bản", "FINANCE"},
+        });
     }
 
     private void assignPermissionsToRole(com.gara.modules.auth.repository.RoleRepository roleRepository,
@@ -172,15 +187,15 @@ public class AuthService {
                     return roleRepository.save(newRole);
                 });
 
-        var userOptional = userRepository.findByTenDangNhap(username);
+        var userOptional = userRepository.findByUsername(username);
         if (userOptional.isEmpty()) {
             User user = new User();
-            user.setTenDangNhap(username);
-            user.setHoTen(fullName);
+            user.setUsername(username);
+            user.setFullName(fullName);
             user.setRoles(new java.util.HashSet<>(java.util.Set.of(role)));
-            user.setMatKhauHash(passwordEncoder.encode("123456"));
-            user.setTrangThaiHoatDong(true);
-            user.setSoDienThoai("0900000000");
+            user.setPasswordHash(passwordEncoder.encode("123456"));
+            user.setIsActive(true);
+            user.setPhone("0900000000");
             try {
                 userRepository.save(user);
             } catch (Exception e) {
@@ -188,16 +203,16 @@ public class AuthService {
             }
         } else {
             User user = userOptional.get();
-            if (!passwordEncoder.matches("123456", user.getMatKhauHash())) {
+            if (!passwordEncoder.matches("123456", user.getPasswordHash())) {
                 log.info("Syncing/Resetting password for seeded user: {}", username);
-                user.setMatKhauHash(passwordEncoder.encode("123456"));
+                user.setPasswordHash(passwordEncoder.encode("123456"));
                 userRepository.save(user);
             }
             
             // Ensure seeded users are ALWAYS active
-            if (!user.getTrangThaiHoatDong()) {
+            if (!user.getIsActive()) {
                 log.info("Activating locked seeded user: {}", username);
-                user.setTrangThaiHoatDong(true);
+                user.setIsActive(true);
                 userRepository.save(user);
             }
             
@@ -216,14 +231,14 @@ public class AuthService {
         seedUser(roleRepository, username, fullName, roleName);
 
         // Then set mechanic attributes
-        var userOptional = userRepository.findByTenDangNhap(username);
+        var userOptional = userRepository.findByUsername(username);
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            if (user.getChuyenMon() == null) {
-                user.setChuyenMon(specialty);
+            if (user.getSpecialty() == null) {
+                user.setSpecialty(specialty);
             }
-            if (user.getCapBac() == null) {
-                user.setCapBac(level);
+            if (user.getLevel() == null) {
+                user.setLevel(level);
             }
             userRepository.save(user);
         }

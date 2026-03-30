@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Package, Wrench, Plus, CheckCircle2 } from 'lucide-react';
-import { searchProductsForMechanic, getTopProductsForMechanic } from '@/modules/service/mechanic';
+import { mechanicService } from '@/modules/mechanic/services/mechanic';
 import { useDebounce } from '@/hooks/useDebounce';
 
 type Product = {
@@ -28,21 +28,45 @@ export default function ProductSearchMechanic({ onSelect, excludeIds = [] }: Pro
 
     const debouncedQuery = useDebounce(query, 300);
 
+    const [error, setError] = useState<string | null>(null);
+
     // Initial load for quick select
     useEffect(() => {
-        getTopProductsForMechanic().then(setTopProducts);
+        const fetchTopProducts = async () => {
+            setError(null);
+            try {
+                const data = await mechanicService.getTopProductsForMechanic();
+                setTopProducts(Array.isArray(data) ? data : []);
+            } catch (err) {
+                console.error("Error loading top products:", err);
+                setError("Không thể tải sản phẩm.");
+                setTopProducts([]);
+            }
+        };
+        fetchTopProducts();
     }, []);
 
     // Search logic
     useEffect(() => {
-        if (debouncedQuery.length >= 1) {
-            setLoading(true);
-            searchProductsForMechanic(debouncedQuery)
-                .then(setResults)
-                .finally(() => setLoading(false));
-        } else {
-            setResults([]);
-        }
+        const performSearch = async () => {
+            if (debouncedQuery.length >= 1) {
+                setLoading(true);
+                setError(null);
+                try {
+                    const results = await mechanicService.searchProductsForMechanic(debouncedQuery);
+                    setResults(Array.isArray(results) ? results : []);
+                } catch (err) {
+                    console.error("Error searching products:", err);
+                    setError("Lỗi tìm kiếm.");
+                    setResults([]);
+                } finally {
+                    setLoading(false);
+                }
+            } else {
+                setResults([]);
+            }
+        };
+        performSearch();
     }, [debouncedQuery]);
 
     const handleSelect = (product: Product) => {

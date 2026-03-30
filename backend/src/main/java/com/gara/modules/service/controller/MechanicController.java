@@ -108,6 +108,18 @@ public class MechanicController {
         }
     }
 
+    // Alias: Frontend gọi DELETE /assignments/{id} để gỡ phân công thợ
+    @DeleteMapping("/assignments/{assignmentId}")
+    public ResponseEntity<?> unassignMechanic(@PathVariable Integer assignmentId,
+            @AuthenticationPrincipal Object principal) {
+        try {
+            mechanicService.adminUnassignItem(assignmentId, extractUserId(principal));
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/mechanics")
     public ResponseEntity<?> getAvailableMechanics(@AuthenticationPrincipal Object principal) {
         return ResponseEntity.ok(mechanicService.getAvailableMechanics());
@@ -132,6 +144,24 @@ public class MechanicController {
     @GetMapping("/jobs/{id}")
     public ResponseEntity<?> getJobDetails(@PathVariable Integer id) {
         return ResponseEntity.ok(mechanicService.getJobDetails(id));
+    }
+
+    @GetMapping("/top-products")
+    public ResponseEntity<?> getTopProducts() {
+        try {
+            return ResponseEntity.ok(mechanicService.getTopProducts());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/search-products")
+    public ResponseEntity<?> searchProducts(@RequestParam String query) {
+        try {
+            return ResponseEntity.ok(mechanicService.searchProducts(query));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
     }
 
     @DeleteMapping("/items/{itemId}")

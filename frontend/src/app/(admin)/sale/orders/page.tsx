@@ -5,37 +5,28 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import Link from 'next/link';
 import { FileText, ArrowRight, ShieldCheck } from 'lucide-react';
-import { useSession } from 'next-auth/react';
-import { api } from '@/lib/api';
 import { getStatusBadge } from '@/lib/status';
 import { formatCurrency } from '@/lib/utils';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { SearchInput } from '@/modules/shared/components/ui/search-input';
+import { useOrders } from '@/modules/sale/hooks/useSale';
+import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
+import { queryKeys } from '@/lib/query-keys';
 
-import { useQuery } from '@tanstack/react-query';
 
 export default function OrderListPage() {
-    const { data: session } = useSession();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const pathname = usePathname();
-
-    // @ts-ignore
-    const token = session?.user?.accessToken;
-
     // Filter state
     const keyword = searchParams.get('q') || '';
 
-    const { data: orders = [], isLoading: loading } = useQuery({
-        queryKey: ['sale', 'orders'],
-        queryFn: async () => {
-            let endpoint = '/sale/orders';
-            return api.get(endpoint, token);
-        },
-        enabled: !!token
-    });
+    const { data: orders = [], isLoading: loading } = useOrders();
 
-    // Local Search
+    useRealtimeUpdate(queryKeys.order.all);
+    useRealtimeUpdate(['sale', 'stats']);
+
+
+    // Local Search - Fields are now normalized by mapOrder service
     const filteredOrders = orders.filter((o: any) =>
         o.plate?.toLowerCase().includes(keyword.toLowerCase()) ||
         o.customerName?.toLowerCase().includes(keyword.toLowerCase())
@@ -87,7 +78,7 @@ export default function OrderListPage() {
                                 >
                                 <table className="w-full text-left border-collapse table-fixed">
                                     <thead className="sticky top-0 z-10">
-                                        <tr className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase transition-colors backdrop-blur-md flex items-center w-full">
+                                        <tr className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 transition-colors backdrop-blur-md flex items-center w-full">
                                             <th className="w-20 px-3 py-4 flex-shrink-0">Mã đơn</th>
                                             <th className="w-28 px-3 py-4 flex-shrink-0">Thời gian</th>
                                             <th className="w-32 px-3 py-4 flex-shrink-0">Biển số</th>
@@ -206,3 +197,4 @@ export default function OrderListPage() {
         </DashboardLayout>
     );
 }
+

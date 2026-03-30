@@ -21,7 +21,7 @@ export default function TraCuuPage() {
         setIsTracking(true);
         setTrackError('');
         try {
-            const data = await api.getCached(`/public/tracking?bienSo=${plate}`);
+            const data = await api.get(`/public/tracking?bienSo=${plate}`);
             if (data && data.success) {
                 setTrackingResult(data);
             } else {

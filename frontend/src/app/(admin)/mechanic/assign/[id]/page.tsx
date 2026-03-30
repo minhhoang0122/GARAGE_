@@ -1,30 +1,39 @@
+'use client';
+
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { getJobDetails, getAvailableMechanics } from '@/modules/service/mechanic';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import AssignBoard from './AssignBoard';
-import { auth } from '@/lib/auth';
 import ClaimJobButton from '../../jobs/[id]/ClaimJobButton';
+import { useSession } from 'next-auth/react';
+import { useJobDetails, useAvailableMechanics } from '@/modules/mechanic/hooks/useMechanic';
+import { use } from 'react';
 
-export const dynamic = 'force-dynamic';
-
-export default async function AssignBoardPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params;
+export default function AssignBoardPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
     const orderId = parseInt(id, 10);
+    const { data: session } = useSession();
+
+    const { data: job, isLoading: jobLoading, isError: jobError } = useJobDetails(orderId);
+    const { data: mechanics = [], isLoading: mechLoading } = useAvailableMechanics();
+
     if (isNaN(orderId)) notFound();
+    if (jobLoading || mechLoading) {
+        return (
+            <DashboardLayout title="Đang tải..." subtitle="Vui lòng đợi">
+                <div className="flex items-center justify-center h-64">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                </div>
+            </DashboardLayout>
+        );
+    }
 
-    const [job, mechanics, session] = await Promise.all([
-        getJobDetails(orderId),
-        getAvailableMechanics(),
-        auth(),
-    ]);
-
-    if (!job) notFound();
+    if (jobError || !job) notFound();
 
     const currentUserId = session?.user?.id ? parseInt(session.user.id) : null;
     const isClaimedByMe = job.claimedById === currentUserId;
-    const isJobActive = !['CHO_THAN_TOAN', 'HOAN_THANH', 'DONG', 'HUY'].includes(job.status || '');
+    const isJobActive = !['CHO_THANH_TOAN', 'HOAN_THANH', 'DONG', 'HUY'].includes(job.status || '');
 
     return (
         <DashboardLayout 

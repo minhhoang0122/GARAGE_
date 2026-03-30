@@ -17,7 +17,13 @@ public class SystemConfigController {
 
     @GetMapping
     public ResponseEntity<Map<String, String>> getAllConfigs() {
-        return ResponseEntity.ok(systemConfigService.getAllConfigs());
+        try {
+            return ResponseEntity.ok(systemConfigService.getAllConfigs());
+        } catch (Exception e) {
+            System.err.println("[SystemConfigController] Error fetching configs: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     @PostMapping

@@ -9,51 +9,51 @@ import java.util.List;
 public interface RepairOrderRepository extends JpaRepository<RepairOrder, Integer> {
 
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.chiTietDonHang i " +
-                        "LEFT JOIN FETCH i.hangHoa " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "LEFT JOIN FETCH x.khachHang " +
-                        "WHERE r.laDonBaoHanh = true " +
-                        "ORDER BY r.ngayTao DESC")
-        List<RepairOrder> findByLaDonBaoHanhTrue();
+                        "LEFT JOIN FETCH r.orderItems i " +
+                        "LEFT JOIN FETCH i.product " +
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer " +
+                        "WHERE r.isWarrantyOrder = true " +
+                        "ORDER BY r.createdAt DESC")
+        List<RepairOrder> findByIsWarrantyOrderTrue();
 
-        List<RepairOrder> findByTrangThaiIn(List<OrderStatus> trangThaiList);
+        List<RepairOrder> findByStatusIn(List<OrderStatus> statusList);
 
         // Optimized: Ordered multi-status query
-        List<RepairOrder> findByTrangThaiInOrderByNgayTaoDesc(List<OrderStatus> trangThaiList);
+        List<RepairOrder> findByStatusInOrderByCreatedAtDesc(List<OrderStatus> statusList);
 
-        long countByTrangThaiIn(List<OrderStatus> statuses);
+        long countByStatusIn(List<OrderStatus> statuses);
 
-        List<RepairOrder> findByTrangThai(OrderStatus trangThai);
+        List<RepairOrder> findByStatus(OrderStatus status);
 
         // Optimized: Use count instead of fetching list
-        long countByTrangThai(OrderStatus trangThai);
+        long countByStatus(OrderStatus status);
 
         // FIX: Eager load details for Export Logic to avoid N+1 or Lazy issues
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.chiTietDonHang i " +
-                        "LEFT JOIN FETCH i.hangHoa h " +
-                        "WHERE r.trangThai IN :statuses " +
-                        "ORDER BY r.ngayTao DESC")
+                        "LEFT JOIN FETCH r.orderItems i " +
+                        "LEFT JOIN FETCH i.product h " +
+                        "WHERE r.status IN :statuses " +
+                        "ORDER BY r.createdAt DESC")
         List<RepairOrder> findWithDetailsByStatusIn(
                         @org.springframework.data.repository.query.Param("statuses") List<OrderStatus> statuses);
 
-        List<RepairOrder> findByTrangThaiOrderByNgayTaoDesc(OrderStatus trangThai);
+        List<RepairOrder> findByStatusOrderByCreatedAtDesc(OrderStatus status);
 
         // Optimized: Fetch items and products for history
         // Optimized: Fetch items and products for history
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.chiTietDonHang i " +
-                        "LEFT JOIN FETCH i.hangHoa h " +
-                        "WHERE r.phieuTiepNhan.xe.bienSo = :plate " +
-                        "ORDER BY r.ngayTao DESC")
-        List<RepairOrder> findTop5ByPhieuTiepNhan_Xe_BienSoOrderByNgayTaoDesc(
+                        "LEFT JOIN FETCH r.orderItems i " +
+                        "LEFT JOIN FETCH i.product h " +
+                        "WHERE r.reception.vehicle.licensePlate = :plate " +
+                        "ORDER BY r.createdAt DESC")
+        List<RepairOrder> findTop5ByReception_Vehicle_LicensePlateOrderByCreatedAtDesc(
                         @org.springframework.data.repository.query.Param("plate") String plate,
                         org.springframework.data.domain.Pageable pageable);
 
-        default List<RepairOrder> findTop5ByPhieuTiepNhan_Xe_BienSoOrderByNgayTaoDesc(String plate) {
-                return findTop5ByPhieuTiepNhan_Xe_BienSoOrderByNgayTaoDesc(plate,
+        default List<RepairOrder> findTop5ByReception_Vehicle_LicensePlateOrderByCreatedAtDesc(String plate) {
+                return findTop5ByReception_Vehicle_LicensePlateOrderByCreatedAtDesc(plate,
                                 org.springframework.data.domain.PageRequest.of(0, 5));
         }
 
@@ -61,54 +61,63 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
         // conversion issues if JPA misbehaves.
         // We'll load related entities in the service layer as needed.
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "ORDER BY r.ngayTao DESC")
-        List<RepairOrder> findTop5ByOrderByNgayTaoDesc(org.springframework.data.domain.Pageable pageable);
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "ORDER BY r.createdAt DESC")
+        List<RepairOrder> findTop5ByOrderByCreatedAtDesc(org.springframework.data.domain.Pageable pageable);
 
-        default List<RepairOrder> findTop5ByOrderByNgayTaoDesc() {
-                return findTop5ByOrderByNgayTaoDesc(org.springframework.data.domain.PageRequest.of(0, 5));
+        default List<RepairOrder> findTop5ByOrderByCreatedAtDesc() {
+                return findTop5ByOrderByCreatedAtDesc(org.springframework.data.domain.PageRequest.of(0, 5));
         }
 
-        // Optimized: Eager fetch relations to avoid N+1 problem
         @Query("SELECT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "WHERE r.trangThai IN ('CHO_SUA_CHUA', 'DANG_SUA', 'DA_DUYET', 'CHO_KH_DUYET') " +
-                        "ORDER BY r.ngayTao DESC")
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "WHERE r.status IN (com.gara.entity.enums.OrderStatus.APPROVED, com.gara.entity.enums.OrderStatus.IN_PROGRESS) " +
+                        "ORDER BY r.createdAt DESC")
         List<RepairOrder> findJobsForMechanic();
 
-        // Optimized: Eager fetch for payment display
         @Query("SELECT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "WHERE r.trangThai = 'CHO_THANH_TOAN' " +
-                        "ORDER BY r.ngayTao DESC")
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "WHERE r.status = com.gara.entity.enums.OrderStatus.WAITING_FOR_PAYMENT " +
+                        "ORDER BY r.createdAt DESC")
         List<RepairOrder> findOrdersAwaitingPayment();
 
-        java.util.Optional<RepairOrder> findByPhieuTiepNhanId(Integer receptionId);
+        @Query("SELECT r FROM RepairOrder r " +
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "WHERE r.balanceDue > 0 AND r.status != com.gara.entity.enums.OrderStatus.CANCELLED " +
+                        "ORDER BY r.createdAt DESC")
+        List<RepairOrder> findOrdersWithDebt();
 
-        @Query("SELECT new com.gara.dto.DebtDTO(c.id, c.hoTen, c.soDienThoai, SUM(r.congNo), COUNT(r)) " +
+        @Query("SELECT COUNT(r) FROM RepairOrder r WHERE r.balanceDue > 0 AND r.status != com.gara.entity.enums.OrderStatus.CANCELLED")
+        long countOrdersWithDebt();
+
+        java.util.Optional<RepairOrder> findByReceptionId(Integer receptionId);
+
+        @Query("SELECT new com.gara.dto.DebtDTO(c.id, c.fullName, c.phone, SUM(r.balanceDue), COUNT(r)) " +
                         "FROM RepairOrder r " +
-                        "JOIN r.phieuTiepNhan.xe.khachHang c " +
-                        "WHERE r.congNo > 0 AND r.trangThai NOT IN (com.gara.entity.enums.OrderStatus.HUY, com.gara.entity.enums.OrderStatus.DONG) "
+                        "JOIN r.reception.vehicle.customer c " +
+                        "WHERE r.balanceDue > 0 AND r.status NOT IN (com.gara.entity.enums.OrderStatus.CANCELLED, com.gara.entity.enums.OrderStatus.CLOSED) "
                         +
-                        "GROUP BY c.id, c.hoTen, c.soDienThoai")
+"GROUP BY c.id, c.fullName, c.phone")
         List<com.gara.dto.DebtDTO> findCustomersWithDebt();
 
         // Bug 34 Remediation: Find orders where Debt > 0 but Status is HUY
-        @Query("SELECT r FROM RepairOrder r WHERE r.congNo > 0 AND r.trangThai = com.gara.entity.enums.OrderStatus.HUY")
+        @Query("SELECT r FROM RepairOrder r WHERE r.balanceDue > 0 AND r.status = com.gara.entity.enums.OrderStatus.CANCELLED")
         List<RepairOrder> findZombiedDebt();
 
         // Get all orders for a customer with optimized fetching
         @Query("SELECT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "WHERE x.khachHang.id = :customerId " +
-                        "ORDER BY r.ngayTao DESC")
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "WHERE v.customer.id = :customerId " +
+                        "ORDER BY r.createdAt DESC")
         List<RepairOrder> findByCustomerId(Integer customerId);
 
         // Optimized: Filter completed orders by date range (using NgayThanhToan or
@@ -116,32 +125,32 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
         // Optimized: Filter completed orders by date range with Eager Loading to
         // prevent N+1
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.chiTietDonHang i " +
-                        "LEFT JOIN FETCH i.phanCongTho pct " +
-                        "LEFT JOIN FETCH pct.tho " +
-                        "WHERE (CASE WHEN r.ngayThanhToan IS NOT NULL THEN r.ngayThanhToan ELSE r.ngayTao END) " +
+                        "LEFT JOIN FETCH r.orderItems i " +
+                        "LEFT JOIN FETCH i.taskAssignments pct " +
+                        "LEFT JOIN FETCH pct.mechanic " +
+                        "WHERE (CASE WHEN r.paidAt IS NOT NULL THEN r.paidAt ELSE r.createdAt END) " +
                         "BETWEEN :start AND :end " +
-                        "AND r.trangThai IN ('HOAN_THANH', 'DONG')")
+                        "AND r.status IN (com.gara.entity.enums.OrderStatus.COMPLETED, com.gara.entity.enums.OrderStatus.CLOSED)")
         List<RepairOrder> findCompletedOrdersBetween(
                         @org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start,
                         @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
 
         // Optimized: Get receptions for inspection with eager loading (avoid N+1)
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "LEFT JOIN FETCH r.chiTietDonHang " +
-                        "WHERE r.trangThai IN ('TIEP_NHAN', 'CHO_CHAN_DOAN') " +
-                        "ORDER BY r.ngayTao DESC")
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "LEFT JOIN FETCH r.orderItems " +
+                        "WHERE r.status IN (com.gara.entity.enums.OrderStatus.RECEIVED, com.gara.entity.enums.OrderStatus.WAITING_FOR_DIAGNOSIS) " +
+                        "ORDER BY r.createdAt DESC")
         List<RepairOrder> findOrdersForInspection();
 
         // Optimized: Get all orders with eager loading for Sale list (limit 100)
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "ORDER BY r.ngayTao DESC")
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "ORDER BY r.createdAt DESC")
         List<RepairOrder> findAllOrdersOptimized(org.springframework.data.domain.Pageable pageable);
 
         default List<RepairOrder> findAllOrdersOptimized() {
@@ -151,11 +160,11 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
         // Optimized: Get orders that have passed inspection (History for Diagnostic
         // Mechanic)
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "WHERE r.trangThai NOT IN ('TIEP_NHAN', 'CHO_CHAN_DOAN', 'HUY') " +
-                        "ORDER BY r.ngayTao DESC")
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "WHERE r.status NOT IN (com.gara.entity.enums.OrderStatus.RECEIVED, com.gara.entity.enums.OrderStatus.WAITING_FOR_DIAGNOSIS, com.gara.entity.enums.OrderStatus.CANCELLED) " +
+                        "ORDER BY r.createdAt DESC")
         List<RepairOrder> findOrdersPostInspection(org.springframework.data.domain.Pageable pageable);
 
         default List<RepairOrder> findOrdersPostInspection() {
@@ -164,64 +173,64 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
 
         // Personalized History for Diagnostic Mechanic (Include Active QC Jobs)
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "WHERE (r.trangThai NOT IN ('TIEP_NHAN', 'CHO_CHAN_DOAN', 'HUY') " +
-                        "OR r.trangThai = 'CHO_KCS') " +
-                        "AND r.thoChanDoan.id = :mechanicId " +
-                        "ORDER BY r.ngayTao DESC")
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "WHERE (r.status NOT IN (com.gara.entity.enums.OrderStatus.RECEIVED, com.gara.entity.enums.OrderStatus.WAITING_FOR_DIAGNOSIS, com.gara.entity.enums.OrderStatus.CANCELLED) " +
+                        "OR r.status = com.gara.entity.enums.OrderStatus.WAITING_FOR_QC) " +
+                        "AND r.diagnosticMechanic.id = :mechanicId " +
+                        "ORDER BY r.createdAt DESC")
         List<RepairOrder> findHistoryByDiagnosticMechanic(
                         @org.springframework.data.repository.query.Param("mechanicId") Integer mechanicId,
                         org.springframework.data.domain.Pageable pageable);
 
         // Personalized History for Repair Mechanic
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "WHERE r.trangThai IN ('CHO_THANH_TOAN', 'HOAN_THANH', 'DONG') " +
-                        "AND r.thoPhanCong.id = :mechanicId " +
-                        "ORDER BY r.ngayTao DESC")
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "WHERE r.status IN (com.gara.entity.enums.OrderStatus.WAITING_FOR_PAYMENT, com.gara.entity.enums.OrderStatus.COMPLETED, com.gara.entity.enums.OrderStatus.CLOSED) " +
+                        "AND r.assignedMechanic.id = :mechanicId " +
+                        "ORDER BY r.createdAt DESC")
         List<RepairOrder> findRepairHistoryByMechanic(
                         @org.springframework.data.repository.query.Param("mechanicId") Integer mechanicId,
                         org.springframework.data.domain.Pageable pageable);
 
-        List<RepairOrder> findByPhieuTiepNhan_Xe_BienSoAndTrangThaiIn(String plate, List<OrderStatus> statuses);
+        List<RepairOrder> findByReception_Vehicle_LicensePlateAndStatusIn(String plate, List<OrderStatus> statuses);
 
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "JOIN r.chiTietDonHang i " +
-                        "JOIN i.hangHoa h " +
-                        "WHERE r.trangThai IN ('HOAN_THANH', 'DONG') " +
-                        "AND h.baoHanhSoThang > 0 " +
-                        "AND r.ngayTao > CURRENT_TIMESTAMP")
+                        "JOIN r.orderItems i " +
+                        "JOIN i.product h " +
+                        "WHERE r.status IN (com.gara.entity.enums.OrderStatus.COMPLETED, com.gara.entity.enums.OrderStatus.CLOSED) " +
+                        "AND h.warrantyMonths > 0 " +
+                        "AND r.createdAt > CURRENT_TIMESTAMP")
         List<RepairOrder> findOrdersWithActiveWarranty();
 
         @Query(value = "SELECT COUNT(DISTINCT i.id) " +
-                        "FROM donhangsuachua r " +
-                        "JOIN chitietdonhang i ON r.id = i.don_hang_sua_chua_id " +
-                        "JOIN hanghoa h ON i.hang_hoa_id = h.id " +
-                        "JOIN phieutiepnhan ptn ON r.phieu_tiep_nhan_id = ptn.id " +
-                        "JOIN xe x ON ptn.xe_bien_so = x.bien_so " +
-                        "WHERE x.bien_so = :plate " +
-                        "AND r.trang_thai IN ('HOAN_THANH', 'DONG') " +
-                        "AND h.bao_hanh_so_thang > 0 " +
-                        "AND (r.ngay_tao + (h.bao_hanh_so_thang || ' month')::interval) > CURRENT_TIMESTAMP", nativeQuery = true)
+                        "FROM repair_orders r " +
+                        "JOIN order_items i ON r.id = i.repair_order_id " +
+                        "JOIN products h ON i.product_id = h.id " +
+                        "JOIN receptions ptn ON r.reception_id = ptn.id " +
+                        "JOIN vehicles v ON ptn.license_plate = v.license_plate " +
+                        "WHERE v.license_plate = :plate " +
+                        "AND r.status IN ('COMPLETED', 'CLOSED') " +
+                        "AND h.warranty_months > 0 " +
+                        "AND (r.created_at + (h.warranty_months || ' month')::interval) > CURRENT_TIMESTAMP", nativeQuery = true)
         long countActiveWarrantiesByPlate(@org.springframework.data.repository.query.Param("plate") String plate);
 
         // ===== N+1 FIX: Full detail fetch for single order (used by SaleService,
         // MechanicService, PaymentService) =====
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.chiTietDonHang i " +
-                        "LEFT JOIN FETCH i.hangHoa " +
-                        "LEFT JOIN FETCH i.nguoiDeXuat " +
-                        "LEFT JOIN FETCH i.nguoiThucHien " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "LEFT JOIN FETCH x.khachHang " +
-                        "LEFT JOIN FETCH r.nguoiPhuTrach " +
-                        "LEFT JOIN FETCH r.thoPhanCong " +
-                        "LEFT JOIN FETCH r.thoChanDoan " +
+                        "LEFT JOIN FETCH r.orderItems i " +
+                        "LEFT JOIN FETCH i.product " +
+                        "LEFT JOIN FETCH i.suggestedBy " +
+                        "LEFT JOIN FETCH i.mechanic " +
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer " +
+                        "LEFT JOIN FETCH r.serviceAdvisor " +
+                        "LEFT JOIN FETCH r.assignedMechanic " +
+                        "LEFT JOIN FETCH r.diagnosticMechanic " +
                         "WHERE r.id = :id")
         java.util.Optional<RepairOrder> findByIdWithFullDetails(
                         @org.springframework.data.repository.query.Param("id") Integer id);
@@ -229,36 +238,56 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
         // ===== N+1 FIX: Orders by single status with eager fetch (used by
         // SaleService.getOrders) =====
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "WHERE r.trangThai = :status " +
-                        "ORDER BY r.ngayTao DESC")
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "WHERE r.status = :status " +
+                        "ORDER BY r.createdAt DESC")
         List<RepairOrder> findByStatusOptimized(
                         @org.springframework.data.repository.query.Param("status") OrderStatus status);
 
         // ===== N+1 FIX: Orders by multiple statuses with eager fetch =====
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.phieuTiepNhan ptn " +
-                        "LEFT JOIN FETCH ptn.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "LEFT JOIN FETCH ptn.nguoiTiepNhan ntn " +
-                        "WHERE r.trangThai IN :statuses " +
-                        "ORDER BY r.ngayTao DESC")
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "LEFT JOIN FETCH rpt.receptionist rec " +
+                        "WHERE r.status IN :statuses " +
+                        "ORDER BY r.createdAt DESC")
         List<RepairOrder> findByStatusesOptimized(
                         @org.springframework.data.repository.query.Param("statuses") List<OrderStatus> statuses);
 
         // ===== N+1 FIX: Order by reception ID with items + products (used by
         // MechanicService.getReceptionDetail) =====
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
-                        "LEFT JOIN FETCH r.chiTietDonHang i " +
-                        "LEFT JOIN FETCH i.hangHoa " +
-                        "WHERE r.phieuTiepNhan.id = :receptionId")
-        java.util.Optional<RepairOrder> findByPhieuTiepNhanIdWithDetails(
+                        "LEFT JOIN FETCH r.orderItems i " +
+                        "LEFT JOIN FETCH i.product " +
+                        "WHERE r.reception.id = :receptionId")
+        java.util.Optional<RepairOrder> findByReceptionIdWithDetails(
                         @org.springframework.data.repository.query.Param("receptionId") Integer receptionId);
 
         @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
         @org.springframework.data.jpa.repository.Query("SELECT r FROM RepairOrder r WHERE r.id = :id")
         java.util.Optional<RepairOrder> findByIdWithLock(
-                        @org.springframework.data.repository.query.Param("id") Integer id);
+            @org.springframework.data.repository.query.Param("id") Integer id);
+
+    java.util.Optional<RepairOrder> findByUuid(java.util.UUID uuid);
+
+    @Query("SELECT DISTINCT r FROM RepairOrder r " +
+                    "LEFT JOIN FETCH r.orderItems i " +
+                    "LEFT JOIN FETCH i.product " +
+                    "LEFT JOIN FETCH r.reception rpt " +
+                    "LEFT JOIN FETCH rpt.vehicle v " +
+                    "LEFT JOIN FETCH v.customer " +
+                    "WHERE r.uuid = :uuid")
+    java.util.Optional<RepairOrder> findByUuidWithDetails(@org.springframework.data.repository.query.Param("uuid") java.util.UUID uuid);
+
+    List<RepairOrder> findAllByAssignedMechanicIdAndStatusIn(Integer mechanicId, List<OrderStatus> statuses);
+
+    long countByStatusAndUpdatedAtAfter(OrderStatus status, java.time.LocalDateTime after);
+
+    @Query("SELECT DISTINCT r FROM RepairOrder r JOIN r.orderItems i WHERE i.status = :itemStatus")
+    List<RepairOrder> findOrdersByItemStatus(@org.springframework.data.repository.query.Param("itemStatus") com.gara.entity.enums.ItemStatus itemStatus);
+
+    List<RepairOrder> findByDiagnosticMechanicIdAndStatusNotIn(Integer mechanicId, List<OrderStatus> statuses);
 }

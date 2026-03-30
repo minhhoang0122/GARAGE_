@@ -3,7 +3,6 @@
 import React, { useState, useMemo, Fragment } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { api } from '@/lib/api';
-import { useSession } from 'next-auth/react';
 import { Search, History, Filter, User, Calendar, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { Card } from '@/modules/shared/components/ui/card';
@@ -22,19 +21,14 @@ type AuditLog = {
 };
 
 export default function AuditLogsPage() {
-    const { data: session } = useSession();
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedLog, setExpandedLog] = useState<number | null>(null);
-
-    // @ts-ignore
-    const token = session?.user?.accessToken;
 
     const { data: logs = [], isLoading } = useQuery({
         queryKey: ['audit-logs'],
         queryFn: async () => {
-            return await api.get('/admin/audit-logs', token);
+            return await api.get('/admin/audit-logs');
         },
-        enabled: !!token
     });
 
     const filteredLogs = useMemo(() => {

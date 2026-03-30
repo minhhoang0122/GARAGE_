@@ -3,6 +3,16 @@ import PrintButton from './PrintButton';
 import { auth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import PrintLayout from '@/modules/shared/components/common/PrintLayout';
+import { 
+    isQuoting, 
+    isWaitingForCustomer, 
+    isApproved, 
+    isInProgress, 
+    isWaitingPayment, 
+    isCompleted, 
+    isClosed, 
+    isCancelled 
+} from '@/lib/status';
 
 export default async function PrintQuotePage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ type?: string }> }) {
     const { id } = await params;
@@ -82,7 +92,7 @@ export default async function PrintQuotePage({ params, searchParams }: { params:
     let label = 'Thông tin báo giá';
 
     // isDraft is strictly for the watermark
-    const isDraft = order.status === 'BAO_GIA';
+    const isDraft = isQuoting(order.status);
 
     // Check for "release_note" mode
     const isReleaseNote = resolvedSearchParams?.type === 'release_note';
@@ -157,35 +167,26 @@ export default async function PrintQuotePage({ params, searchParams }: { params:
         );
     }
 
-    switch (order.status) {
-        case 'BAO_GIA':
-            documentTitle = 'BÁO GIÁ DỰ KIẾN';
-            prefix = 'BG';
-            label = 'Thông tin báo giá';
-            break;
-        case 'CHO_KH_DUYET':
-            documentTitle = 'BÁO GIÁ SỬA CHỮA';
-            prefix = 'BG';
-            label = 'Thông tin báo giá';
-            break;
-        case 'DA_DUYET':
-        case 'DANG_SUA':
-            documentTitle = 'LỆNH SỬA CHỮA';
-            prefix = 'LSC';
-            label = 'Thông tin lệnh';
-            break;
-        case 'CHO_THANH_TOAN':
-        case 'HOAN_THANH':
-        case 'DONG':
-            documentTitle = 'QUYẾT TOÁN SỬA CHỮA';
-            prefix = 'HD';
-            label = 'Thông tin hóa đơn';
-            break;
-        case 'HUY':
-            documentTitle = 'PHIẾU HỦY DỊCH VỤ';
-            prefix = 'HUY';
-            label = 'Thông tin phiếu';
-            break;
+    if (isQuoting(order.status)) {
+        documentTitle = 'BÁO GIÁ DỰ KIẾN';
+        prefix = 'BG';
+        label = 'Thông tin báo giá';
+    } else if (isWaitingForCustomer(order.status)) {
+        documentTitle = 'BÁO GIÁ SỬA CHỮA';
+        prefix = 'BG';
+        label = 'Thông tin báo giá';
+    } else if (isApproved(order.status) || isInProgress(order.status)) {
+        documentTitle = 'LỆNH SỬA CHỮA';
+        prefix = 'LSC';
+        label = 'Thông tin lệnh';
+    } else if (isWaitingPayment(order.status) || isCompleted(order.status) || isClosed(order.status)) {
+        documentTitle = 'QUYẾT TOÁN SỬA CHỮA';
+        prefix = 'HD';
+        label = 'Thông tin hóa đơn';
+    } else if (isCancelled(order.status)) {
+        documentTitle = 'PHIẾU HỦY DỊCH VỤ';
+        prefix = 'HUY';
+        label = 'Thông tin phiếu';
     }
 
     return (

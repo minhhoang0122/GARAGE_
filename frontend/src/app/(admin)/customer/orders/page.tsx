@@ -30,18 +30,12 @@ function formatDate(date: string) {
     });
 }
 
-import { useQuery } from '@tanstack/react-query';
+import { useMyOrders } from '@/modules/customer/hooks/useCustomer';
 
 export default function CustomerOrdersPage() {
     const router = useRouter();
 
-    const { data: orders = [], isLoading } = useQuery({
-        queryKey: ['customer', 'orders'],
-        queryFn: async () => {
-            const data = await getMyOrders();
-            return data || [];
-        }
-    });
+    const { data: orders = [], isLoading } = useMyOrders();
 
     if (isLoading) {
         return (
@@ -68,7 +62,7 @@ export default function CustomerOrdersPage() {
                     </Card>
                 ) : (
                     <div className="space-y-4">
-                        {orders.map((order) => {
+                        {orders.map((order: any) => {
                             const status = statusMap[order.status] || { label: order.status, color: 'bg-slate-400' };
                             return (
                                 <Card

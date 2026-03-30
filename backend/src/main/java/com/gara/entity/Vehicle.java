@@ -4,8 +4,12 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "xe", indexes = {
-        @Index(name = "idx_bien_so", columnList = "bien_so", unique = true)
+@Table(name = "vehicles", indexes = {
+        @Index(name = "idx_vehicles_license_plate", columnList = "license_plate", unique = true),
+        @Index(name = "idx_vehicles_vin", columnList = "vin"),
+        @Index(name = "idx_vehicles_brand", columnList = "vehicle_name"),
+        @Index(name = "idx_vehicles_model", columnList = "model"),
+        @Index(name = "idx_vehicles_customer_id", columnList = "customer_id")
 })
 public class Vehicle {
 
@@ -14,42 +18,48 @@ public class Vehicle {
     @Column(name = "id")
     private Integer id;
 
-    @Column(name = "bien_so", length = 20, unique = true, nullable = false)
-    private String bienSo;
+    @Column(name = "license_plate", length = 20, unique = true, nullable = false)
+    private String licensePlate;
 
-    @Column(name = "ghi_chu", columnDefinition = "TEXT")
-    private String soKhung;
+    @Column(name = "vin", length = 50)
+    private String vin;
 
-    @Column(name = "so_may", length = 50)
-    private String soMay;
+    @Column(name = "engine_number", length = 50)
+    private String engineNumber;
 
-    @Column(name = "ten_xe", nullable = false, length = 100)
-    private String nhanHieu;
+    @Column(name = "vehicle_name", length = 100)
+    private String brand;
 
     @Column(name = "model", length = 50)
     private String model;
 
-    @Column(name = "dong_xe", length = 50)
-    private String loaiXe = "CAR"; // CAR, MOTO, TRUCK...
+    @Column(name = "color", length = 30)
+    private String color;
 
-    @Column(name = "odo_hien_tai")
-    private Integer odoHienTai = 0;
+    @Column(name = "production_year")
+    private Integer productionYear;
 
-    @Column(name = "nam_san_xuat")
-    private LocalDateTime ngayTao;
+    @Column(name = "vehicle_type", length = 50)
+    private String vehicleType = "CAR"; // CAR, MOTO, TRUCK...
 
-    @Column(name = "khach_hang_id", insertable = false, updatable = false)
-    private Integer khachHangId;
+    @Column(name = "current_odo")
+    private Integer currentOdo = 0;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "customer_id", insertable = false, updatable = false)
+    private Integer customerId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "khach_hang_id", nullable = false)
-    private Customer khachHang;
+    @JoinColumn(name = "customer_id", nullable = false)
+    private Customer customer;
 
     @PrePersist
     protected void onCreate() {
-        ngayTao = LocalDateTime.now();
-        if (odoHienTai == null) {
-            odoHienTai = 0;
+        createdAt = LocalDateTime.now();
+        if (currentOdo == null) {
+            currentOdo = 0;
         }
         normalizeAndValidate();
     }
@@ -60,70 +70,62 @@ public class Vehicle {
     }
 
     private void normalizeAndValidate() {
-        if (bienSo == null || bienSo.isBlank()) {
+        if (licensePlate == null || licensePlate.isBlank()) {
             throw new RuntimeException("Biển số không được để trống.");
         }
 
         // 1. Clean: Remove all non-alphanumeric characters and Uppercase
-        String raw = bienSo.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+        String raw = licensePlate.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
 
         if (raw.length() < 7 || raw.length() > 9) {
             throw new RuntimeException("Độ dài biển số không hợp lệ (7-9 ký tự số/chữ).");
         }
 
-        // Allowed letters for Bike (excluding I, J, O, Q, W, R only for trailers?) -
-        // Circular 24 is specific.
-        // For simplicity and to avoid blocking valid edge cases (like electric
-        // bikes/trailers), we keep it relatively broad
-        // but can be stricter if user insists.
-        // Standard series uses: A, B, C, D, E, F, G, H, K, L, M, N, P, S, T, U, V, X,
-        // Y, Z.
-
         // 2. Auto-Format based on Vehicle Type and Length
-        if ("CAR".equalsIgnoreCase(loaiXe)) {
+        if ("CAR".equalsIgnoreCase(vehicleType)) {
             // New Standard (5 numbers): 30K12345 -> 30K-123.45
             if (raw.length() == 8) {
-                this.bienSo = raw.substring(0, 3) + "-" + raw.substring(3, 6) + "." + raw.substring(6);
+                this.licensePlate = raw.substring(0, 3) + "-" + raw.substring(3, 6) + "." + raw.substring(6);
             }
             // Old Standard (4 numbers): 29A9999 -> 29A-9999
             else if (raw.length() == 7) {
-                this.bienSo = raw.substring(0, 3) + "-" + raw.substring(3);
+                this.licensePlate = raw.substring(0, 3) + "-" + raw.substring(3);
             } else {
-                this.bienSo = raw;
+                this.licensePlate = raw;
             }
-        } else if ("MOTO".equalsIgnoreCase(loaiXe)) {
+        } else if ("MOTO".equalsIgnoreCase(vehicleType)) {
             // New/Standard (5 numbers): 29X112345 -> 29-X1 123.45
             if (raw.length() == 9) {
-                this.bienSo = raw.substring(0, 2) + "-" + raw.substring(2, 4) + " " + raw.substring(4, 7) + "."
+                this.licensePlate = raw.substring(0, 2) + "-" + raw.substring(2, 4) + " " + raw.substring(4, 7) + "."
                         + raw.substring(7);
             }
             // Old 4-num MOTO if needed (29H19999 -> 29-H1 9999) - Length 8
             else if (raw.length() == 8) {
-                this.bienSo = raw.substring(0, 2) + "-" + raw.substring(2, 4) + " " + raw.substring(4);
+                this.licensePlate = raw.substring(0, 2) + "-" + raw.substring(2, 4) + " " + raw.substring(4);
             } else {
-                this.bienSo = raw;
+                this.licensePlate = raw;
             }
         } else {
-            this.bienSo = raw;
+            this.licensePlate = raw;
         }
     }
 
     public Vehicle() {
     }
 
-    public Vehicle(Integer id, String bienSo, String soKhung, String soMay, String nhanHieu, String model,
-            Integer odoHienTai,
-            LocalDateTime ngayTao, Integer khachHangId, Customer khachHang) {
+    public Vehicle(Integer id, String licensePlate, String vin, String engineNumber, String brand, String model,
+            Integer currentOdo,
+            LocalDateTime createdAt, Integer customerId, Customer customer) {
         this.id = id;
-        this.bienSo = bienSo;
-        this.soKhung = soKhung;
-        this.soMay = soMay;
-        this.nhanHieu = nhanHieu;
+        this.licensePlate = licensePlate;
+        this.vin = vin;
+        this.engineNumber = engineNumber;
+        this.brand = brand;
         this.model = model;
-        this.odoHienTai = odoHienTai;
-        this.ngayTao = ngayTao;
-        this.khachHangId = khachHangId;
-        this.khachHang = khachHang;
+        this.currentOdo = currentOdo;
+        this.createdAt = createdAt;
+        this.customerId = customerId;
+        this.customer = customer;
     }
 
     public Integer getId() {
@@ -134,36 +136,36 @@ public class Vehicle {
         this.id = id;
     }
 
-    public String getBienSo() {
-        return bienSo;
+    public String getLicensePlate() {
+        return licensePlate;
     }
 
-    public void setBienSo(String bienSo) {
-        this.bienSo = bienSo;
+    public void setLicensePlate(String licensePlate) {
+        this.licensePlate = licensePlate;
     }
 
-    public String getSoKhung() {
-        return soKhung;
+    public String getVin() {
+        return vin;
     }
 
-    public void setSoKhung(String soKhung) {
-        this.soKhung = soKhung;
+    public void setVin(String vin) {
+        this.vin = vin;
     }
 
-    public String getSoMay() {
-        return soMay;
+    public String getEngineNumber() {
+        return engineNumber;
     }
 
-    public void setSoMay(String soMay) {
-        this.soMay = soMay;
+    public void setEngineNumber(String engineNumber) {
+        this.engineNumber = engineNumber;
     }
 
-    public String getNhanHieu() {
-        return nhanHieu;
+    public String getBrand() {
+        return brand;
     }
 
-    public void setNhanHieu(String nhanHieu) {
-        this.nhanHieu = nhanHieu;
+    public void setBrand(String brand) {
+        this.brand = brand;
     }
 
     public String getModel() {
@@ -174,44 +176,44 @@ public class Vehicle {
         this.model = model;
     }
 
-    public String getLoaiXe() {
-        return loaiXe;
+    public String getVehicleType() {
+        return vehicleType;
     }
 
-    public void setLoaiXe(String loaiXe) {
-        this.loaiXe = loaiXe;
+    public void setVehicleType(String vehicleType) {
+        this.vehicleType = vehicleType;
     }
 
-    public Integer getOdoHienTai() {
-        return odoHienTai;
+    public Integer getCurrentOdo() {
+        return currentOdo;
     }
 
-    public void setOdoHienTai(Integer odoHienTai) {
-        this.odoHienTai = odoHienTai;
+    public void setCurrentOdo(Integer currentOdo) {
+        this.currentOdo = currentOdo;
     }
 
-    public LocalDateTime getNgayTao() {
-        return ngayTao;
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 
-    public void setNgayTao(LocalDateTime ngayTao) {
-        this.ngayTao = ngayTao;
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 
-    public Integer getKhachHangId() {
-        return khachHangId;
+    public Integer getCustomerId() {
+        return customerId;
     }
 
-    public void setKhachHangId(Integer khachHangId) {
-        this.khachHangId = khachHangId;
+    public void setCustomerId(Integer customerId) {
+        this.customerId = customerId;
     }
 
-    public Customer getKhachHang() {
-        return khachHang;
+    public Customer getCustomer() {
+        return customer;
     }
 
-    public void setKhachHang(Customer khachHang) {
-        this.khachHang = khachHang;
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
     }
 
     public static VehicleBuilder builder() {
@@ -220,38 +222,38 @@ public class Vehicle {
 
     public static class VehicleBuilder {
         private Integer id;
-        private String bienSo;
-        private String soKhung;
-        private String soMay;
-        private String nhanHieu;
+        private String licensePlate;
+        private String vin;
+        private String engineNumber;
+        private String brand;
         private String model;
-        private Integer odoHienTai = 0;
-        private LocalDateTime ngayTao;
-        private Integer khachHangId;
-        private Customer khachHang;
+        private Integer currentOdo = 0;
+        private LocalDateTime createdAt;
+        private Integer customerId;
+        private Customer customer;
 
         public VehicleBuilder id(Integer id) {
             this.id = id;
             return this;
         }
 
-        public VehicleBuilder bienSo(String bienSo) {
-            this.bienSo = bienSo;
+        public VehicleBuilder licensePlate(String licensePlate) {
+            this.licensePlate = licensePlate;
             return this;
         }
 
-        public VehicleBuilder soKhung(String soKhung) {
-            this.soKhung = soKhung;
+        public VehicleBuilder vin(String vin) {
+            this.vin = vin;
             return this;
         }
 
-        public VehicleBuilder soMay(String soMay) {
-            this.soMay = soMay;
+        public VehicleBuilder engineNumber(String engineNumber) {
+            this.engineNumber = engineNumber;
             return this;
         }
 
-        public VehicleBuilder nhanHieu(String nhanHieu) {
-            this.nhanHieu = nhanHieu;
+        public VehicleBuilder brand(String brand) {
+            this.brand = brand;
             return this;
         }
 
@@ -260,29 +262,29 @@ public class Vehicle {
             return this;
         }
 
-        public VehicleBuilder odoHienTai(Integer odoHienTai) {
-            this.odoHienTai = odoHienTai;
+        public VehicleBuilder currentOdo(Integer currentOdo) {
+            this.currentOdo = currentOdo;
             return this;
         }
 
-        public VehicleBuilder ngayTao(LocalDateTime ngayTao) {
-            this.ngayTao = ngayTao;
+        public VehicleBuilder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
             return this;
         }
 
-        public VehicleBuilder khachHangId(Integer khachHangId) {
-            this.khachHangId = khachHangId;
+        public VehicleBuilder customerId(Integer customerId) {
+            this.customerId = customerId;
             return this;
         }
 
-        public VehicleBuilder khachHang(Customer khachHang) {
-            this.khachHang = khachHang;
+        public VehicleBuilder customer(Customer customer) {
+            this.customer = customer;
             return this;
         }
 
         public Vehicle build() {
-            return new Vehicle(id, bienSo, soKhung, soMay, nhanHieu, model, odoHienTai, ngayTao, khachHangId,
-                    khachHang);
+            return new Vehicle(id, licensePlate, vin, engineNumber, brand, model, currentOdo, createdAt, customerId,
+                    customer);
         }
     }
 }

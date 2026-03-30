@@ -4,16 +4,14 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Button } from '@/modules/shared/components/ui/button';
-import { api } from '@/lib/api';
-import { useSession } from 'next-auth/react';
 import { formatCurrency } from '@/lib/utils';
 import {
     ChevronLeft, Package, Clock, ArrowDownCircle,
     ArrowUpCircle, AlertTriangle, Loader2, Trash2,
-    Calendar, User, History, Layers
+    Calendar, User, History as HistoryIcon, Layers
 } from 'lucide-react';
-import { useToast } from '@/contexts/ToastContext';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/modules/shared/components/ui/use-toast';
+import { useProductDetail, useBatches, useMovements, useDisposeBatch } from '@/modules/warehouse/hooks/useWarehouse';
 
 interface Batch {
     id: number;
@@ -33,73 +31,31 @@ interface Movement {
     user: string;
 }
 
-// Helper to handle both flat and wrapped (OData/Custom) responses
-const unwrap = (res: any) => {
-    if (!res) return null;
-    if (res.value !== undefined && Array.isArray(res.value)) return res.value;
-    if (res.value !== undefined) return res.value;
-    if (res.items !== undefined && Array.isArray(res.items)) return res.items;
-    return res;
-};
+
 
 export default function BatchDetailsPage() {
     const params = useParams();
     const router = useRouter();
-    const queryClient = useQueryClient();
-    const { data: session } = useSession();
     const productId = params.id as string;
-    const { showToast } = useToast();
+    const { toast } = useToast();
 
     const [activeTab, setActiveTab] = useState<'batches' | 'movements'>('batches');
     
-    // @ts-ignore
-    const token = session?.user?.accessToken;
-
-    const { data: product, isLoading: loadingProduct } = useQuery({
-        queryKey: ['warehouse-product', productId],
-        queryFn: async () => {
-            const res = await api.get(`/warehouse/inventory/product/${productId}`, token);
-            return unwrap(res);
-        },
-        enabled: !!token && !!productId
-    });
-
-    const { data: batches = [], isLoading: loadingBatches } = useQuery({
-        queryKey: ['warehouse-batches', productId],
-        queryFn: async () => {
-            const res = await api.get(`/warehouse/inventory/${productId}/batches`, token);
-            const data = unwrap(res);
-            return Array.isArray(data) ? data : [];
-        },
-        enabled: !!token && !!productId
-    });
-
-    const { data: movements = [], isLoading: loadingMovements } = useQuery({
-        queryKey: ['warehouse-movements', productId],
-        queryFn: async () => {
-            const res = await api.get(`/warehouse/inventory/${productId}/movements`, token);
-            const data = unwrap(res);
-            return Array.isArray(data) ? data : [];
-        },
-        enabled: !!token && !!productId
-    });
-
-    const disposeMutation = useMutation({
-        mutationFn: (batchId: number) => api.post(`/warehouse/inventory/batch/${batchId}/dispose`, {}, token),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['warehouse-product', productId] });
-            queryClient.invalidateQueries({ queryKey: ['warehouse-batches', productId] });
-            queryClient.invalidateQueries({ queryKey: ['warehouse-movements', productId] });
-            showToast('success', 'Thanh lý lô hàng thành công');
-        },
-        onError: () => {
-            showToast('error', 'Thanh lý thất bại');
-        }
-    });
+    const { data: product, isLoading: loadingProduct } = useProductDetail(productId);
+    const { data: batches = [], isLoading: loadingBatches } = useBatches(productId);
+    const { data: movements = [], isLoading: loadingMovements } = useMovements(productId);
+    const disposeMutation = useDisposeBatch(productId);
 
     const handleDispose = (batchId: number) => {
         if (!confirm('Xác nhận thanh lý lô hàng hết hạn này?')) return;
-        disposeMutation.mutate(batchId);
+        disposeMutation.mutate(batchId, {
+            onSuccess: () => {
+                toast({ title: "Thành công", description: "Thanh lý lô hàng thành công" });
+            },
+            onError: () => {
+                toast({ title: "Lỗi", description: "Thanh lý thất bại", variant: "destructive" });
+            }
+        });
     };
 
     const loading = loadingProduct || loadingBatches || loadingMovements;
@@ -150,14 +106,14 @@ export default function BatchDetailsPage() {
                     <div className="ml-auto flex gap-10">
                         <div className="text-center">
                             <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Tổng tồn kho</p>
-                            <p className={`text-2xl font-black ${product?.stock <= (product?.minStock || 5) ? 'text-red-600' : 'text-slate-900 dark:text-slate-100'}`}>
-                                {product?.stock}
+                            <p className={`text-2xl font-black ${(product?.stock ?? 0) <= (product?.minStock || 5) ? 'text-red-600' : 'text-slate-900 dark:text-slate-100'}`}>
+                                {product?.stock ?? 0}
                             </p>
                         </div>
                         <div className="text-center">
                             <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Giá bán</p>
                             <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                                {formatCurrency(product?.price)}
+                                {formatCurrency(product?.price ?? 0)}
                             </p>
                         </div>
                     </div>
@@ -182,7 +138,7 @@ export default function BatchDetailsPage() {
                             : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
                             }`}
                     >
-                        <History className="w-4 h-4" />
+                        <HistoryIcon className="w-4 h-4" />
                         Lịch sử biến động ({movements.length})
                     </button>
                 </div>
@@ -208,7 +164,7 @@ export default function BatchDetailsPage() {
                                             <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">Không có lô hàng nào.</td>
                                         </tr>
                                     ) : (
-                                        batches.map((batch: any) => {
+                                        batches.map((batch: Batch) => {
                                             const expiryDate = new Date(batch.expiryDate);
                                             const today = new Date();
                                             const oneMonthFromNow = new Date();
@@ -270,7 +226,7 @@ export default function BatchDetailsPage() {
                                             <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Chưa có lịch sử biến động.</td>
                                         </tr>
                                     ) : (
-                                        movements.map((move: any, idx: number) => (
+                                        movements.map((move: Movement, idx: number) => (
                                             <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex flex-col">

@@ -2,10 +2,9 @@
 
 import React, { useState } from 'react';
 import { RotateCcw } from 'lucide-react';
-import { returnStock } from '@/modules/inventory/warehouse';
+import { useReturnStock } from '@/modules/warehouse/hooks/useWarehouse';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/contexts/ToastContext';
-import { api } from '@/lib/api';
+import { useToast } from '@/modules/shared/components/ui/use-toast';
 
 interface ReturnItemButtonProps {
     orderId: number;
@@ -21,32 +20,29 @@ export default function ReturnItemButton({ orderId, productId, productName, maxQ
     const [reason, setReason] = useState('Thừa không dùng');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
-    const { showToast } = useToast();
+    const { toast } = useToast();
+    const returnStockMutation = useReturnStock();
 
     const handleReturn = async () => {
         if (quantity <= 0 || quantity > maxQuantity) return;
-        setLoading(true);
-        try {
-            const res = await returnStock(orderId, productId, quantity, reason);
-            if (res.success) {
-                // Invalidate cache for dashboards
-                api.invalidateCache('/warehouse/stats');
-                api.invalidateCache('/warehouse/pending');
-                api.invalidateCache('/warehouse/products');
-                api.invalidateCache('/sale/stats');
-                api.invalidateCache(`/sale/orders/${orderId}`);
-
-                showToast('success', 'Hoàn nhập thành công!');
+        
+        returnStockMutation.mutate({ 
+            orderId, 
+            data: { productId, quantity, reason } 
+        }, {
+            onSuccess: () => {
+                toast({ title: "Thành công", description: 'Hoàn nhập thành công!' });
                 setIsOpen(false);
                 router.refresh();
-            } else {
-                showToast('error', res.error || 'Lỗi hoàn trả');
+            },
+            onError: (error: any) => {
+                toast({ 
+                    title: "Lỗi", 
+                    description: error.message || 'Lỗi hoàn trả',
+                    variant: "destructive"
+                });
             }
-        } catch (e) {
-            showToast('error', 'Lỗi kết nối máy chủ');
-        } finally {
-            setLoading(false);
-        }
+        });
     };
 
     if (disabled) return null;
@@ -106,10 +102,10 @@ export default function ReturnItemButton({ orderId, productId, productName, maxQ
                             </button>
                             <button
                                 onClick={handleReturn}
-                                disabled={loading}
+                                disabled={returnStockMutation.isPending}
                                 className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-50"
                             >
-                                {loading ? 'Đang xử lý...' : 'Xác nhận hoàn nhập'}
+                                {returnStockMutation.isPending ? 'Đang xử lý...' : 'Xác nhận hoàn nhập'}
                             </button>
                         </div>
                     </div>

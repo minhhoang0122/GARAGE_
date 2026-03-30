@@ -1,24 +1,39 @@
+'use client';
+
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { getOrderExportDetails } from '@/modules/inventory/warehouse';
+import { useExportDetail } from '@/modules/warehouse/hooks/useWarehouse';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Car, User, Phone, Package } from 'lucide-react';
+import { ArrowLeft, Car, User, Phone, Package, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import ExportConfirmButton from './ExportConfirmButton';
 import PrintExportButton from './PrintExportButton';
 import ReturnItemButton from './ReturnItemButton';
+import { use } from 'react';
 
-export default async function ExportDetailPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params;
+export default function ExportDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
     const orderId = parseInt(id);
     if (isNaN(orderId)) return notFound();
 
-    const order = await getOrderExportDetails(orderId);
-    if (!order) return notFound();
+    const { data: order, isLoading, isError } = useExportDetail(orderId);
+
+    if (isLoading) {
+        return (
+            <DashboardLayout title="Chi tiết xuất kho" subtitle={`Đang tải đơn hàng #${id}...`}>
+                <div className="flex flex-col items-center justify-center py-20">
+                    <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
+                    <p className="text-slate-500">Đang tải chi tiết đơn hàng...</p>
+                </div>
+            </DashboardLayout>
+        );
+    }
+
+    if (isError || !order) return notFound();
 
     const formatCurrency = (val: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
-    const totalValue = order.items.reduce((sum: number, item: any) => sum + item.unitPrice * item.quantity, 0);
+    const totalValue = (order.items || []).reduce((sum: number, item: any) => sum + item.unitPrice * item.quantity, 0);
 
     return (
         <DashboardLayout title="Chi tiết xuất kho" subtitle={`Đơn hàng #${order.id}`}>
@@ -89,7 +104,7 @@ export default async function ExportDetailPage({ params }: { params: Promise<{ i
                         </p>
                     </div>
 
-                    {order.items.length === 0 ? (
+                    {(!order.items || order.items.length === 0) ? (
                         <div className="px-6 py-12 text-center text-slate-500">
                             <Package className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                             <p>Không có vật tư nào cần xuất cho đơn hàng này</p>
@@ -110,7 +125,7 @@ export default async function ExportDetailPage({ params }: { params: Promise<{ i
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {order.items.map((item: any, idx: number) => (
+                                {(order.items || []).map((item: any, idx: number) => (
                                     <tr key={item.id} className="hover:bg-slate-50">
                                         <td className="px-6 py-4 text-slate-600">{idx + 1}</td>
                                         <td className="px-6 py-4 font-mono text-sm text-slate-600">{item.productCode}</td>

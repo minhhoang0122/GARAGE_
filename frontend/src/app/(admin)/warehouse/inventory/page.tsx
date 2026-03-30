@@ -1,65 +1,28 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Button } from '@/modules/shared/components/ui/button';
 import { SearchInput } from '@/modules/shared/components/ui/search-input';
 import { EmptyState } from '@/modules/shared/components/ui/empty-state';
 import { TableSkeleton } from '@/modules/shared/components/ui/table-skeleton';
-import { api } from '@/lib/api';
-import { useSession } from 'next-auth/react';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 import { Search, Package, AlertTriangle, RefreshCw, Eye } from 'lucide-react';
-
-interface Batch {
-    id: number;
-    importDate: string;
-    expiryDate: string;
-    initialQty: number;
-    remainingQty: number;
-    supplier: string;
-}
-
-interface Product {
-    id: number;
-    name: string;
-    code: string;
-    stock: number;
-    price: number;
-    isService: boolean;
-    minStock: number;
-    batches?: Batch[];
-}
-
-import { useQuery } from '@tanstack/react-query';
+import { useInventory } from '@/modules/warehouse/hooks/useWarehouse';
+import { Product } from '@/modules/warehouse/services/warehouse';
 
 export default function WarehouseInventoryPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const pathname = usePathname();
-    const { data: session } = useSession();
-    // @ts-ignore
-    const token = session?.user?.accessToken;
     const query = searchParams.get('q') || '';
 
-    const { data: products = [], isLoading: loading, refetch } = useQuery<Product[]>({
-        queryKey: ['warehouse', 'products', query],
-        queryFn: () => api.get(`/warehouse/products?search=${query}`, token),
-        enabled: !!token,
-        select: (data) => (data || []).filter((p: Product) => !p.isService)
-    });
+
+    const { data: products = [], isLoading: loading, refetch } = useInventory(query);
 
     const parentRef = useRef<HTMLDivElement>(null);
-
-    const rowVirtualizer = useVirtualizer({
-        count: products.length,
-        getScrollElement: () => parentRef.current,
-        estimateSize: () => 56,
-        overscan: 5,
-    });
 
     const isFirstLoad = false; // Not needed with useQuery
 
@@ -118,84 +81,59 @@ export default function WarehouseInventoryPage() {
                     />
                 ) : (
                     <>
-                        {/* Desktop Table View - Industrial Style */}
+                        {/* Desktop Table View - Standard Clean Industrial Style */}
                         <div 
                             ref={parentRef}
-                            className="hidden md:block bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-auto max-h-[calc(100vh-320px)] scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800"
+                            className="hidden md:block bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden"
                         >
-                                <div
-                                    style={{
-                                        height: `${rowVirtualizer.getTotalSize() + 48}px`,
-                                        width: '100%',
-                                        position: 'relative',
-                                    }}
-                                >
-                                <table className="w-full border-collapse table-fixed">
-                                    <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-950 border-b-2 border-slate-200 dark:border-slate-800">
-                                        <tr>
-                                            <th className="text-left p-4 font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-xs w-[120px]">Mã PT</th>
-                                            <th className="text-left p-4 font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-xs">Tên phụ tùng</th>
-                                            <th className="text-right p-4 font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-xs w-[120px]">Tồn kho</th>
-                                            <th className="text-left p-4 font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-xs w-[100px]">Đơn vị</th>
-                                            <th className="text-right p-4 font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-xs w-[150px]">Giá bán</th>
-                                            <th className="p-4 w-[120px]"></th>
+                            <table className="w-full border-collapse">
+                                <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                                    <tr className="text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 transition-colors">
+                                        <th className="px-4 py-3 w-16 text-center">Ảnh</th>
+                                        <th className="px-4 py-3">Thông tin linh kiện</th>
+                                        <th className="px-4 py-3 w-28 text-center">Tồn kho</th>
+                                        <th className="px-4 py-3 w-32">Trạng thái</th>
+                                        <th className="px-4 py-3 w-28 text-right">Đơn giá</th>
+                                        <th className="px-4 py-3 w-24 text-center">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                                    {products.map((product) => (
+                                        <tr 
+                                            key={product.id} 
+                                            className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors group"
+                                        >
+                                            <td className="p-4 text-slate-500 dark:text-slate-400 font-mono text-xs font-medium align-middle">
+                                                {product.code}
+                                            </td>
+                                            <td className="p-4 font-semibold text-slate-800 dark:text-slate-100 align-middle">
+                                                <div className="flex flex-col">
+                                                    <span className="truncate max-w-[300px]">{product.name}</span>
+                                                    {product.stock <= (product.minStock || 5) && (
+                                                        <span className="text-[10px] text-red-500 font-bold mt-0.5">Sắp hết hàng</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="p-4 align-middle text-right">
+                                                <span className={`font-mono font-bold text-sm ${product.stock <= (product.minStock || 5) ? 'text-red-600 dark:text-red-400 underline decoration-red-500/30' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                    {product.stock}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-slate-500 dark:text-slate-400 text-xs font-medium align-middle uppercase tracking-wide">cái</td>
+                                            <td className="p-4 text-right font-bold font-mono text-slate-900 dark:text-slate-100 align-middle">
+                                                {formatCurrency(product.price)}
+                                            </td>
+                                            <td className="p-4 text-center align-middle">
+                                                <Link href={`/warehouse/inventory/${product.id}/batches`}>
+                                                    <button className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all">
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
+                                                </Link>
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                                            const product = products[virtualRow.index];
-                                            return (
-                                                <tr 
-                                                    key={product.id} 
-                                                    className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
-                                                    style={{
-                                                        position: 'absolute',
-                                                        top: 0,
-                                                        left: 0,
-                                                        width: '100%',
-                                                        height: `${virtualRow.size}px`,
-                                                        transform: `translateY(${virtualRow.start + 48}px)`,
-                                                    }}
-                                                >
-                                                    <td className="p-4 text-slate-600 dark:text-slate-400 font-mono text-sm font-semibold align-middle truncate group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                                                        {product.code}
-                                                    </td>
-                                                    <td className="p-4 font-semibold text-slate-800 dark:text-slate-200 align-middle truncate">
-                                                        {product.name}
-                                                    </td>
-                                                    <td className="p-4 align-middle text-right">
-                                                        {product.stock <= (product.minStock || 5) ? (
-                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-100 dark:border-red-900/50">
-                                                                 {product.stock}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">
-                                                                {product.stock}
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                    <td className="p-4 text-slate-500 dark:text-slate-400 text-sm align-middle">cái</td>
-                                                    <td className="p-4 text-right font-bold font-mono text-slate-800 dark:text-slate-200 align-middle truncate">
-                                                        {formatCurrency(product.price)}
-                                                    </td>
-                                                    <td className="p-4 text-center align-middle">
-                                                        <Link href={`/warehouse/inventory/${product.id}/batches`}>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-8 flex items-center gap-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all font-medium"
-                                                            >
-                                                                <Eye className="w-4 h-4" />
-                                                                <span className="hidden lg:inline">Chi tiết</span>
-                                                            </Button>
-                                                        </Link>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
 
                         {/* Mobile Card View */}

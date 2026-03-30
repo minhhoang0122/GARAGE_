@@ -31,15 +31,15 @@ public class AuditLogController {
                     .map(log -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("id", log.getId());
-                        m.put("table", log.getBang() != null ? log.getBang() : "");
-                        m.put("recordId", log.getBanGhiId());
-                        m.put("action", log.getHanhDong() != null ? log.getHanhDong() : "");
-                        m.put("oldData", log.getDuLieuCu());
-                        m.put("newData", log.getDuLieuMoi());
-                        m.put("reason", log.getLyDo());
-                        m.put("timestamp", log.getNgayTao());
+                        m.put("table", log.getTableName() != null ? log.getTableName() : "");
+                        m.put("recordId", log.getRecordId());
+                        m.put("action", log.getAction() != null ? log.getAction() : "");
+                        m.put("oldData", log.getOldData());
+                        m.put("newData", log.getNewData());
+                        m.put("reason", log.getReason());
+                        m.put("timestamp", log.getCreatedAt());
                         m.put("user",
-                                log.getNguoiThucHien() != null ? log.getNguoiThucHien().getHoTen() : "System");
+                                log.getUser() != null ? log.getUser().getFullName() : "System");
                         return m;
                     })
                     .toList();

@@ -1,5 +1,6 @@
 package com.gara.modules.service.service;
 
+import com.gara.dto.ReceptionDetailDTO;
 import com.gara.dto.ReceptionFormData;
 import com.gara.dto.VehicleSearchResultDTO;
 import com.gara.entity.*;
@@ -27,19 +28,22 @@ public class ReceptionService {
     private final RepairOrderRepository orderRepository;
     private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
     private final AsyncAuditService asyncAuditService;
+    private final TimelineService timelineService;
 
     public ReceptionService(VehicleRepository vehicleRepository,
             CustomerRepository customerRepository,
             ReceptionRepository receptionRepository,
             RepairOrderRepository orderRepository,
             com.gara.modules.support.service.AsyncNotificationService asyncNotificationService,
-            AsyncAuditService asyncAuditService) {
+            AsyncAuditService asyncAuditService,
+            TimelineService timelineService) {
         this.vehicleRepository = vehicleRepository;
         this.customerRepository = customerRepository;
         this.receptionRepository = receptionRepository;
         this.orderRepository = orderRepository;
         this.asyncNotificationService = asyncNotificationService;
         this.asyncAuditService = asyncAuditService;
+        this.timelineService = timelineService;
     }
 
     private long countActiveWarranties(String plate) {
@@ -48,27 +52,28 @@ public class ReceptionService {
         return orderRepository.countActiveWarrantiesByPlate(plate);
     }
 
+    @Transactional(readOnly = true)
     public VehicleSearchResultDTO searchVehicle(String plate) {
-        Optional<Vehicle> vehicleOpt = vehicleRepository.findByBienSo(plate);
+        Optional<Vehicle> vehicleOpt = vehicleRepository.findByLicensePlate(plate);
         if (vehicleOpt.isEmpty()) {
-            return VehicleSearchResultDTO.builder().exists(false).build();
+            return null;
         }
 
-        Vehicle vehicle = vehicleOpt.get(); // Integer ID is now available
-        // Cast lookup result to int for DTO (DTO expects int, Repo returns long)
+        Vehicle vehicle = vehicleOpt.get();
         int warrantyCount = (int) countActiveWarranties(plate);
 
         // Get history
-        List<RepairOrder> history = orderRepository.findTop5ByPhieuTiepNhan_Xe_BienSoOrderByNgayTaoDesc(plate);
+        List<RepairOrder> history = orderRepository.findTop5ByReception_Vehicle_LicensePlateOrderByCreatedAtDesc(plate);
         List<Map<String, Object>> historyMaps = history.stream().map(o -> {
             Map<String, Object> m = new HashMap<>();
             m.put("ID", o.getId());
-            m.put("NgayTao", o.getNgayTao());
-            m.put("TongCong", o.getTongCong());
-            m.put("TrangThai", o.getTrangThai() != null ? o.getTrangThai().name() : null);
-            m.put("ChiTietDonHang", o.getChiTietDonHang().stream().map(i -> {
+            m.put("NgayTao", o.getCreatedAt());
+            m.put("TongCong", o.getGrandTotal());
+            m.put("TrangThai", o.getStatus() != null ? o.getStatus().name() : null);
+            m.put("ChiTietDonHang", o.getOrderItems().stream().map(i -> {
                 Map<String, Object> im = new HashMap<>();
-                im.put("HangHoa", Map.of("TenHang", i.getHangHoa().getTenHang()));
+                String tenHang = (i.getProduct() != null) ? i.getProduct().getName() : "Nội dung khác";
+                im.put("TenHang", tenHang);
                 return im;
             }).toList());
             return m;
@@ -76,15 +81,17 @@ public class ReceptionService {
 
         return VehicleSearchResultDTO.builder()
                 .exists(true)
-                .plate(vehicle.getBienSo())
-                .customerName(vehicle.getKhachHang().getHoTen())
-                .customerPhone(vehicle.getKhachHang().getSoDienThoai())
-                .customer(null) // Bug 101 Fix: Don't leak full customer entity
-                .brand(vehicle.getNhanHieu())
+                .plate(vehicle.getLicensePlate())
+                .customerName(vehicle.getCustomer().getFullName())
+                .customerPhone(vehicle.getCustomer().getPhone())
+                .customerAddress(vehicle.getCustomer().getAddress())
+                .customerEmail(vehicle.getCustomer().getEmail())
+                .customer(null)
+                .brand(vehicle.getBrand())
                 .model(vehicle.getModel())
-                .soKhung(vehicle.getSoKhung())
-                .soMay(vehicle.getSoMay())
-                .odo(vehicle.getOdoHienTai())
+                .soKhung(vehicle.getVin())
+                .soMay(vehicle.getEngineNumber())
+                .odo(vehicle.getCurrentOdo())
                 .history(historyMaps)
                 .activeWarrantyCount(warrantyCount)
                 .build();
@@ -96,45 +103,47 @@ public class ReceptionService {
         try {
             // 1. Find or Create Vehicle & Customer
             // Use pessimistic lock to prevent race conditions for existing vehicles
-            Vehicle vehicle = vehicleRepository.findByBienSoWithLock(data.bienSo()).orElse(null);
+            Vehicle vehicle = vehicleRepository.findByLicensePlateWithLock(data.bienSo()).orElse(null);
 
             // Check for active orders to prevent double reception
             if (vehicle != null) {
                 List<OrderStatus> activeStatuses = java.util.Arrays.asList(
-                        OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN, OrderStatus.BAO_GIA,
-                        OrderStatus.BAO_GIA_LAI, OrderStatus.CHO_KH_DUYET, OrderStatus.DA_DUYET,
-                        OrderStatus.CHO_SUA_CHUA, OrderStatus.DANG_SUA,
-                        OrderStatus.CHO_KCS, OrderStatus.CHO_THANH_TOAN);
-                List<RepairOrder> activeOrders = orderRepository.findByPhieuTiepNhan_Xe_BienSoAndTrangThaiIn(data.bienSo(),
+                        OrderStatus.RECEIVED, OrderStatus.WAITING_FOR_DIAGNOSIS, OrderStatus.QUOTING,
+                        OrderStatus.RE_QUOTATION, OrderStatus.WAITING_FOR_CUSTOMER_APPROVAL, OrderStatus.APPROVED,
+                        OrderStatus.WAITING_FOR_PARTS, OrderStatus.IN_PROGRESS,
+                        OrderStatus.WAITING_FOR_QC, OrderStatus.WAITING_FOR_PAYMENT);
+                List<RepairOrder> activeOrders = orderRepository.findByReception_Vehicle_LicensePlateAndStatusIn(data.bienSo(),
                         activeStatuses);
                 if (!activeOrders.isEmpty()) {
-                    throw new RuntimeException(
-                            "Tạo thất bại: Xe " + data.bienSo() + " hiện đang có Đơn Hàng chưa hoàn tất trong xưởng.");
+                    throw new RuntimeException("Xe đang có phiếu sửa chữa chưa hoàn thành.");
                 }
 
-                // Bug 103 Fix: Verify ownership (Phone match)
-                if (!vehicle.getKhachHang().getSoDienThoai().equals(data.sdtKhach())) {
-                    throw new RuntimeException("Lỗi xác minh: Số điện thoại không khớp với chủ sở hữu hệ thống của xe " + data.bienSo());
+                // Bug 103 Fix: Verify ownership (Phone match with normalization)
+                String normalizedProvidedPhone = normalizePhone(data.sdtKhach());
+                String normalizedExistingPhone = normalizePhone(vehicle.getCustomer().getPhone());
+                
+                if (!normalizedExistingPhone.equals(normalizedProvidedPhone)) {
+                    throw new RuntimeException("Biển số này (" + data.bienSo() + ") đã được đăng ký với số điện thoại khác (" + vehicle.getCustomer().getPhone() + "). Vui lòng kiểm tra lại.");
                 }
 
                 // Bug 72 Fix: ODO Consistency Check
-                if (data.odo() < vehicle.getOdoHienTai()) {
+                if (data.odo() < vehicle.getCurrentOdo()) {
                     throw new RuntimeException("Lỗi: Số ODO mới (" + data.odo() +
-                            " km) nhỏ hơn số ODO ghi nhận lần trước (" + vehicle.getOdoHienTai() + " km).");
+                            " km) nhỏ hơn số ODO ghi nhận lần trước (" + vehicle.getCurrentOdo() + " km).");
                 }
 
-                if (data.odo() > vehicle.getOdoHienTai()) {
-                    vehicle.setOdoHienTai(data.odo());
+                if (data.odo() > vehicle.getCurrentOdo()) {
+                    vehicle.setCurrentOdo(data.odo());
                     vehicleRepository.save(vehicle);
                 }
 
                 // Bug 102 Fix: Update Customer info if provided
-                Customer cust = vehicle.getKhachHang();
+                Customer cust = vehicle.getCustomer();
                 if (data.tenKhach() != null && !data.tenKhach().isBlank()) {
-                    cust.setHoTen(data.tenKhach());
+                    cust.setFullName(data.tenKhach());
                 }
                 if (data.diaChiKhach() != null && !data.diaChiKhach().isBlank()) {
-                    cust.setDiaChi(data.diaChiKhach());
+                    cust.setAddress(data.diaChiKhach());
                 }
                 if (data.emailKhach() != null && !data.emailKhach().isBlank()) {
                     cust.setEmail(data.emailKhach());
@@ -143,86 +152,89 @@ public class ReceptionService {
 
             } else {
                 // Check if existing Customer by phone to prevent fragmentation (Bug 80)
-                Customer customer = customerRepository.findBySoDienThoai(data.sdtKhach()).orElse(null);
+                Customer customer = customerRepository.findByPhone(data.sdtKhach()).orElse(null);
 
                 if (customer == null) {
                     customer = new Customer();
-                    customer.setHoTen(data.tenKhach());
-                    customer.setSoDienThoai(data.sdtKhach());
-                    customer.setDiaChi(data.diaChiKhach());
+                    customer.setFullName(data.tenKhach());
+                    customer.setPhone(data.sdtKhach());
+                    customer.setAddress(data.diaChiKhach());
                     customer.setEmail(data.emailKhach());
                     customer = customerRepository.save(customer);
-                } else {
-                    if (customer.getEmail() == null || customer.getEmail().isEmpty()) {
-                        customer.setEmail(data.emailKhach());
-                        customerRepository.save(customer);
-                    }
                 }
 
                 vehicle = new Vehicle();
-                vehicle.setBienSo(data.bienSo());
-                vehicle.setKhachHang(customer);
-                vehicle.setNhanHieu(data.nhanHieu());
+                vehicle.setLicensePlate(data.bienSo());
+                vehicle.setCustomer(customer);
+                vehicle.setBrand(data.nhanHieu());
                 vehicle.setModel(data.model());
-                vehicle.setSoKhung(data.soKhung());
-                vehicle.setSoMay(data.soMay());
-                vehicle.setOdoHienTai(data.odo());
+                vehicle.setVin(data.soKhung());
+                vehicle.setEngineNumber(data.soMay());
+                vehicle.setCurrentOdo(data.odo());
                 vehicleRepository.save(vehicle);
             }
 
             // 2. Create Reception (PhieuTiepNhan)
             Reception reception = new Reception();
-            reception.setXe(vehicle);
-            reception.setNguoiTiepNhan(user);
-            reception.setMucXang(BigDecimal.valueOf(data.mucXang()));
+            reception.setVehicle(vehicle);
+            reception.setReceptionist(user);
+            reception.setFuelLevel(data.mucXang() != null ? BigDecimal.valueOf(data.mucXang()) : BigDecimal.ZERO);
             // Bug 104 Fix: Basic XSS Sanitation
-            reception.setTinhTrangVoXe(sanitizeHtml(data.tinhTrangVo()));
-            reception.setYeuCauSoBo(sanitizeHtml(data.yeuCauKhach()));
-            reception.setHinhAnh(data.hinhAnh());
+            reception.setShellStatus(sanitizeHtml(data.tinhTrangVo()));
+            reception.setPreliminaryRequest(sanitizeHtml(data.yeuCauKhach()));
+            // Tránh lỗi "invalid input syntax for type json" ở PostgreSQL khi chuỗi rỗng
+            reception.setImages(data.hinhAnh() != null && !data.hinhAnh().isBlank() ? data.hinhAnh() : null);
             reception.setOdo(data.odo());
-            reception.setNgayGio(LocalDateTime.now());
+            reception.setReceptionDate(LocalDateTime.now());
             receptionRepository.save(reception);
+
+            // Timeline Log: Initial Event
+            timelineService.recordEvent(reception.getId(), user, "RECEPTION", 
+                    "Tiếp nhận xe " + vehicle.getLicensePlate() + " vào xưởng. Yêu cầu: " + reception.getPreliminaryRequest(),
+                    null, null, false);
 
             // 3. Create RepairOrder (DonHangSuaChua)
             RepairOrder order = new RepairOrder();
-            order.setPhieuTiepNhan(reception);
-            order.setNguoiPhuTrach(user);
-            order.setTrangThai(OrderStatus.TIEP_NHAN);
-            order.setTongTienHang(BigDecimal.ZERO);
-            order.setTongTienCong(BigDecimal.ZERO);
-            order.setTongCong(BigDecimal.ZERO);
-            order.setChietKhauTong(BigDecimal.ZERO);
-            order.setThueVAT(BigDecimal.ZERO);
-            order.setTienCoc(BigDecimal.ZERO);
+            order.setReception(reception);
+            order.setServiceAdvisor(user);
+            order.setStatus(OrderStatus.WAITING_FOR_DIAGNOSIS);
+            order.setPartsTotal(BigDecimal.ZERO);
+            order.setLaborTotal(BigDecimal.ZERO);
+            order.setGrandTotal(BigDecimal.ZERO);
+            order.setTotalDiscount(BigDecimal.ZERO);
+            order.setVatAmount(BigDecimal.ZERO);
+            order.setDeposit(BigDecimal.ZERO);
             orderRepository.save(order);
 
             // Bug 117 Fix: Audit order creation
             asyncAuditService.logAsync(AuditLog.builder()
-                    .bang("DonHangSuaChua")
-                    .banGhiId(order.getId())
-                    .hanhDong("CREATE")
-                    .duLieuMoi(OrderStatus.TIEP_NHAN.name())
-                    .lyDo("Tiếp nhận xe: " + vehicle.getBienSo())
-                    .nguoiThucHienId(user.getId())
+                    .tableName("RepairOrder")
+                    .recordId(order.getId())
+                    .action("CREATE")
+                    .newData(OrderStatus.WAITING_FOR_DIAGNOSIS.name())
+                    .reason("Tiếp nhận xe: " + vehicle.getLicensePlate())
+                    .userId(user.getId())
                     .build());
 
             // Notify
             asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .role("SALE")
-                    .title("Xe mới tiếp nhận: " + vehicle.getBienSo())
-                    .content("Đã tạo phiếu tiếp nhận cho xe " + vehicle.getBienSo() + ". Vui lòng lập báo giá.")
+                    .title("Xe mới tiếp nhận: " + vehicle.getLicensePlate())
+                    .content("Đã tạo phiếu tiếp nhận cho xe " + vehicle.getLicensePlate() + ". Vui lòng lập báo giá.")
                     .type("INFO")
                     .link("/sale/orders/" + order.getId())
+                    .refId(order.getId())
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
 
             asyncNotificationService.pushUniqueAsync(Notification.builder()
                     .role("QUAN_LY_XUONG")
-                    .title("Xe chờ chẩn đoán: " + vehicle.getBienSo())
-                    .content("Xe " + vehicle.getBienSo() + " đã tiếp nhận. Vui lòng tiến hành chẩn đoán.")
+                    .title("Xe chờ chẩn đoán: " + vehicle.getLicensePlate())
+                    .content("Xe " + vehicle.getLicensePlate() + " đã tiếp nhận. Vui lòng tiến hành chẩn đoán.")
                     .type("INFO")
-                    .link("/mechanic/jobs")
+                    .link("/mechanic/inspect/" + reception.getId())
+                    .refId(order.getId())
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
@@ -272,38 +284,31 @@ public class ReceptionService {
     }
 
     @Transactional(readOnly = true)
-    public java.util.Optional<com.gara.dto.ReceptionDetailDTO> getReceptionById(Integer id) {
-        return receptionRepository.findByIdWithDetails(id).map(r -> {
-            var builder = com.gara.dto.ReceptionDetailDTO.builder()
-                    .id(r.getId())
-                    .ngayGio(r.getNgayGio())
-                    .mucXang(r.getMucXang())
-                    .tinhTrangVoXe(r.getTinhTrangVoXe())
-                    .yeuCauSoBo(r.getYeuCauSoBo())
-                    .hinhAnh(r.getHinhAnh())
-                    .odo(r.getOdo());
-
-            if (r.getXe() != null) {
-                builder.bienSo(r.getXe().getBienSo())
-                        .nhanHieu(r.getXe().getNhanHieu())
-                        .model(r.getXe().getModel())
-                        .soKhung(r.getXe().getSoKhung())
-                        .soMay(r.getXe().getSoMay());
-
-                if (r.getXe().getKhachHang() != null) {
-                    builder.tenKhach(r.getXe().getKhachHang().getHoTen())
-                            .sdtKhach(r.getXe().getKhachHang().getSoDienThoai())
-                            .diaChiKhach(r.getXe().getKhachHang().getDiaChi())
-                            .emailKhach(r.getXe().getKhachHang().getEmail());
-                }
-            }
-
-            if (r.getDonHangSuaChua() != null) {
-                builder.orderId(r.getDonHangSuaChua().getId())
-                        .orderStatus(r.getDonHangSuaChua().getTrangThai() != null ? r.getDonHangSuaChua().getTrangThai().name() : null);
-            }
-
-            return builder.build();
+    public java.util.Optional<ReceptionDetailDTO> getReceptionById(Integer id) {
+        return receptionRepository.findByIdWithDetails(id).map(reception -> {
+            return ReceptionDetailDTO.builder()
+                .id(reception.getId())
+                .ngayGio(reception.getReceptionDate())
+                .yeuCauSoBo(reception.getPreliminaryRequest())
+                .mucXang(reception.getFuelLevel())
+                .tinhTrangVoXe(reception.getShellStatus())
+                .hinhAnh(reception.getImages())
+                .bienSo(reception.getVehicle().getLicensePlate())
+                .nhanHieu(reception.getVehicle().getBrand())
+                .model(reception.getVehicle().getModel())
+                .soKhung(reception.getVehicle().getVin())
+                .soMay(reception.getVehicle().getEngineNumber())
+                .odo(reception.getOdo())
+                .tenKhach(reception.getVehicle().getCustomer() != null ? reception.getVehicle().getCustomer().getFullName() : null)
+                .sdtKhach(
+                        reception.getVehicle().getCustomer() != null ? reception.getVehicle().getCustomer().getPhone() : null)
+                .diaChiKhach(
+                        reception.getVehicle().getCustomer() != null ? reception.getVehicle().getCustomer().getAddress() : null)
+                .emailKhach(
+                        reception.getVehicle().getCustomer() != null ? reception.getVehicle().getCustomer().getEmail() : null)
+                .orderId(reception.getRepairOrder() != null ? reception.getRepairOrder().getId() : null)
+                .orderStatus(reception.getRepairOrder() != null ? reception.getRepairOrder().getStatus().name() : null)
+                .build();
         });
     }
 
@@ -312,5 +317,16 @@ public class ReceptionService {
         // Basic escaping to prevent script injection in common fields
         return input.replace("<", "&lt;").replace(">", "&gt;")
                     .replace("\"", "&quot;").replace("'", "&#39;");
+    }
+    
+    private String normalizePhone(String phone) {
+        if (phone == null) return null;
+        // Loại bỏ tất cả ký tự không phải số
+        String digits = phone.replaceAll("[^0-9]", "");
+        // Nếu bắt đầu bằng 84 (mã quốc gia), chuyển về đầu 0
+        if (digits.startsWith("84")) {
+            digits = "0" + digits.substring(2);
+        }
+        return digits;
     }
 }

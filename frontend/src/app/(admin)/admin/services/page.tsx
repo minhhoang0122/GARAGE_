@@ -3,7 +3,6 @@
 import { Suspense, useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { api } from '@/lib/api';
-import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Save, RefreshCw, AlertCircle, CheckCircle2, Info, Plus, FileSpreadsheet, Percent, CircleDollarSign, Package, Loader2 } from 'lucide-react';
 import { formatCurrency, removeAccents } from '@/lib/utils';
@@ -11,23 +10,11 @@ import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { Switch } from '@/modules/shared/components/ui/Switch';
 import CurrencyInput from '@/modules/shared/components/ui/CurrencyInput';
 import { useToast } from '@/contexts/ToastContext';
+import { useAdminProducts, useBatchUpdateProducts, useCreateProduct } from '@/modules/admin/hooks/useAdmin';
+import type { Product } from '@/modules/admin/services/admin';
 
 
-type Product = {
-    id: number;
-    code: string;
-    maHang: string;
-    name: string;
-    tenHang: string;
-    description: string;
-    giaBanNiemYet: number;
-    giaVon: number;
-    laDichVu: boolean;
-    baoHanhSoThang: number;
-    baoHanhKm: number;
-    soLuongTon: number;
-};
-
+// Pending changes state structure
 type PendingChange = {
     price?: number;
     warrantyMonths?: number;
@@ -45,7 +32,6 @@ export default function ServicesPage() {
 }
 
 function ServicesContent() {
-    const { data: session } = useSession();
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState<'service' | 'part'>('service');
@@ -56,54 +42,16 @@ function ServicesContent() {
     const confirm = useConfirm();
     const { showToast } = useToast();
 
-    // @ts-ignore
-    const token = session?.user?.accessToken;
-
-    // Queries
-    const { data: products = [], isLoading, refetch } = useQuery({
-        queryKey: ['products'],
-        queryFn: async () => {
-            if (!token) return [];
-            const res = await api.get('/products', token);
-            return res.map((p: any) => ({
-                id: p.id,
-                code: p.maHang,
-                maHang: p.maHang,
-                name: p.tenHang,
-                tenHang: p.tenHang,
-                description: p.description,
-                giaBanNiemYet: p.giaBanNiemYet,
-                giaVon: p.giaVon || 0,
-                laDichVu: !!p.laDichVu,
-                baoHanhSoThang: p.baoHanhSoThang || 0,
-                baoHanhKm: p.baoHanhKm || 0,
-                soLuongTon: p.soLuongTon || 0
-            }));
-        },
-        staleTime: 5 * 60 * 1000, // 5 minutes
-    });
-
-    // Mutations
-    const batchUpdateMutation = useMutation({
-        mutationFn: async (items: any[]) => {
-            return await api.post('/products/batch-update', items, token);
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['products'] });
-            setMessage({ type: 'success', text: 'Cập nhật thành công!' });
-            setPendingChanges({});
-        },
-        onError: (error: any) => {
-            setMessage({ type: 'error', text: 'Lỗi: ' + (error.message || 'Không thể lưu') });
-        }
-    });
+    // Data & Mutations from Hooks
+    const { data: products = [], isLoading, refetch } = useAdminProducts();
+    const batchUpdateMutation = useBatchUpdateProducts();
 
     const filteredProducts = useMemo(() => {
         const normalizedTerm = removeAccents(searchTerm.toLowerCase());
         return products.filter((p: Product) => {
             const matchesTab = (activeTab === 'service') === !!p.laDichVu;
-            const matchesSearch = removeAccents(p.tenHang.toLowerCase()).includes(normalizedTerm) ||
-                removeAccents(p.maHang.toLowerCase()).includes(normalizedTerm);
+            const matchesSearch = removeAccents((p.tenHang || '').toLowerCase()).includes(normalizedTerm) ||
+                removeAccents((p.maHang || '').toLowerCase()).includes(normalizedTerm);
             return matchesTab && matchesSearch;
         });
     }, [products, activeTab, searchTerm]);
@@ -141,7 +89,11 @@ function ServicesContent() {
             ...changes
         }));
 
-        batchUpdateMutation.mutate(items);
+        batchUpdateMutation.mutate(items, {
+            onSuccess: () => {
+                setPendingChanges({});
+            }
+        });
     };
 
     const handleExportExcel = () => {
@@ -156,8 +108,8 @@ function ServicesContent() {
             const profitPercent = costPrice > 0 ? ((currentPrice - costPrice) / costPrice) * 100 : 100;
 
             return [
-                p.maHang,
-                `"${p.tenHang.replace(/"/g, '""')}"`,
+                p.maHang || '',
+                `"${(p.tenHang || '').replace(/"/g, '""')}"`,
                 p.laDichVu ? "Dịch vụ" : "Phụ tùng",
                 p.soLuongTon,
                 costPrice,
@@ -300,12 +252,13 @@ function ServicesContent() {
 
             {/* Feedback Message */}
             {message && (
-                <div className={`p-4 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2 shadow-sm border ${message.type === 'success'
-                    ? 'bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-900/50 dark:text-emerald-400'
-                    : 'bg-red-50 border-red-100 text-red-700 dark:bg-red-900/20 dark:border-red-900/50 dark:text-red-400'
+                <div className={`flex items-center gap-3 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-300 ${
+                    message.type === 'success'
+                        ? 'bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-900/50 dark:text-emerald-400'
+                        : 'bg-red-50 border-red-100 text-red-700 dark:bg-red-900/20 dark:border-red-900/50 dark:text-red-400'
                     }`}>
                     {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                    <span className="font-medium">{message.text}</span>
+                    <span className="font-medium text-sm">{message.text}</span>
                 </div>
             )}
 
@@ -465,18 +418,16 @@ function ServicesContent() {
                     onClose={() => setIsCreating(false)}
                     onSuccess={() => {
                         setIsCreating(false);
-                        queryClient.invalidateQueries({ queryKey: ['products'] });
                         setMessage({ type: 'success', text: 'Thêm mới thành công' });
                     }}
                     type={activeTab}
-                    token={token}
                 />
             )}
         </div>
     );
 }
 
-function CreateProductModal({ isOpen, onClose, onSuccess, type, token }: { isOpen: boolean; onClose: () => void; onSuccess: () => void; type: 'service' | 'part'; token?: string }) {
+function CreateProductModal({ isOpen, onClose, onSuccess, type }: { isOpen: boolean; onClose: () => void; onSuccess: () => void; type: 'service' | 'part' }) {
     const [formData, setFormData] = useState({
         maHang: '',
         tenHang: '',
@@ -487,22 +438,15 @@ function CreateProductModal({ isOpen, onClose, onSuccess, type, token }: { isOpe
         baoHanhKm: 0,
         description: ''
     });
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const { showToast } = useToast();
+    const createMutation = useCreateProduct();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsSubmitting(true);
-        try {
-            await api.post('/products', formData, token || '');
-            showToast('success', type === 'service' ? 'Thích dịch vụ thành công' : 'Thêm phụ tùng thành công');
-            onSuccess();
-        } catch (error) {
-            console.error(error);
-            showToast('error', 'Lỗi tạo mới');
-        } finally {
-            setIsSubmitting(false);
-        }
+        createMutation.mutate(formData, {
+            onSuccess: () => {
+                onSuccess();
+            }
+        });
     };
 
     return (
@@ -608,10 +552,10 @@ function CreateProductModal({ isOpen, onClose, onSuccess, type, token }: { isOpe
                         </button>
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={createMutation.isPending}
                             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition-all shadow-md shadow-indigo-200 dark:shadow-none disabled:opacity-50 disabled:shadow-none"
                         >
-                            {isSubmitting ? 'Đang tạo...' : 'Tạo mới'}
+                            {createMutation.isPending ? 'Đang tạo...' : 'Tạo mới'}
                         </button>
                     </div>
                 </form>

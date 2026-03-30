@@ -8,8 +8,8 @@ import java.util.List;
 
 @Repository
 public interface ExportDetailRepository extends JpaRepository<ExportDetail, Integer> {
-    List<ExportDetail> findAllByHangHoaId(Integer productId);
+    List<ExportDetail> findAllByProductId(Integer productId);
 
-    @org.springframework.data.jpa.repository.Query("SELECT d FROM ExportDetail d WHERE d.phieuXuatKho.donHangSuaChua.id = :orderId")
+    @org.springframework.data.jpa.repository.Query("SELECT d FROM ExportDetail d WHERE d.exportNote.repairOrder.id = :orderId")
     List<ExportDetail> findByOrderId(@org.springframework.data.repository.query.Param("orderId") Integer orderId);
 }

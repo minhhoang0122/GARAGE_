@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { requestJoinTask } from '@/modules/service/mechanic';
+import { mechanicService } from '@/modules/mechanic/services/mechanic';
 import { Button } from '@/modules/shared/components/ui/button';
 import { UserPlus } from 'lucide-react';
 import { useToast } from '@/modules/shared/components/ui/use-toast';
@@ -19,7 +19,7 @@ export default function JoinItemButton({ itemId, disabled, isLead }: JoinItemBut
     const handleJoin = async () => {
         setLoading(true);
         try {
-            const res = await requestJoinTask(itemId);
+            const res = await mechanicService.requestJoinTask(itemId);
             if (res.success) {
                 toast({
                     title: isLead ? "Thành công" : "Đã gửi yêu cầu",

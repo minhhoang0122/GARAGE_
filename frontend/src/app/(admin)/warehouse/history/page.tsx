@@ -3,7 +3,6 @@
 import { useState, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -12,16 +11,15 @@ import {
     CheckCircle2, XCircle, AlertCircle, Search, RefreshCw, Filter,
     CalendarDays
 } from 'lucide-react';
-import PrintImportNote from '@/modules/inventory/components/PrintImportNote';
+import PrintImportNote from '@/modules/warehouse/components/PrintImportNote';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/modules/shared/components/ui/button';
 import { Input } from '@/modules/shared/components/ui/input';
 import { toast } from 'sonner';
+import { getStatusBadge, isCompleted, isAssignPending } from '@/lib/status';
 
 export default function WarehouseHistoryPage() {
-    const { data: session } = useSession();
-    // @ts-ignore
-    const token = session?.user?.accessToken;
+
 
     const [activeTab, setActiveTab] = useState<'import' | 'export'>('import');
     const [searchTerm, setSearchTerm] = useState('');
@@ -31,8 +29,7 @@ export default function WarehouseHistoryPage() {
 
     const { data: historyData = [], isLoading, refetch } = useQuery<any[]>({
         queryKey: ['warehouse', 'history', activeTab],
-        queryFn: () => api.get(`/warehouse/history/${activeTab}`, token),
-        enabled: !!token
+        queryFn: () => api.get(`/warehouse/history/${activeTab}`)
     });
 
     const filteredData = historyData.filter(item => {
@@ -73,7 +70,7 @@ export default function WarehouseHistoryPage() {
     const handlePrint = async (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
         try {
-            const detail = await api.get(`/warehouse/import/${id}`, token);
+            const detail = await api.get(`/warehouse/import/${id}`);
             setPrintData(detail);
         } catch (error) {
             console.error('Failed to fetch note for printing', error);
@@ -237,21 +234,21 @@ export default function WarehouseHistoryPage() {
                                                         <div className="flex justify-center">
                                                             {activeTab === 'import' ? (
                                                                 <>
-                                                                    {item.status === 'COMPLETED' && (
-                                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800">
+                                                                    {isCompleted(item.status) && (
+                                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-tight bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800">
                                                                             <CheckCircle2 className="w-3 h-3" />
-                                                                            Đã Duyệt
+                                                                            Đã duyệt
                                                                         </span>
                                                                     )}
-                                                                    {item.status === 'PENDING' && (
-                                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-100 dark:border-amber-800">
+                                                                    {isAssignPending(item.status) && (
+                                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-tight bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-100 dark:border-amber-800">
                                                                             <AlertCircle className="w-3 h-3" />
-                                                                            Chờ Duyệt
+                                                                            Chờ duyệt
                                                                         </span>
                                                                     )}
                                                                 </>
                                                             ) : (
-                                                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Giao xe</span>
+                                                                <span className="text-[10px] font-bold text-slate-400 tracking-tight">Giao xe</span>
                                                             )}
                                                         </div>
                                                     </td>

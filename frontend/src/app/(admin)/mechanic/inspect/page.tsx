@@ -1,10 +1,16 @@
-import { DashboardLayout } from '@/modules/common/components/layout';
-import { getReceptionsToInspect } from '@/modules/service/mechanic';
-import Link from 'next/link';
-import { ClipboardCheck, ChevronRight, Car } from 'lucide-react';
+'use client';
 
-export default async function InspectListPage() {
-    const receptions = await getReceptionsToInspect();
+import { DashboardLayout } from '@/modules/common/components/layout';
+import { mechanicService } from '@/modules/mechanic/services/mechanic';
+import Link from 'next/link';
+import { ClipboardCheck, ChevronRight, Car, Loader2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+
+export default function InspectListPage() {
+    const { data: receptions = [], isLoading } = useQuery({
+        queryKey: ['mechanic-inspect-jobs'],
+        queryFn: () => mechanicService.getInspectJobs(),
+    });
 
     return (
         <DashboardLayout title="Khám xe" subtitle="Danh sách xe chờ kiểm tra và đề xuất sửa chữa">
@@ -17,7 +23,12 @@ export default async function InspectListPage() {
                         </p>
                     </div>
 
-                    {receptions.length === 0 ? (
+                    {isLoading ? (
+                        <div className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
+                            <Loader2 className="w-10 h-10 animate-spin mx-auto mb-3 text-blue-600" />
+                            <p>Đang tải danh sách...</p>
+                        </div>
+                    ) : receptions.length === 0 ? (
                         <div className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
                             <ClipboardCheck className="w-12 h-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
                             <p>Không có xe nào chờ khám</p>

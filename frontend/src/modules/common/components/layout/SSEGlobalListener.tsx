@@ -12,7 +12,7 @@ export function SSEGlobalListener() {
     const { addListener, removeListener } = useSSEContext();
     const { showToast } = useToast();
     const router = useRouter();
-    const { data: session } = useSession();
+    const { data: session, update } = useSession();
     const currentUserId = (session?.user as any)?.id;
 
     useEffect(() => {
@@ -58,8 +58,10 @@ export function SSEGlobalListener() {
         const handleInventoryUpdated = (data: any) => {
             console.log('[SSE] Inventory Updated:', data);
             queryClient.invalidateQueries({ queryKey: ['inventory'] });
+            queryClient.invalidateQueries({ queryKey: ['products'] });
             queryClient.invalidateQueries({ queryKey: ['warehouse'] });
             queryClient.invalidateQueries({ queryKey: ['warehouses'] });
+            queryClient.invalidateQueries({ queryKey: ['sale'] });
             // Cập nhật Server Component (Dashboard)
             router.refresh();
             // Không cần toast vì tần suất thay đổi kho có thể cao
@@ -113,6 +115,17 @@ export function SSEGlobalListener() {
             }
         };
 
+        // 8.1 Bảo mật: Khi quyền hạn hoặc thông tin bảo mật thay đổi
+        const handleSecurityUpdated = (data: any) => {
+            console.log('[SSE] User Security Updated:', data);
+            
+            // Nếu là chính user hiện tại, cập nhật lại Session
+            if (data.userId && String(data.userId) === String(currentUserId)) {
+                console.log('[SSE] Syncing Session for current user...');
+                update(); 
+            }
+        };
+
         // 9. Thông báo chung (Notification) - Dùng cho Đặt lịch & Thu ngân
         const handleNotification = (data: any) => {
             console.log('[SSE] Notification Received:', data);
@@ -136,6 +149,20 @@ export function SSEGlobalListener() {
             }
         };
 
+        // 10. Khi có thay đổi về Giá/Thuế/Dữ liệu Master
+        const handleMetadataUpdated = (data: any) => {
+            console.log('[SSE] Metadata Updated:', data);
+            
+            // Invalidate các query liên quan đến sản phẩm và đơn hàng
+            queryClient.invalidateQueries({ queryKey: ['products'] });
+            queryClient.invalidateQueries({ queryKey: ['repair-orders'] });
+            queryClient.invalidateQueries({ queryKey: ['sale'] });
+            
+            // Hiển thị thông báo Toast nổi bật
+            showToast('info', data.message || 'Hệ thống vừa cập nhật bảng giá/thuế mới.');
+            router.refresh();
+        };
+
         addListener('order_claimed', handleOrderClaimed);
         addListener('order_updated', handleOrderUpdated);
         addListener('order_item_status_changed', handleItemStatusChanged);
@@ -145,7 +172,9 @@ export function SSEGlobalListener() {
         addListener('order_qc_passed', handleQCPassed);
         addListener('order_qc_failed', handleQCFailed);
         addListener('user_status_changed', handleUserStatusChanged);
+        addListener('user_security_updated', handleSecurityUpdated);
         addListener('notification', handleNotification);
+        addListener('metadata_updated', handleMetadataUpdated);
 
         return () => {
             removeListener('order_claimed', handleOrderClaimed);
@@ -157,7 +186,9 @@ export function SSEGlobalListener() {
             removeListener('order_qc_passed', handleQCPassed);
             removeListener('order_qc_failed', handleQCFailed);
             removeListener('user_status_changed', handleUserStatusChanged);
+            removeListener('user_security_updated', handleSecurityUpdated);
             removeListener('notification', handleNotification);
+            removeListener('metadata_updated', handleMetadataUpdated);
         };
     }, [addListener, removeListener, queryClient, showToast]);
 

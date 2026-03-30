@@ -11,8 +11,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.cache.annotation.EnableCaching;
 
 @SpringBootApplication
-@EntityScan("com.gara.entity")
-@EnableJpaRepositories("com.gara.modules")
+@EntityScan("com.gara")
+@EnableJpaRepositories("com.gara")
 @EnableScheduling
 @EnableAsync
 @EnableCaching

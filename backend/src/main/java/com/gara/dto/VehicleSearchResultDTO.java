@@ -5,6 +5,8 @@ public record VehicleSearchResultDTO(
         String plate,
         String customerName,
         String customerPhone,
+        String customerAddress,
+        String customerEmail,
         String brand,
         String model,
         String soKhung,
@@ -23,6 +25,8 @@ public record VehicleSearchResultDTO(
         private String plate;
         private String customerName;
         private String customerPhone;
+        private String customerAddress;
+        private String customerEmail;
         private String brand;
         private String model;
         private String soKhung;
@@ -49,6 +53,16 @@ public record VehicleSearchResultDTO(
 
         public VehicleSearchResultDTOBuilder customerPhone(String customerPhone) {
             this.customerPhone = customerPhone;
+            return this;
+        }
+
+        public VehicleSearchResultDTOBuilder customerAddress(String customerAddress) {
+            this.customerAddress = customerAddress;
+            return this;
+        }
+
+        public VehicleSearchResultDTOBuilder customerEmail(String customerEmail) {
+            this.customerEmail = customerEmail;
             return this;
         }
 
@@ -93,7 +107,7 @@ public record VehicleSearchResultDTO(
         }
 
         public VehicleSearchResultDTO build() {
-            return new VehicleSearchResultDTO(exists, plate, customerName, customerPhone, brand, model, soKhung, soMay,
+            return new VehicleSearchResultDTO(exists, plate, customerName, customerPhone, customerAddress, customerEmail, brand, model, soKhung, soMay,
                     odo, history, customer, activeWarrantyCount);
         }
     }

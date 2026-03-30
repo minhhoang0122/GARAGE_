@@ -41,25 +41,25 @@ public class PaymentService {
     private PaymentSummaryDTO mapToPaymentSummaryDTO(RepairOrder order) {
         return PaymentSummaryDTO.builder()
                 .orderId(order.getId())
-                .plate(order.getPhieuTiepNhan().getXe().getBienSo())
-                .customerName(order.getPhieuTiepNhan().getXe().getKhachHang().getHoTen())
-                .customerPhone(order.getPhieuTiepNhan().getXe().getKhachHang().getSoDienThoai())
-                .grandTotal(order.getTongCong())
-                .amountPaid(order.getSoTienDaTra())
-                .debt(order.getCongNo())
-                .paymentMethod(order.getPhuongThuc())
-                .paymentDate(order.getNgayThanhToan())
-                .status(order.getTrangThai() != null ? order.getTrangThai().name() : null)
-                .items(order.getChiTietDonHang().stream()
-                        .filter(i -> ItemStatus.KHACH_DONG_Y.equals(i.getTrangThai()))
+                .plate(order.getReception().getVehicle().getLicensePlate())
+                .customerName(order.getReception().getVehicle().getCustomer().getFullName())
+                .customerPhone(order.getReception().getVehicle().getCustomer().getPhone())
+                .grandTotal(order.getGrandTotal())
+                .amountPaid(order.getAmountPaid())
+                .debt(order.getBalanceDue())
+                .paymentMethod(order.getPaymentMethod())
+                .paymentDate(order.getPaymentDate())
+                .status(order.getStatus() != null ? order.getStatus().name() : null)
+                .items(order.getOrderItems().stream()
+                        .filter(i -> ItemStatus.CUSTOMER_APPROVED.equals(i.getStatus()))
                         .map(i -> PaymentSummaryDTO.PaymentItemDTO.builder()
                                 .id(i.getId())
-                                .name(i.getHangHoa().getTenHang())
-                                .quantity(i.getSoLuong())
-                                .unitPrice(i.getDonGiaGoc())
-                                .discount(i.getGiamGiaTien())
-                                .total(i.getThanhTien())
-                                .isService(i.getHangHoa().getLaDichVu())
+                                .name(i.getProduct().getName())
+                                .quantity(i.getQuantity())
+                                .unitPrice(i.getUnitPrice())
+                                .discount(i.getDiscountAmount())
+                                .total(i.getTotalAmount())
+                                .isService(i.getProduct().getIsService())
                                 .build())
                         .toList())
                 .build();
@@ -79,8 +79,8 @@ public class PaymentService {
         RepairOrder order = orderRepository.findByIdWithLock(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found or busy"));
 
-        if (!OrderStatus.CHO_THANH_TOAN.equals(order.getTrangThai())) {
-            if (!OrderStatus.HOAN_THANH.equals(order.getTrangThai())) {
+        if (!OrderStatus.WAITING_FOR_PAYMENT.equals(order.getStatus())) {
+            if (!OrderStatus.COMPLETED.equals(order.getStatus())) {
                 throw new RuntimeException("Đơn hàng chưa ở trạng thái chờ thanh toán");
             }
         }
@@ -111,15 +111,15 @@ public class PaymentService {
         // Fetch again to get updated state after TransactionService finishes
         RepairOrder updatedOrder = orderRepository.findById(orderId).orElseThrow();
 
-        if (OrderStatus.HOAN_THANH.equals(updatedOrder.getTrangThai())) {
+        if (OrderStatus.COMPLETED.equals(updatedOrder.getStatus())) {
             // Rule 9.4.2: Notify Sale Owner
-            Integer saleId = updatedOrder.getNguoiPhuTrach() != null ? updatedOrder.getNguoiPhuTrach().getId() : null;
+            Integer saleId = updatedOrder.getServiceAdvisor() != null ? updatedOrder.getServiceAdvisor().getId() : null;
             if (saleId != null) {
                 asyncNotificationService.pushUniqueAsync(Notification.builder()
                         .userId(saleId)
                         .role("SALE")
-                        .title("Thanh toán đủ: " + updatedOrder.getPhieuTiepNhan().getXe().getBienSo())
-                        .content("Đã thanh toán đủ " + updatedOrder.getTongCong() + ". Đơn hàng đã hoàn thành.")
+                        .title("Thanh toán đủ: " + updatedOrder.getReception().getVehicle().getLicensePlate())
+                        .content("Đã thanh toán đủ " + updatedOrder.getGrandTotal() + ". Đơn hàng đã hoàn thành.")
                         .type("SUCCESS")
                         .link("/sale/orders/" + orderId)
                         .createdAt(LocalDateTime.now())
@@ -129,13 +129,18 @@ public class PaymentService {
 
             // Bug 100: Safe email check
             try {
-                if (updatedOrder.getPhieuTiepNhan() != null && 
-                    updatedOrder.getPhieuTiepNhan().getXe() != null && 
-                    updatedOrder.getPhieuTiepNhan().getXe().getKhachHang() != null) {
+                if (updatedOrder.getReception() != null && 
+                    updatedOrder.getReception().getVehicle() != null && 
+                    updatedOrder.getReception().getVehicle().getCustomer() != null) {
                     
-                    String customerEmail = updatedOrder.getPhieuTiepNhan().getXe().getKhachHang().getEmail();
+                    String customerEmail = updatedOrder.getReception().getVehicle().getCustomer().getEmail();
                     if (customerEmail != null && !customerEmail.isBlank()) {
-                        emailService.sendInvoiceEmail(updatedOrder, customerEmail);
+                        // Generate HTML synchronously while DB connection is still open
+                        String invoiceHtml = emailService.buildInvoiceContent(updatedOrder);
+                        String subject = "Hóa đơn sửa chữa - Garage AutoCare - " + updatedOrder.getReception().getVehicle().getLicensePlate();
+                        
+                        // Send asynchronously - This thread won't hold the DB connection anymore
+                        emailService.sendHtml(customerEmail, subject, invoiceHtml);
                     }
                 }
             } catch (Exception e) {

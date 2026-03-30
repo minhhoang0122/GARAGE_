@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // Schema cho Tiếp nhận xe
 export const receptionSchema = z.object({
-    bienSo: z.string().min(3, 'Biển số xe không được để trống'),
+    bienSo: z.string().regex(/^([1-9][0-9][A-Z]-[0-9]{3}\.[0-9]{2})|([1-9][0-9][A-Z]-[0-9]{4})|([1-9][0-9]-[A-Z][0-9]-[0-9]{3}\.[0-9]{2})|([1-9][0-9]-[A-Z][0-9]-[0-9]{4})$/, 'Biển số không đúng định dạng (VD: 30A-123.45 hoặc 29-X1-123.45)'),
     vehicleType: z.enum(['CAR', 'MOTO']),
     odo: z.number().min(0, 'ODO không thể nhỏ hơn 0'),
     fuel: z.number().min(0).max(100),
@@ -16,8 +16,8 @@ export const receptionSchema = z.object({
     soMay: z.string().optional(),
     
     // Thông tin khách hàng mới (nếu chưa tồn tại)
-    tenKhach: z.string().optional(),
-    sdtKhach: z.string().regex(/^(0[3|5|7|8|9])+([0-9]{8})$/, 'Số điện thoại không hợp lệ').optional().or(z.literal('')),
+    tenKhach: z.string().min(1, 'Tên khách hàng không được để trống'),
+    sdtKhach: z.string().regex(/^(0|(?:\+84))[0-9]{8,9}$/, 'Số điện thoại không hợp lệ'),
     diaChiKhach: z.string().optional(),
     emailKhach: z.string().email('Email không hợp lệ').optional().or(z.literal('')),
     
@@ -51,10 +51,10 @@ export const importSchema = z.object({
 
 // Schema cho Người dùng
 export const userSchema = z.object({
-    tenDangNhap: z.string().min(3, 'Tên đăng nhập phải ít nhất 3 ký tự'),
-    matKhau: z.string().min(6, 'Mật khẩu phải từ 6 ký tự trở lên').optional().or(z.literal('')),
-    hoTen: z.string().min(1, 'Họ tên không được để trống'),
-    soDienThoai: z.string().regex(/^(0[3|5|7|8|9])+([0-9]{8})$/, 'Số điện thoại không hợp lệ'),
+    username: z.string().min(3, 'Tên đăng nhập phải ít nhất 3 ký tự'),
+    password: z.string().min(6, 'Mật khẩu phải từ 6 ký tự trở lên').optional().or(z.literal('')),
+    fullName: z.string().min(1, 'Họ tên không được để trống'),
+    phone: z.string().regex(/^(0[3|5|7|8|9])+([0-9]{8})$/, 'Số điện thoại không hợp lệ'),
     roleCodes: z.array(z.string()).min(1, 'Phải chọn ít nhất một quyền'),
 });
 

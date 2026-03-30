@@ -34,10 +34,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     }
 
                     return {
-                        id: data.userId.toString(),
-                        name: data.fullName,
+                        id: (data as any).userId?.toString() || (data as any).ID?.toString() || (data as any).id?.toString(),
+                        name: data.fullName || data.hoTen || data.HoTen || data.name,
                         roles: data.roles || [],
                         permissions: data.permissions || [],
+                        avatar: data.avatar || data.hinhAnh || data.HinhAnh,
+                        email: data.email,
+                        phone: data.phone || data.soDienThoai || data.SoDienThoai,
+                        createdAt: data.createdAt,
                         accessToken: data.token
                     } as any;
                 } catch (error: any) {
@@ -56,12 +60,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (trigger === "update" && session) {
                 if (session.roles) token.roles = session.roles;
                 if (session.permissions) token.permissions = session.permissions;
+                if (session.avatar) token.avatar = session.avatar || session.hinhAnh;
+                if (session.email) token.email = session.email;
+                if (session.phone) token.phone = session.phone || session.soDienThoai;
+                if (session.name) token.name = session.name || session.fullName || session.hoTen;
             }
 
             if (user) {
                 token.id = user.id;
                 token.roles = (user as any).roles;
                 token.permissions = (user as any).permissions;
+                token.avatar = (user as any).avatar || (user as any).hinhAnh || (user as any).HinhAnh;
+                token.email = (user as any).email;
+                token.phone = (user as any).phone || (user as any).soDienThoai || (user as any).SoDienThoai;
+                token.name = (user as any).name || (user as any).fullName || (user as any).hoTen;
+                token.createdAt = (user as any).createdAt;
                 token.accessToken = (user as any).accessToken;
             }
             return token;
@@ -71,6 +84,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 session.user.id = token.id as string;
                 (session.user as any).roles = token.roles || [];
                 (session.user as any).permissions = token.permissions || [];
+                (session.user as any).image = token.avatar as string;
+                (session.user as any).email = token.email as string;
+                (session.user as any).phone = token.phone as string;
+                (session.user as any).createdAt = token.createdAt;
                 (session.user as any).accessToken = token.accessToken;
             }
             return session;

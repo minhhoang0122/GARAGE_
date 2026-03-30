@@ -8,65 +8,53 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/modules/shared/compo
 import { Button } from '@/modules/shared/components/ui/button';
 import { Input } from '@/modules/shared/components/ui/input';
 import { SearchInput } from '@/modules/shared/components/ui/search-input';
-import { Search, Plus, MapPin, Phone, Mail, User, RefreshCw, ChevronRight, X, Loader2 } from 'lucide-react';
-import { useSession } from 'next-auth/react';
-import { createCustomer } from '@/modules/service/sale';
+import { Search, Plus, MapPin, Phone, Mail, User, RefreshCw, ChevronRight, X, Loader2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-keys';
 
-interface Customer {
-    id: number;
-    hoTen: string;
-    soDienThoai: string;
-    email?: string;
-    diaChi?: string;
-    ngayTao: string;
-}
+import { useCustomers, useCreateCustomer } from '@/modules/customer/hooks/useCustomer';
+import { Customer } from '@/modules/customer/services/customer';
 
 export default function SaleCustomersPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const queryClient = useQueryClient();
-    const { data: session } = useSession();
 
     const keyword = searchParams.get('q') || '';
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { showToast } = useToast();
     const [formData, setFormData] = useState({
-        hoTen: '',
-        soDienThoai: '',
+        fullName: '',
+        phone: '',
         email: '',
-        diaChi: ''
+        address: ''
     });
 
-    // @ts-ignore
-    const token = session?.user?.accessToken;
+    const createCustomer = useCreateCustomer();
+    const { data: customers = [], isFetching, refetch, isError, isLoading } = useCustomers({ search: keyword });
 
-    const { data: customers = [], isFetching, refetch } = useQuery({
-        queryKey: ['customers', keyword],
-        queryFn: async () => {
-            return await api.get(`/sale/customers?search=${keyword}`, token);
-        },
-        enabled: !!token
-    });
-
-    const createMutation = useMutation({
-        mutationFn: createCustomer,
-        onSuccess: (res) => {
-            if (res.success) {
-                setIsModalOpen(false);
-                setFormData({ hoTen: '', soDienThoai: '', email: '', diaChi: '' });
-                showToast('success', 'Thêm khách hàng thành công!');
-                queryClient.invalidateQueries({ queryKey: ['customers'] });
-            } else {
-                showToast('error', res.error || 'Có lỗi xảy ra');
-            }
-        }
-    });
+    const handleRefresh = async () => {
+        refetch();
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        createMutation.mutate(formData);
+        createCustomer.mutate({
+            fullName: formData.fullName,
+            phone: formData.phone,
+            email: formData.email,
+            address: formData.address
+        }, {
+            onSuccess: () => {
+                setIsModalOpen(false);
+                setFormData({ fullName: '', phone: '', email: '', address: '' });
+                showToast('success', 'Thêm khách hàng thành công!');
+            },
+            onError: () => {
+                showToast('error', 'Có lỗi xảy ra khi thêm khách hàng');
+            }
+        });
     };
 
     return (
@@ -81,7 +69,7 @@ export default function SaleCustomersPage() {
                                     placeholder="Tìm kiếm theo tên hoặc số điện thoại..."
                                 />
                             </div>
-                            <Button variant="outline" type="button" onClick={() => refetch()} disabled={isFetching}>
+                            <Button variant="outline" type="button" onClick={handleRefresh} disabled={isFetching}>
                                 <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                             </Button>
                         </div>
@@ -96,70 +84,104 @@ export default function SaleCustomersPage() {
 
                 {/* Customers List */}
                 {/* Customers List - Responsive */}
-                <div className="space-y-4">
-                    {/* Desktop Grid View */}
-                    <div className="hidden md:grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {customers.map((customer: Customer) => (
-                            <Card key={customer.id} className="hover:shadow-md transition-shadow border-slate-200 dark:border-slate-800 dark:bg-slate-900">
-                                <CardHeader className="flex flex-row items-center gap-4 pb-2 px-6 pt-6">
-                                    <div className="w-12 h-12 flex-shrink-0 rounded border-2 border-slate-900 dark:border-white bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-900 dark:text-white font-black text-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] group-hover:-translate-y-1 transition-transform">
-                                        {customer.hoTen ? customer.hoTen.substring(0, 1).toUpperCase() : 'K'}
+                {!isLoading && !isError && Array.isArray(customers) && (
+                    <div className="space-y-4">
+                        {/* Desktop Grid View */}
+                        <div className="hidden md:grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {customers.map((customer: Customer) => (
+                                <Card key={customer.id} className="hover:shadow-md transition-shadow border-slate-200 dark:border-slate-800 dark:bg-slate-900">
+                                    <CardHeader className="flex flex-row items-center gap-4 pb-2 px-6 pt-6">
+                                        <div className="w-12 h-12 flex-shrink-0 rounded border-2 border-slate-900 dark:border-white bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-900 dark:text-white font-black text-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] group-hover:-translate-y-1 transition-transform">
+                                            {customer.fullName ? customer.fullName.substring(0, 1).toUpperCase() : 'K'}
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg font-black text-slate-800 dark:text-slate-100">{customer.fullName}</CardTitle>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1 font-bold">
+                                                <Phone className="w-3.5 h-3.5" /> {customer.phone}
+                                            </p>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="text-sm space-y-3 px-6 pb-6">
+                                        {customer.email && (
+                                            <div className="flex items-center gap-2.5 text-slate-600 dark:text-slate-300 font-medium">
+                                                <Mail className="w-4 h-4 text-slate-400" />
+                                                <span>{customer.email}</span>
+                                            </div>
+                                        )}
+                                        {customer.address && (
+                                            <div className="flex items-center gap-2.5 text-slate-600 dark:text-slate-300 font-medium">
+                                                <MapPin className="w-4 h-4 text-slate-400" />
+                                                <span className="line-clamp-1">{customer.address}</span>
+                                            </div>
+                                        )}
+                                        <div className="pt-3 flex justify-between items-center text-[10px] text-slate-400 border-t border-slate-100 dark:border-slate-800 mt-2 uppercase tracking-widest font-black">
+                                            <span>ID: #{customer.id}</span>
+                                            <span>Mới nhất: {customer.lastVisit ? new Date(customer.lastVisit).toLocaleDateString('vi-VN') : 'N/A'}</span>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+
+                        {/* Mobile List View */}
+                        <div className="md:hidden space-y-3">
+                            {customers.map((customer: Customer) => (
+                                <div key={customer.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4">
+                                    <div className="w-10 h-10 flex-shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-700">
+                                        {customer.fullName ? customer.fullName.substring(0, 1).toUpperCase() : 'K'}
                                     </div>
-                                    <div>
-                                        <CardTitle className="text-lg font-black text-slate-800 dark:text-slate-100">{customer.hoTen}</CardTitle>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1 font-bold">
-                                            <Phone className="w-3.5 h-3.5" /> {customer.soDienThoai}
-                                        </p>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-slate-900 dark:text-slate-100 truncate">{customer.fullName}</h3>
+                                        <a href={`tel:${customer.phone}`} className="text-indigo-600 dark:text-indigo-400 text-sm font-medium flex items-center gap-1 mt-0.5">
+                                            <Phone className="w-3 h-3" /> {customer.phone}
+                                        </a>
+                                    </div>
+                                    {(customer.email || customer.address) && (
+                                        <div className="text-right">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-slate-400">
+                                                <ChevronRight className="w-5 h-5" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Error State */}
+                {isError && (
+                    <div className="text-center py-20 bg-rose-50 dark:bg-rose-950/10 rounded-2xl border-2 border-dashed border-rose-200 dark:border-rose-900 transition-colors">
+                        <AlertCircle className="w-16 h-16 mx-auto mb-4 text-rose-300 dark:text-rose-800" />
+                        <h3 className="text-lg font-bold text-rose-600 dark:text-rose-400">Đã xảy ra lỗi khi tải dữ liệu</h3>
+                        <p className="text-rose-500/70 text-sm mt-1">Vui lòng thử lại sau hoặc liên hệ quản trị viên.</p>
+                        <Button variant="outline" onClick={handleRefresh} className="mt-4 border-rose-200 text-rose-600 hover:bg-rose-100 dark:border-rose-900 dark:text-rose-400"> Thử lại ngay </Button>
+                    </div>
+                )}
+
+                {/* Loading State */}
+                {isLoading && !isError && (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                            <Card key={i} className="animate-pulse border-slate-200 dark:border-slate-800 dark:bg-slate-900">
+                                <CardHeader className="flex flex-row items-center gap-4 pb-2 px-6 pt-6">
+                                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                                    <div className="space-y-2 flex-1">
+                                        <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-3/4"></div>
+                                        <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-1/2"></div>
                                     </div>
                                 </CardHeader>
-                                <CardContent className="text-sm space-y-3 px-6 pb-6">
-                                    {customer.email && (
-                                        <div className="flex items-center gap-2.5 text-slate-600 dark:text-slate-300 font-medium">
-                                            <Mail className="w-4 h-4 text-slate-400" />
-                                            <span>{customer.email}</span>
-                                        </div>
-                                    )}
-                                    {customer.diaChi && (
-                                        <div className="flex items-center gap-2.5 text-slate-600 dark:text-slate-300 font-medium">
-                                            <MapPin className="w-4 h-4 text-slate-400" />
-                                            <span className="line-clamp-1">{customer.diaChi}</span>
-                                        </div>
-                                    )}
-                                    <div className="pt-3 flex justify-between items-center text-[10px] text-slate-400 border-t border-slate-100 dark:border-slate-800 mt-2 uppercase tracking-widest font-black">
-                                        <span>ID: #{customer.id}</span>
-                                        <span>Gia nhập: {new Date(customer.ngayTao).toLocaleDateString('vi-VN')}</span>
-                                    </div>
+                                <CardContent className="px-6 pb-6 space-y-3">
+                                    <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-full"></div>
+                                    <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-5/6"></div>
                                 </CardContent>
                             </Card>
                         ))}
                     </div>
+                )}
 
-                    {/* Mobile List View */}
-                    <div className="md:hidden space-y-3">
-                        {customers.map((customer: Customer) => (
-                            <div key={customer.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4">
-                                <div className="w-10 h-10 flex-shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-700">
-                                    {customer.hoTen ? customer.hoTen.substring(0, 1).toUpperCase() : 'K'}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="font-bold text-slate-900 dark:text-slate-100 truncate">{customer.hoTen}</h3>
-                                    <a href={`tel:${customer.soDienThoai}`} className="text-indigo-600 dark:text-indigo-400 text-sm font-medium flex items-center gap-1 mt-0.5">
-                                        <Phone className="w-3 h-3" /> {customer.soDienThoai}
-                                    </a>
-                                </div>
-                                {(customer.email || customer.diaChi) && (
-                                    <div className="text-right">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-slate-400">
-                                            <ChevronRight className="w-5 h-5" />
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {!isFetching && customers.length === 0 && (
+                {/* Empty State */}
+                {!isLoading && !isError && Array.isArray(customers) && customers.length === 0 && (
                     <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 transition-colors">
                         <User className="w-16 h-16 mx-auto mb-4 text-slate-200 dark:text-slate-700" />
                         <h3 className="text-lg font-bold text-slate-400">Chưa có khách hàng nào</h3>
@@ -173,34 +195,34 @@ export default function SaleCustomersPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
                     <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
                         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
-                            <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-wider">Thêm khách hàng mới</h3>
+                            <h3 className="font-bold text-slate-800 dark:text-white">Thêm khách hàng mới</h3>
                             <button onClick={() => setIsModalOpen(false)} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors">
                                 <X className="w-5 h-5 text-slate-500" />
                             </button>
                         </div>
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             <div>
-                                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5 px-0.5">Họ và tên *</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-1.5 px-0.5">Họ và tên *</label>
                                 <Input
                                     required
-                                    value={formData.hoTen}
-                                    onChange={e => setFormData({ ...formData, hoTen: e.target.value })}
+                                    value={formData.fullName}
+                                    onChange={e => setFormData({ ...formData, fullName: e.target.value })}
                                     placeholder="Nguyễn Văn A"
                                     className="bg-slate-50 dark:bg-slate-950 font-medium"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5 px-0.5">Số điện thoại *</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-1.5 px-0.5">Số điện thoại *</label>
                                 <Input
                                     required
-                                    value={formData.soDienThoai}
-                                    onChange={e => setFormData({ ...formData, soDienThoai: e.target.value })}
+                                    value={formData.phone}
+                                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
                                     placeholder="0901234567"
                                     className="bg-slate-50 dark:bg-slate-950 font-medium"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5 px-0.5">Email</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-1.5 px-0.5">Email</label>
                                 <Input
                                     type="email"
                                     value={formData.email}
@@ -210,10 +232,10 @@ export default function SaleCustomersPage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1.5 px-0.5">Địa chỉ</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-1.5 px-0.5">Địa chỉ</label>
                                 <Input
-                                    value={formData.diaChi}
-                                    onChange={e => setFormData({ ...formData, diaChi: e.target.value })}
+                                    value={formData.address}
+                                    onChange={e => setFormData({ ...formData, address: e.target.value })}
                                     placeholder="Số 123, Đường ABC, TP.HCM"
                                     className="bg-slate-50 dark:bg-slate-950 font-medium"
                                 />
@@ -230,10 +252,10 @@ export default function SaleCustomersPage() {
                                 </Button>
                                 <Button
                                     type="submit"
-                                    disabled={createMutation.isPending}
+                                    disabled={createCustomer.isPending}
                                     className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg dark:bg-white dark:text-slate-900"
                                 >
-                                    {createMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Lưu khách hàng'}
+                                    {createCustomer.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Lưu khách hàng'}
                                 </Button>
                             </div>
                         </form>

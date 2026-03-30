@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Search, Package, Wrench, Loader2, AlertCircle } from 'lucide-react';
-import { getAllProducts } from '@/modules/service/order';
-import { reportTechnicalIssue } from '@/modules/service/mechanic';
+import { useSearchProducts, useAddOrderItem } from '@/modules/sale/hooks/useSale';
+import { useReportIssue } from '@/modules/mechanic/hooks/useMechanic';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 
@@ -25,28 +25,18 @@ type TabType = 'all' | 'parts' | 'services';
 
 export default function MechanicProductSearch({ orderId, disabled = false }: MechanicProductSearchProps) {
     const [searchTerm, setSearchTerm] = useState('');
-    const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [results, setResults] = useState<Product[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
-    const [isReporting, setIsReporting] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('all');
     const confirm = useConfirm();
+
+    const { data: allProducts = [], isLoading } = useSearchProducts('');
+    const { mutate: addItemMatch, isPending: isAdding } = useAddOrderItem();
+    const { mutate: reportIssueMatch, isPending: isReporting } = useReportIssue();
 
     const debouncedSearch = useDebounce(searchTerm, 300);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const loadAll = async () => {
-            try {
-                const products = await getAllProducts();
-                setAllProducts(products as Product[]);
-            } catch (error) {
-                console.error("Load products error", error);
-            }
-        };
-        loadAll();
-    }, []);
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -84,21 +74,16 @@ export default function MechanicProductSearch({ orderId, disabled = false }: Mec
         });
         if (!confirmed) return;
 
-        setIsReporting(true);
-        try {
-            const result = await reportTechnicalIssue(orderId, [{ productId: product.ID, quantity: 1 }]);
-            if (result.success) {
+        reportIssueMatch({ orderId, items: [{ productId: product.ID, quantity: 1 }] }, {
+            onSuccess: async () => {
                 setSearchTerm('');
                 setIsOpen(false);
                 await confirm({ title: 'Thành công', message: 'Đã gửi yêu cầu phát sinh tới Sale.', type: 'info', confirmText: 'OK', cancelText: '' });
-            } else {
-                await confirm({ title: 'Lỗi', message: result.error, type: 'danger', confirmText: 'Đóng', cancelText: '' });
+            },
+            onError: async (error: any) => {
+                await confirm({ title: 'Lỗi', message: error.message || 'Lỗi khi gửi yêu cầu', type: 'danger', confirmText: 'Đóng', cancelText: '' });
             }
-        } catch (error) {
-            await confirm({ title: 'Lỗi', message: 'Lỗi khi gửi yêu cầu', type: 'danger', confirmText: 'Đóng', cancelText: '' });
-        } finally {
-            setIsReporting(false);
-        }
+        });
     };
 
     return (
@@ -181,7 +166,7 @@ export default function MechanicProductSearch({ orderId, disabled = false }: Mec
                                         </div>
                                         <div className="text-right">
                                             {isOutOfStock ? (
-                                                <span className="text-xs text-red-500 font-bold tracking-tighter uppercase">HẾT HÀNG</span>
+                                                <span className="text-xs text-red-500 font-bold tracking-tight">Hết hàng</span>
                                             ) : (
                                                 <span className="text-xs text-amber-600 dark:text-amber-400 font-bold px-2 py-1 bg-amber-50 dark:bg-amber-900/20 rounded-full border border-amber-100 dark:border-amber-900/30">Báo phát sinh</span>
                                             )}
@@ -196,3 +181,4 @@ export default function MechanicProductSearch({ orderId, disabled = false }: Mec
         </div>
     );
 }
+

@@ -6,7 +6,11 @@ import java.util.List;
 import com.gara.entity.enums.ItemStatus;
 
 @Entity
-@Table(name = "chitietdonhang")
+@Table(name = "order_items", indexes = {
+        @Index(name = "idx_order_items_repair_order_id", columnList = "repair_order_id"),
+        @Index(name = "idx_order_items_product_id", columnList = "product_id"),
+        @Index(name = "idx_order_items_status", columnList = "status")
+})
 public class OrderItem {
 
     @Id
@@ -18,130 +22,130 @@ public class OrderItem {
     @Column(name = "version")
     private Integer version;
 
-    @Column(name = "so_luong", nullable = false)
-    private Integer soLuong;
+    @Column(name = "quantity", nullable = false)
+    private Integer quantity;
 
-    @Column(name = "don_gia_goc", precision = 18, scale = 2)
-    private BigDecimal donGiaGoc;
+    @Column(name = "unit_price", nullable = false, precision = 18, scale = 2)
+    private BigDecimal unitPrice = BigDecimal.ZERO;
 
-    @Column(name = "giam_gia_tien", precision = 18, scale = 2)
-    private BigDecimal giamGiaTien = BigDecimal.ZERO;
+    @Column(name = "discount_amount", nullable = false, precision = 18, scale = 2)
+    private BigDecimal discountAmount = BigDecimal.ZERO;
 
-    @Column(name = "giam_gia_phan_tram", precision = 5, scale = 2)
-    private BigDecimal giamGiaPhanTram = BigDecimal.ZERO;
+    @Column(name = "discount_percentage", nullable = false, precision = 5, scale = 2)
+    private BigDecimal discountPercentage = BigDecimal.ZERO;
 
-    @Column(name = "thanh_tien", precision = 18, scale = 2)
-    private BigDecimal thanhTien;
+    @Column(name = "total_amount", nullable = false, precision = 18, scale = 2)
+    private BigDecimal totalAmount = BigDecimal.ZERO;
 
-    @Column(name = "vat_phan_tram", precision = 5, scale = 2)
-    private BigDecimal vatPhanTram = new BigDecimal("10.00");
+    @Column(name = "vat_percentage", nullable = false, precision = 5, scale = 2)
+    private BigDecimal vatPercentage = new BigDecimal("10.00");
 
-    @Column(name = "tien_thue", precision = 18, scale = 2)
-    private BigDecimal tienThue = BigDecimal.ZERO;
+    @Column(name = "vat_amount", nullable = false, precision = 18, scale = 2)
+    private BigDecimal vatAmount = BigDecimal.ZERO;
 
-    @Column(name = "uu_tien")
-    private Integer uuTien = 0;
+    @Column(name = "priority")
+    private Integer priority = 0;
 
-    @Column(name = "ly_do_chinh_gia", length = 200)
-    private String lyDoChinhGia;
+    @Column(name = "price_adjustment_reason", length = 200)
+    private String priceAdjustmentReason;
 
-    @Column(name = "ghi_chu", length = 500)
-    private String ghiChu;
+    @Column(name = "notes", length = 500)
+    private String notes;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "trang_thai", length = 20)
-    private ItemStatus trangThai = ItemStatus.DE_XUAT; // DE_XUAT, KHACH_DONG_Y, KHACH_TU_CHOI
+    @Column(name = "status", length = 30)
+    private ItemStatus status = ItemStatus.PROPOSAL; // PROPOSAL, CUSTOMER_APPROVED, CUSTOMER_REJECTED
 
-    @Column(name = "la_hang_bao_hanh")
-    private Boolean laHangBaoHanh = false;
+    @Column(name = "is_warranty")
+    private Boolean isWarranty = false;
 
-    @Column(name = "ghi_chu_bao_hanh", length = 500)
-    private String ghiChuBaoHanh;
+    @Column(name = "warranty_notes", length = 500)
+    private String warrantyNotes;
 
-    @Column(name = "da_bao_hanh")
-    private Boolean daBaoHanh = false;
+    @Column(name = "is_warranty_processed")
+    private Boolean isWarrantyProcessed = false;
 
-    @Column(name = "da_hoan_thanh")
-    private Boolean daHoanThanh = false;
+    @Column(name = "is_completed")
+    private Boolean isCompleted = false;
 
-    @Column(name = "so_luong_tho_toi_da")
-    private Integer soLuongThoToiDa = 4;
+    @Column(name = "max_mechanics")
+    private Integer maxMechanics = 4;
 
-    @Column(name = "la_phat_sinh")
-    private Boolean laPhatSinh = false;
+    @Column(name = "is_emergency")
+    private Boolean isEmergency = false;
 
-    @Column(name = "ngay_de_xuat")
-    private java.time.LocalDateTime ngayDeXuat;
+    @Column(name = "suggested_at")
+    private java.time.LocalDateTime suggestedAt;
 
     // Foreign Keys
-    @Column(name = "don_hang_sua_chua_id", insertable = false, updatable = false)
-    private Integer donHangSuaChuaId;
+    @Column(name = "repair_order_id", insertable = false, updatable = false)
+    private Integer repairOrderId;
 
-    @Column(name = "hang_hoa_id", insertable = false, updatable = false)
-    private Integer hangHoaId;
+    @Column(name = "product_id", insertable = false, updatable = false)
+    private Integer productId;
 
     // Relations
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "don_hang_sua_chua_id", nullable = false)
-    private RepairOrder donHangSuaChua;
+    @JoinColumn(name = "repair_order_id", nullable = false)
+    private RepairOrder repairOrder;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hang_hoa_id", nullable = false)
-    private Product hangHoa;
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
-    @Column(name = "nguoi_thuc_hien_id", insertable = false, updatable = false)
-    private Integer nguoiThucHienId;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nguoi_thuc_hien_id")
-    private User nguoiThucHien;
-
-    @OneToMany(mappedBy = "chiTietDonHang", cascade = CascadeType.ALL)
-    private List<TaskAssignment> phanCongTho;
-
-    @Column(name = "nguoi_de_xuat_id", insertable = false, updatable = false)
-    private Integer nguoiDeXuatId;
+    @Column(name = "mechanic_id", insertable = false, updatable = false)
+    private Integer mechanicId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nguoi_de_xuat_id")
-    private User nguoiDeXuat;
+    @JoinColumn(name = "mechanic_id")
+    private User mechanic;
+
+    @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL)
+    private List<TaskAssignment> taskAssignments;
+
+    @Column(name = "suggested_by_id", insertable = false, updatable = false)
+    private Integer suggestedById;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "suggested_by_id")
+    private User suggestedBy;
 
     public OrderItem() {
     }
 
-    public OrderItem(Integer id, Integer soLuong, BigDecimal donGiaGoc, BigDecimal giamGiaTien,
-            BigDecimal giamGiaPhanTram, BigDecimal thanhTien, BigDecimal vatPhanTram, BigDecimal tienThue,
-            Integer uuTien, String lyDoChinhGia, ItemStatus trangThai, String ghiChu,
-            Boolean laHangBaoHanh, String ghiChuBaoHanh, Boolean daHoanThanh, Integer soLuongThoToiDa,
-            Integer donHangSuaChuaId, Integer hangHoaId, RepairOrder donHangSuaChua, Product hangHoa,
-            Integer nguoiThucHienId, User nguoiThucHien, List<TaskAssignment> phanCongTho,
-            Boolean laPhatSinh, java.time.LocalDateTime ngayDeXuat, User nguoiDeXuat) {
+    public OrderItem(Integer id, Integer quantity, BigDecimal unitPrice, BigDecimal discountAmount,
+            BigDecimal discountPercentage, BigDecimal totalAmount, BigDecimal vatPercentage, BigDecimal vatAmount,
+            Integer priority, String priceAdjustmentReason, ItemStatus status, String notes,
+            Boolean isWarranty, String warrantyNotes, Boolean isCompleted, Integer maxMechanics,
+            Integer repairOrderId, Integer productId, RepairOrder repairOrder, Product product,
+            Integer mechanicId, User mechanic, List<TaskAssignment> taskAssignments,
+            Boolean isEmergency, java.time.LocalDateTime suggestedAt, User suggestedBy) {
         this.id = id;
-        this.soLuong = soLuong;
-        this.donGiaGoc = donGiaGoc;
-        this.giamGiaTien = giamGiaTien != null ? giamGiaTien : BigDecimal.ZERO;
-        this.giamGiaPhanTram = giamGiaPhanTram != null ? giamGiaPhanTram : BigDecimal.ZERO;
-        this.thanhTien = thanhTien;
-        this.vatPhanTram = vatPhanTram != null ? vatPhanTram : new BigDecimal("10.00");
-        this.tienThue = tienThue != null ? tienThue : BigDecimal.ZERO;
-        this.uuTien = uuTien != null ? uuTien : 0;
-        this.lyDoChinhGia = lyDoChinhGia;
-        this.ghiChu = ghiChu;
-        this.trangThai = trangThai != null ? trangThai : ItemStatus.DE_XUAT;
-        this.laHangBaoHanh = laHangBaoHanh != null ? laHangBaoHanh : false;
-        this.ghiChuBaoHanh = ghiChuBaoHanh;
-        this.daHoanThanh = daHoanThanh != null ? daHoanThanh : false;
-        this.soLuongThoToiDa = soLuongThoToiDa != null ? soLuongThoToiDa : 4;
-        this.donHangSuaChuaId = donHangSuaChuaId;
-        this.hangHoaId = hangHoaId;
-        this.donHangSuaChua = donHangSuaChua;
-        this.hangHoa = hangHoa;
-        this.nguoiThucHienId = nguoiThucHienId;
-        this.nguoiThucHien = nguoiThucHien;
-        this.phanCongTho = phanCongTho;
-        this.laPhatSinh = laPhatSinh != null ? laPhatSinh : false;
-        this.ngayDeXuat = ngayDeXuat;
-        this.nguoiDeXuat = nguoiDeXuat;
+        this.quantity = quantity;
+        this.unitPrice = unitPrice;
+        this.discountAmount = discountAmount != null ? discountAmount : BigDecimal.ZERO;
+        this.discountPercentage = discountPercentage != null ? discountPercentage : BigDecimal.ZERO;
+        this.totalAmount = totalAmount;
+        this.vatPercentage = vatPercentage != null ? vatPercentage : new BigDecimal("10.00");
+        this.vatAmount = vatAmount != null ? vatAmount : BigDecimal.ZERO;
+        this.priority = priority != null ? priority : 0;
+        this.priceAdjustmentReason = priceAdjustmentReason;
+        this.notes = notes;
+        this.status = status != null ? status : ItemStatus.PROPOSAL;
+        this.isWarranty = isWarranty != null ? isWarranty : false;
+        this.warrantyNotes = warrantyNotes;
+        this.isCompleted = isCompleted != null ? isCompleted : false;
+        this.maxMechanics = maxMechanics != null ? maxMechanics : 4;
+        this.repairOrderId = repairOrderId;
+        this.productId = productId;
+        this.repairOrder = repairOrder;
+        this.product = product;
+        this.mechanicId = mechanicId;
+        this.mechanic = mechanic;
+        this.taskAssignments = taskAssignments;
+        this.isEmergency = isEmergency != null ? isEmergency : false;
+        this.suggestedAt = suggestedAt;
+        this.suggestedBy = suggestedBy;
     }
 
     public Integer getVersion() {
@@ -160,220 +164,228 @@ public class OrderItem {
         this.id = id;
     }
 
-    public Integer getSoLuong() {
-        return soLuong;
+    public Integer getQuantity() {
+        return quantity;
     }
 
-    public void setSoLuong(Integer soLuong) {
-        this.soLuong = soLuong;
+    public void setQuantity(Integer quantity) {
+        this.quantity = quantity;
     }
 
-    public BigDecimal getDonGiaGoc() {
-        return donGiaGoc;
+    public BigDecimal getUnitPrice() {
+        return unitPrice;
     }
 
-    public void setDonGiaGoc(BigDecimal donGiaGoc) {
-        this.donGiaGoc = donGiaGoc;
+    public void setUnitPrice(BigDecimal unitPrice) {
+        this.unitPrice = unitPrice;
     }
 
-    public BigDecimal getGiamGiaTien() {
-        return giamGiaTien;
+    public BigDecimal getDiscountAmount() {
+        return discountAmount;
     }
 
-    public void setGiamGiaTien(BigDecimal giamGiaTien) {
-        this.giamGiaTien = giamGiaTien;
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount;
     }
 
-    public BigDecimal getGiamGiaPhanTram() {
-        return giamGiaPhanTram;
+    public BigDecimal getDiscountPercentage() {
+        return discountPercentage;
     }
 
-    public void setGiamGiaPhanTram(BigDecimal giamGiaPhanTram) {
-        this.giamGiaPhanTram = giamGiaPhanTram;
+    public void setDiscountPercentage(BigDecimal discountPercentage) {
+        this.discountPercentage = discountPercentage;
     }
 
-    public BigDecimal getThanhTien() {
-        return thanhTien;
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
     }
 
-    public void setThanhTien(BigDecimal thanhTien) {
-        this.thanhTien = thanhTien;
+    public void setTotalAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
     }
 
-    public BigDecimal getVatPhanTram() {
-        return vatPhanTram;
+    public BigDecimal getVatPercentage() {
+        return vatPercentage;
     }
 
-    public void setVatPhanTram(BigDecimal vatPhanTram) {
-        this.vatPhanTram = vatPhanTram;
+    public void setVatPercentage(BigDecimal vatPercentage) {
+        this.vatPercentage = vatPercentage;
     }
 
-    public BigDecimal getTienThue() {
-        return tienThue;
+    public BigDecimal getVatAmount() {
+        return vatAmount;
     }
 
-    public void setTienThue(BigDecimal tienThue) {
-        this.tienThue = tienThue;
+    public void setVatAmount(BigDecimal vatAmount) {
+        this.vatAmount = vatAmount;
     }
 
-    public Integer getUuTien() {
-        return uuTien;
+    public Integer getPriority() {
+        return priority;
     }
 
-    public void setUuTien(Integer uuTien) {
-        this.uuTien = uuTien;
+    public void setPriority(Integer priority) {
+        this.priority = priority;
     }
 
-    public String getLyDoChinhGia() {
-        return lyDoChinhGia;
+    public String getPriceAdjustmentReason() {
+        return priceAdjustmentReason;
     }
 
-    public void setLyDoChinhGia(String lyDoChinhGia) {
-        this.lyDoChinhGia = lyDoChinhGia;
+    public void setPriceAdjustmentReason(String priceAdjustmentReason) {
+        this.priceAdjustmentReason = priceAdjustmentReason;
     }
 
-    public String getGhiChu() {
-        return ghiChu;
+    public String getNotes() {
+        return notes;
     }
 
-    public void setGhiChu(String ghiChu) {
-        this.ghiChu = ghiChu;
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 
-    public ItemStatus getTrangThai() {
-        return trangThai;
+    public String getNote() {
+        return notes;
     }
 
-    public void setTrangThai(ItemStatus trangThai) {
-        this.trangThai = trangThai;
+    public void setNote(String note) {
+        this.notes = note;
     }
 
-    public Boolean getLaHangBaoHanh() {
-        return laHangBaoHanh;
+    public ItemStatus getStatus() {
+        return status;
     }
 
-    public void setLaHangBaoHanh(Boolean laHangBaoHanh) {
-        this.laHangBaoHanh = laHangBaoHanh;
+    public void setStatus(ItemStatus status) {
+        this.status = status;
     }
 
-    public String getGhiChuBaoHanh() {
-        return ghiChuBaoHanh;
+    public Boolean getIsWarranty() {
+        return isWarranty;
     }
 
-    public void setGhiChuBaoHanh(String ghiChuBaoHanh) {
-        this.ghiChuBaoHanh = ghiChuBaoHanh;
+    public void setIsWarranty(Boolean isWarranty) {
+        this.isWarranty = isWarranty;
     }
 
-    public Boolean getDaBaoHanh() {
-        return daBaoHanh != null ? daBaoHanh : false;
+    public String getWarrantyNotes() {
+        return warrantyNotes;
     }
 
-    public void setDaBaoHanh(Boolean daBaoHanh) {
-        this.daBaoHanh = daBaoHanh;
+    public void setWarrantyNotes(String warrantyNotes) {
+        this.warrantyNotes = warrantyNotes;
     }
 
-    public Boolean getDaHoanThanh() {
-        return daHoanThanh;
+    public Boolean getIsWarrantyProcessed() {
+        return isWarrantyProcessed != null ? isWarrantyProcessed : false;
     }
 
-    public void setDaHoanThanh(Boolean daHoanThanh) {
-        this.daHoanThanh = daHoanThanh;
+    public void setIsWarrantyProcessed(Boolean isWarrantyProcessed) {
+        this.isWarrantyProcessed = isWarrantyProcessed;
     }
 
-    public Integer getSoLuongThoToiDa() {
-        return soLuongThoToiDa;
+    public Boolean getIsCompleted() {
+        return isCompleted;
     }
 
-    public void setSoLuongThoToiDa(Integer soLuongThoToiDa) {
-        this.soLuongThoToiDa = soLuongThoToiDa;
+    public void setIsCompleted(Boolean isCompleted) {
+        this.isCompleted = isCompleted;
     }
 
-    public Integer getDonHangSuaChuaId() {
-        return donHangSuaChuaId;
+    public Integer getMaxMechanics() {
+        return maxMechanics;
     }
 
-    public void setDonHangSuaChuaId(Integer donHangSuaChuaId) {
-        this.donHangSuaChuaId = donHangSuaChuaId;
+    public void setMaxMechanics(Integer maxMechanics) {
+        this.maxMechanics = maxMechanics;
     }
 
-    public Integer getHangHoaId() {
-        return hangHoaId;
+    public Integer getRepairOrderId() {
+        return repairOrderId;
     }
 
-    public void setHangHoaId(Integer hangHoaId) {
-        this.hangHoaId = hangHoaId;
+    public void setRepairOrderId(Integer repairOrderId) {
+        this.repairOrderId = repairOrderId;
     }
 
-    public RepairOrder getDonHangSuaChua() {
-        return donHangSuaChua;
+    public Integer getProductId() {
+        return productId;
     }
 
-    public void setDonHangSuaChua(RepairOrder donHangSuaChua) {
-        this.donHangSuaChua = donHangSuaChua;
+    public void setProductId(Integer productId) {
+        this.productId = productId;
     }
 
-    public Product getHangHoa() {
-        return hangHoa;
+    public RepairOrder getRepairOrder() {
+        return repairOrder;
     }
 
-    public void setHangHoa(Product hangHoa) {
-        this.hangHoa = hangHoa;
+    public void setRepairOrder(RepairOrder repairOrder) {
+        this.repairOrder = repairOrder;
     }
 
-    public Integer getNguoiThucHienId() {
-        return nguoiThucHienId;
+    public Product getProduct() {
+        return product;
     }
 
-    public void setNguoiThucHienId(Integer nguoiThucHienId) {
-        this.nguoiThucHienId = nguoiThucHienId;
+    public void setProduct(Product product) {
+        this.product = product;
     }
 
-    public User getNguoiThucHien() {
-        return nguoiThucHien;
+    public Integer getMechanicId() {
+        return mechanicId;
     }
 
-    public void setNguoiThucHien(User nguoiThucHien) {
-        this.nguoiThucHien = nguoiThucHien;
+    public void setMechanicId(Integer mechanicId) {
+        this.mechanicId = mechanicId;
     }
 
-    public List<TaskAssignment> getPhanCongTho() {
-        return phanCongTho;
+    public User getMechanic() {
+        return mechanic;
     }
 
-    public void setPhanCongTho(List<TaskAssignment> phanCongTho) {
-        this.phanCongTho = phanCongTho;
+    public void setMechanic(User mechanic) {
+        this.mechanic = mechanic;
     }
 
-    public Integer getNguoiDeXuatId() {
-        return nguoiDeXuatId;
+    public List<TaskAssignment> getTaskAssignments() {
+        return taskAssignments;
     }
 
-    public void setNguoiDeXuatId(Integer nguoiDeXuatId) {
-        this.nguoiDeXuatId = nguoiDeXuatId;
+    public void setTaskAssignments(List<TaskAssignment> taskAssignments) {
+        this.taskAssignments = taskAssignments;
     }
 
-    public User getNguoiDeXuat() {
-        return nguoiDeXuat;
+    public Integer getSuggestedById() {
+        return suggestedById;
     }
 
-    public void setNguoiDeXuat(User nguoiDeXuat) {
-        this.nguoiDeXuat = nguoiDeXuat;
+    public void setSuggestedById(Integer suggestedById) {
+        this.suggestedById = suggestedById;
     }
 
-    public Boolean getLaPhatSinh() {
-        return laPhatSinh != null ? laPhatSinh : false;
+    public User getSuggestedBy() {
+        return suggestedBy;
     }
 
-    public void setLaPhatSinh(Boolean laPhatSinh) {
-        this.laPhatSinh = laPhatSinh;
+    public void setSuggestedBy(User suggestedBy) {
+        this.suggestedBy = suggestedBy;
     }
 
-    public java.time.LocalDateTime getNgayDeXuat() {
-        return ngayDeXuat;
+    public Boolean getIsEmergency() {
+        return isEmergency != null ? isEmergency : false;
     }
 
-    public void setNgayDeXuat(java.time.LocalDateTime ngayDeXuat) {
-        this.ngayDeXuat = ngayDeXuat;
+    public void setIsEmergency(Boolean isEmergency) {
+        this.isEmergency = isEmergency;
+    }
+
+    public java.time.LocalDateTime getSuggestedAt() {
+        return suggestedAt;
+    }
+
+    public void setSuggestedAt(java.time.LocalDateTime suggestedAt) {
+        this.suggestedAt = suggestedAt;
     }
 
     public static OrderItemBuilder builder() {
@@ -382,168 +394,168 @@ public class OrderItem {
 
     public static class OrderItemBuilder {
         private Integer id;
-        private Integer soLuong;
-        private BigDecimal donGiaGoc;
-        private BigDecimal giamGiaTien = BigDecimal.ZERO;
-        private BigDecimal giamGiaPhanTram = BigDecimal.ZERO;
-        private BigDecimal thanhTien;
-        private BigDecimal vatPhanTram = new BigDecimal("10.00");
-        private BigDecimal tienThue = BigDecimal.ZERO;
-        private Integer uuTien = 0;
-        private String lyDoChinhGia;
-        private String ghiChu;
-        private ItemStatus trangThai = ItemStatus.DE_XUAT;
-        private Boolean laHangBaoHanh = false;
-        private String ghiChuBaoHanh;
-        private Boolean daHoanThanh = false;
-        private Integer soLuongThoToiDa = 4;
-        private Integer donHangSuaChuaId;
-        private Integer hangHoaId;
-        private RepairOrder donHangSuaChua;
-        private Product hangHoa;
-        private Integer nguoiThucHienId;
-        private User nguoiThucHien;
-        private List<TaskAssignment> phanCongTho;
+        private Integer quantity;
+        private BigDecimal unitPrice;
+        private BigDecimal discountAmount = BigDecimal.ZERO;
+        private BigDecimal discountPercentage = BigDecimal.ZERO;
+        private BigDecimal totalAmount;
+        private BigDecimal vatPercentage = new BigDecimal("10.00");
+        private BigDecimal vatAmount = BigDecimal.ZERO;
+        private Integer priority = 0;
+        private String priceAdjustmentReason;
+        private String notes;
+        private ItemStatus status = ItemStatus.PROPOSAL;
+        private Boolean isWarranty = false;
+        private String warrantyNotes;
+        private Boolean isCompleted = false;
+        private Integer maxMechanics = 4;
+        private Integer repairOrderId;
+        private Integer productId;
+        private RepairOrder repairOrder;
+        private Product product;
+        private Integer mechanicId;
+        private User mechanic;
+        private List<TaskAssignment> taskAssignments;
 
         public OrderItemBuilder id(Integer id) {
             this.id = id;
             return this;
         }
 
-        public OrderItemBuilder soLuong(Integer soLuong) {
-            this.soLuong = soLuong;
+        public OrderItemBuilder quantity(Integer quantity) {
+            this.quantity = quantity;
             return this;
         }
 
-        public OrderItemBuilder donGiaGoc(BigDecimal donGiaGoc) {
-            this.donGiaGoc = donGiaGoc;
+        public OrderItemBuilder unitPrice(BigDecimal unitPrice) {
+            this.unitPrice = unitPrice;
             return this;
         }
 
-        public OrderItemBuilder giamGiaTien(BigDecimal giamGiaTien) {
-            this.giamGiaTien = giamGiaTien;
+        public OrderItemBuilder discountAmount(BigDecimal discountAmount) {
+            this.discountAmount = discountAmount;
             return this;
         }
 
-        public OrderItemBuilder giamGiaPhanTram(BigDecimal giamGiaPhanTram) {
-            this.giamGiaPhanTram = giamGiaPhanTram;
+        public OrderItemBuilder discountPercentage(BigDecimal discountPercentage) {
+            this.discountPercentage = discountPercentage;
             return this;
         }
 
-        public OrderItemBuilder thanhTien(BigDecimal thanhTien) {
-            this.thanhTien = thanhTien;
+        public OrderItemBuilder totalAmount(BigDecimal totalAmount) {
+            this.totalAmount = totalAmount;
             return this;
         }
 
-        public OrderItemBuilder vatPhanTram(BigDecimal vatPhanTram) {
-            this.vatPhanTram = vatPhanTram;
+        public OrderItemBuilder vatPercentage(BigDecimal vatPercentage) {
+            this.vatPercentage = vatPercentage;
             return this;
         }
 
-        public OrderItemBuilder tienThue(BigDecimal tienThue) {
-            this.tienThue = tienThue;
+        public OrderItemBuilder vatAmount(BigDecimal vatAmount) {
+            this.vatAmount = vatAmount;
             return this;
         }
 
-        public OrderItemBuilder uuTien(Integer uuTien) {
-            this.uuTien = uuTien;
+        public OrderItemBuilder priority(Integer priority) {
+            this.priority = priority;
             return this;
         }
 
-        public OrderItemBuilder lyDoChinhGia(String lyDoChinhGia) {
-            this.lyDoChinhGia = lyDoChinhGia;
+        public OrderItemBuilder priceAdjustmentReason(String priceAdjustmentReason) {
+            this.priceAdjustmentReason = priceAdjustmentReason;
             return this;
         }
 
-        public OrderItemBuilder ghiChu(String ghiChu) {
-            this.ghiChu = ghiChu;
+        public OrderItemBuilder notes(String notes) {
+            this.notes = notes;
             return this;
         }
 
-        public OrderItemBuilder trangThai(ItemStatus trangThai) {
-            this.trangThai = trangThai;
+        public OrderItemBuilder status(ItemStatus status) {
+            this.status = status;
             return this;
         }
 
-        public OrderItemBuilder laHangBaoHanh(Boolean laHangBaoHanh) {
-            this.laHangBaoHanh = laHangBaoHanh;
+        public OrderItemBuilder isWarranty(Boolean isWarranty) {
+            this.isWarranty = isWarranty;
             return this;
         }
 
-        public OrderItemBuilder ghiChuBaoHanh(String ghiChuBaoHanh) {
-            this.ghiChuBaoHanh = ghiChuBaoHanh;
+        public OrderItemBuilder warrantyNotes(String warrantyNotes) {
+            this.warrantyNotes = warrantyNotes;
             return this;
         }
 
-        public OrderItemBuilder daHoanThanh(Boolean daHoanThanh) {
-            this.daHoanThanh = daHoanThanh;
+        public OrderItemBuilder isCompleted(Boolean isCompleted) {
+            this.isCompleted = isCompleted;
             return this;
         }
 
-        public OrderItemBuilder soLuongThoToiDa(Integer soLuongThoToiDa) {
-            this.soLuongThoToiDa = soLuongThoToiDa;
+        public OrderItemBuilder maxMechanics(Integer maxMechanics) {
+            this.maxMechanics = maxMechanics;
             return this;
         }
 
-        public OrderItemBuilder donHangSuaChuaId(Integer donHangSuaChuaId) {
-            this.donHangSuaChuaId = donHangSuaChuaId;
+        public OrderItemBuilder repairOrderId(Integer repairOrderId) {
+            this.repairOrderId = repairOrderId;
             return this;
         }
 
-        public OrderItemBuilder hangHoaId(Integer hangHoaId) {
-            this.hangHoaId = hangHoaId;
+        public OrderItemBuilder productId(Integer productId) {
+            this.productId = productId;
             return this;
         }
 
-        public OrderItemBuilder donHangSuaChua(RepairOrder donHangSuaChua) {
-            this.donHangSuaChua = donHangSuaChua;
+        public OrderItemBuilder repairOrder(RepairOrder repairOrder) {
+            this.repairOrder = repairOrder;
             return this;
         }
 
-        public OrderItemBuilder hangHoa(Product hangHoa) {
-            this.hangHoa = hangHoa;
+        public OrderItemBuilder product(Product product) {
+            this.product = product;
             return this;
         }
 
-        public OrderItemBuilder nguoiThucHienId(Integer nguoiThucHienId) {
-            this.nguoiThucHienId = nguoiThucHienId;
+        public OrderItemBuilder mechanicId(Integer mechanicId) {
+            this.mechanicId = mechanicId;
             return this;
         }
 
-        public OrderItemBuilder nguoiThucHien(User nguoiThucHien) {
-            this.nguoiThucHien = nguoiThucHien;
+        public OrderItemBuilder mechanic(User mechanic) {
+            this.mechanic = mechanic;
             return this;
         }
 
-        public OrderItemBuilder phanCongTho(List<TaskAssignment> phanCongTho) {
-            this.phanCongTho = phanCongTho;
+        public OrderItemBuilder taskAssignments(List<TaskAssignment> taskAssignments) {
+            this.taskAssignments = taskAssignments;
             return this;
         }
 
-        private User nguoiDeXuat;
-        private Boolean laPhatSinh = false;
-        private java.time.LocalDateTime ngayDeXuat;
+        private User suggestedBy;
+        private Boolean isEmergency = false;
+        private java.time.LocalDateTime suggestedAt;
 
-        public OrderItemBuilder nguoiDeXuat(User nguoiDeXuat) {
-            this.nguoiDeXuat = nguoiDeXuat;
+        public OrderItemBuilder suggestedBy(User suggestedBy) {
+            this.suggestedBy = suggestedBy;
             return this;
         }
 
-        public OrderItemBuilder laPhatSinh(Boolean laPhatSinh) {
-            this.laPhatSinh = laPhatSinh;
+        public OrderItemBuilder isEmergency(Boolean isEmergency) {
+            this.isEmergency = isEmergency;
             return this;
         }
 
-        public OrderItemBuilder ngayDeXuat(java.time.LocalDateTime ngayDeXuat) {
-            this.ngayDeXuat = ngayDeXuat;
+        public OrderItemBuilder suggestedAt(java.time.LocalDateTime suggestedAt) {
+            this.suggestedAt = suggestedAt;
             return this;
         }
 
         public OrderItem build() {
-            return new OrderItem(id, soLuong, donGiaGoc, giamGiaTien, giamGiaPhanTram, thanhTien, vatPhanTram, tienThue,
-                    uuTien, lyDoChinhGia, trangThai, ghiChu, laHangBaoHanh, ghiChuBaoHanh, daHoanThanh, soLuongThoToiDa,
-                    donHangSuaChuaId, hangHoaId, donHangSuaChua, hangHoa, nguoiThucHienId, nguoiThucHien, phanCongTho,
-                    laPhatSinh, ngayDeXuat, nguoiDeXuat);
+            return new OrderItem(id, quantity, unitPrice, discountAmount, discountPercentage, totalAmount, vatPercentage, vatAmount,
+                    priority, priceAdjustmentReason, status, notes, isWarranty, warrantyNotes, isCompleted, maxMechanics,
+                    repairOrderId, productId, repairOrder, product, mechanicId, mechanic, taskAssignments,
+                    isEmergency, suggestedAt, suggestedBy);
         }
     }
 }

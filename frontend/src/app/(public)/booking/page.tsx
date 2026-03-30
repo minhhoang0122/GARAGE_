@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, CheckCircle2, Loader2, Lock, UserCircle2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import Link from 'next/link';
-import { API_URL } from '@/lib/api';
+import { ApiClient } from '@/api/ApiClient';
 import { useSession } from 'next-auth/react';
 
 export default function BookingPage() {
@@ -19,29 +19,28 @@ export default function BookingPage() {
     const isCustomer = roles.includes('KHACH_HANG') || (!isStaff && roles.length > 0);
 
     const [formData, setFormData] = useState({
-        hoTen: '',
-        soDienThoai: '',
+        fullName: '',
+        phone: '',
         email: '',
-        diaChi: '',
-        bienSoXe: '',
-        modelXe: '',
-        ngayHen: '',
-        ghiChu: '',
+        address: '',
+        licensePlate: '',
+        model: '',
+        appointmentTime: '',
+        notes: '',
         selectedServiceIds: [] as number[]
     });
 
     useEffect(() => {
-        fetch(`${API_URL}/public/services`)
-            .then(res => res.json())
-            .then(data => setServices(data))
+        ApiClient.publicBooking.getPublicServices()
+            .then(data => setServices((data as any) as any[]))
             .catch(err => console.error('Error fetching services:', err));
         
         // Auto fill for customer
         if (session?.user) {
             setFormData(prev => ({
                 ...prev,
-                hoTen: session.user?.name || prev.hoTen,
-                soDienThoai: (session.user as any)?.phoneNumber || prev.soDienThoai,
+                fullName: session.user?.name || prev.fullName,
+                phone: (session.user as any)?.phoneNumber || prev.phone,
                 email: session.user?.email || prev.email,
             }));
         }
@@ -101,19 +100,32 @@ export default function BookingPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validate biển số xe Việt Nam
+        const plateRegex = /^([1-9]{2}[A-Z]{1}[1-9A-Z]{1})[-. ]?([0-9]{4,5})$/;
+        const cleanPlate = formData.licensePlate.replace(/[-. ]/g, '').toUpperCase();
+        
+        if (!plateRegex.test(cleanPlate)) {
+            showToast('error', 'Biển số không hợp lệ. Vui lòng nhập đúng định dạng (VD: 30A12345).');
+            return;
+        }
+
+        // Validate số điện thoại cơ bản
+        if (!/^[0-9]{10,11}$/.test(formData.phone)) {
+            showToast('error', 'Số điện thoại không hợp lệ.');
+            return;
+        }
+
         setLoading(true);
 
         try {
-            const res = await fetch(`${API_URL}/public/booking`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            const result = await ApiClient.publicBooking.createBooking({
+                publicBookingDTO: {
                     ...formData,
-                    userId: (session?.user as any)?.id // Send ID from session
-                })
-            });
-
-            const result = await res.json();
+                    licensePlate: cleanPlate, // Gửi biển số đã làm sạch
+                    userId: (session?.user as any)?.id
+                }
+            }) as any;
 
             if (result.success) {
                 setSubmitted(true);
@@ -143,9 +155,8 @@ export default function BookingPage() {
                     <div className="w-16 h-16 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
                         <CheckCircle2 size={32} />
                     </div>
-                    <h2 className="text-2xl font-bold text-stone-800 mb-3">Đặt lịch thành công</h2>
                     <p className="text-stone-600 mb-8 leading-relaxed">
-                        Cảm ơn anh/chị <strong>{formData.hoTen}</strong>. Gara đã nhận được thông tin đặt lịch. Cố vấn dịch vụ sẽ gọi lại cho anh/chị qua số điện thoại <strong>{formData.soDienThoai}</strong> để xác nhận trong thời gian sớm nhất.
+                        Cảm ơn anh/chị <strong>{formData.fullName}</strong>. Gara đã nhận được thông tin đặt lịch. Cố vấn dịch vụ sẽ gọi lại cho anh/chị qua số điện thoại <strong>{formData.phone}</strong> để xác nhận trong thời gian sớm nhất.
                     </p>
                     <Link href="/" className="inline-block bg-orange-600 text-white px-6 py-3 rounded text-sm font-medium hover:bg-orange-700 transition-colors">
                         Quay lại trang chủ
@@ -183,8 +194,8 @@ export default function BookingPage() {
                                         type="text"
                                         className="w-full px-4 py-2.5 rounded border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-stone-800"
                                         placeholder="Nhập họ và tên"
-                                        value={formData.hoTen}
-                                        onChange={e => setFormData({ ...formData, hoTen: e.target.value })}
+                                        value={formData.fullName}
+                                        onChange={e => setFormData({ ...formData, fullName: e.target.value })}
                                     />
                                 </div>
                                 <div>
@@ -194,8 +205,8 @@ export default function BookingPage() {
                                         type="tel"
                                         className="w-full px-4 py-2.5 rounded border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-stone-800"
                                         placeholder="Nhập số điện thoại"
-                                        value={formData.soDienThoai}
-                                        onChange={e => setFormData({ ...formData, soDienThoai: e.target.value })}
+                                        value={formData.phone}
+                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
                                     />
                                 </div>
                             </div>
@@ -215,8 +226,8 @@ export default function BookingPage() {
                                         type="text"
                                         className="w-full px-4 py-2.5 rounded border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-stone-800 uppercase"
                                         placeholder="VD: 30A-123.45"
-                                        value={formData.bienSoXe}
-                                        onChange={e => setFormData({ ...formData, bienSoXe: e.target.value })}
+                                        value={formData.licensePlate}
+                                        onChange={e => setFormData({ ...formData, licensePlate: e.target.value })}
                                     />
                                 </div>
                                 <div>
@@ -225,8 +236,8 @@ export default function BookingPage() {
                                         type="text"
                                         className="w-full px-4 py-2.5 rounded border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-stone-800"
                                         placeholder="VD: Mazda CX-5 2020"
-                                        value={formData.modelXe}
-                                        onChange={e => setFormData({ ...formData, modelXe: e.target.value })}
+                                        value={formData.model}
+                                        onChange={e => setFormData({ ...formData, model: e.target.value })}
                                     />
                                 </div>
                             </div>
@@ -245,8 +256,8 @@ export default function BookingPage() {
                                         required
                                         type="datetime-local"
                                         className="w-full md:w-1/2 px-4 py-2.5 rounded border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-stone-800"
-                                        value={formData.ngayHen}
-                                        onChange={e => setFormData({ ...formData, ngayHen: e.target.value })}
+                                        value={formData.appointmentTime}
+                                        onChange={e => setFormData({ ...formData, appointmentTime: e.target.value })}
                                     />
                                 </div>
                                 <div>
@@ -255,8 +266,8 @@ export default function BookingPage() {
                                         rows={3}
                                         className="w-full px-4 py-2.5 rounded border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-stone-800 resize-none"
                                         placeholder="Ghi chú thêm về tiếng kêu, đèn báo lỗi, hoặc các hiện tượng lạ..."
-                                        value={formData.ghiChu}
-                                        onChange={e => setFormData({ ...formData, ghiChu: e.target.value })}
+                                        value={formData.notes}
+                                        onChange={e => setFormData({ ...formData, notes: e.target.value })}
                                     ></textarea>
                                 </div>
                                 {services.length > 0 && (
@@ -275,7 +286,7 @@ export default function BookingPage() {
                                                             : 'bg-white border-stone-200 text-stone-600 hover:border-stone-300'
                                                             }`}
                                                     >
-                                                        {s.tenHang}
+                                                        {s.name || s.tenHang}
                                                     </button>
                                                 );
                                             })}

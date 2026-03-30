@@ -46,8 +46,8 @@ public class AuthController {
         }
         return ResponseEntity.ok(Map.of(
                 "id", user.getId(),
-                "username", user.getTenDangNhap(),
-                "fullName", user.getHoTen(),
+                "username", user.getUsername(),
+                "fullName", user.getFullName(),
                 "roles", user.getRoles().stream().map(Role::getName).toArray(),
                 "permissions", user.getAllPermissions()));
     }

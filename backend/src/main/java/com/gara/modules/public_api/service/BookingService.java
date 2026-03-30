@@ -55,18 +55,18 @@ public class BookingService {
                     // Nhưng ở đây ưu tiên tạo mới và link userId.
                     Customer newCust = new Customer();
                     newCust.setUserId(dto.userId());
-                    newCust.setHoTen(dto.hoTen());
-                    newCust.setSoDienThoai(dto.soDienThoai());
+                    newCust.setFullName(dto.fullName());
+                    newCust.setPhone(dto.phone());
                     newCust.setEmail(dto.email());
-                    newCust.setDiaChi(dto.diaChi());
+                    newCust.setAddress(dto.address());
                     return customerRepository.save(newCust);
                 });
 
         // 2. Tìm hoặc tạo xe theo biển số (Bug 24 Fix: Prevents hijacking)
-        Vehicle vehicle = vehicleRepository.findByBienSo(dto.bienSoXe())
+        Vehicle vehicle = vehicleRepository.findByLicensePlate(dto.licensePlate())
                 .map(v -> {
                     // Verification: Plate must match requester Customer ORrequester Phone
-                    if (!v.getKhachHang().getId().equals(customer.getId())) {
+                    if (!v.getCustomer().getId().equals(customer.getId())) {
                         throw new RuntimeException("Biển số xe này đã được đăng ký bởi khách hàng khác. " +
                                 "Vui lòng kiểm tra lại hoặc liên hệ Gara để được hỗ trợ.");
                     }
@@ -74,43 +74,43 @@ public class BookingService {
                 })
                 .orElseGet(() -> {
                     Vehicle newVehicle = new Vehicle();
-                    newVehicle.setBienSo(dto.bienSoXe());
-                    newVehicle.setModel(dto.modelXe());
-                    newVehicle.setNhanHieu(dto.modelXe() != null ? dto.modelXe() : "Unknown");
-                    newVehicle.setKhachHang(customer);
+                    newVehicle.setLicensePlate(dto.licensePlate());
+                    newVehicle.setModel(dto.model());
+                    newVehicle.setBrand(dto.model() != null ? dto.model() : "Unknown");
+                    newVehicle.setCustomer(customer);
                     return vehicleRepository.save(newVehicle);
                 });
 
         // 3. Tạo phiếu Tiếp nhận (Dạng đặt lịch)
         Reception reception = new Reception();
-        reception.setXe(vehicle);
-        reception.setNgayGio(LocalDateTime.now());
-        reception.setNguoiTiepNhan(defaultUser);
+        reception.setVehicle(vehicle);
+        reception.setReceptionDate(LocalDateTime.now());
+        reception.setReceptionist(defaultUser);
 
         StringBuilder noteBuilder = new StringBuilder();
-        noteBuilder.append("ĐẶT LỊCH ONLINE: ").append(dto.ghiChu());
-        noteBuilder.append("\nNgày hẹn: ").append(dto.ngayHen());
+        noteBuilder.append("ĐẶT LỊCH ONLINE: ").append(dto.notes());
+        noteBuilder.append("\nNgày hẹn: ").append(dto.appointmentTime());
 
         // 4. Liên kết dịch vụ mong muốn (nếu có)
         if (dto.selectedServiceIds() != null && !dto.selectedServiceIds().isEmpty()) {
             noteBuilder.append("\n\nDịch vụ quan tâm:");
             for (Integer id : dto.selectedServiceIds()) {
                 productRepository.findById(id).ifPresent(p -> {
-                    noteBuilder.append("\n- ").append(p.getTenHang());
+                    noteBuilder.append("\n- ").append(p.getName());
                 });
             }
         }
 
-        reception.setYeuCauSoBo(noteBuilder.toString());
-        reception.setTinhTrangVoXe("Khách đặt online - Chưa kiểm tra");
+        reception.setPreliminaryRequest(noteBuilder.toString());
+        reception.setShellStatus("Khách đặt online - Chưa kiểm tra");
 
         Reception saved = receptionRepository.save(reception);
 
         // Notify Sale/Admin (SSE)
         asyncNotificationService.pushAsync(com.gara.entity.Notification.builder()
                 .role("SALE")
-                .title("Lịch hẹn mới: " + dto.bienSoXe())
-                .content("Khách hàng " + dto.hoTen() + " vừa đặt lịch online ngày " + dto.ngayHen())
+                .title("Lịch hẹn mới: " + dto.licensePlate())
+                .content("Khách hàng " + dto.fullName() + " vừa đặt lịch online ngày " + dto.appointmentTime())
                 .type("INFO")
                 .link("/sale/bookings")
                 .createdAt(LocalDateTime.now())

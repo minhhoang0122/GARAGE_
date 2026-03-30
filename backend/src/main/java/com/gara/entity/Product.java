@@ -5,7 +5,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "hanghoa")
+@Table(name = "products", indexes = {
+        @Index(name = "idx_products_sku", columnList = "sku"),
+        @Index(name = "idx_products_name", columnList = "name"),
+        @Index(name = "idx_products_is_service", columnList = "is_service")
+})
 public class Product {
 
     @Id
@@ -13,44 +17,47 @@ public class Product {
     @Column(name = "id")
     private Integer id;
 
-    @Column(name = "ma_hang", unique = true, nullable = false, length = 50)
-    private String maHang;
+    @Column(name = "sku", unique = true, nullable = false, length = 50)
+    private String sku;
 
-    @Column(name = "ten_hang", nullable = false, length = 200)
-    private String tenHang;
+    @Column(name = "name", nullable = false, length = 200)
+    private String name;
 
-    @Column(name = "gia_ban_niem_yet", precision = 18, scale = 2)
-    private BigDecimal giaBanNiemYet;
+    @Column(name = "list_price", nullable = false, precision = 18, scale = 2)
+    private BigDecimal listPrice = BigDecimal.ZERO;
 
-    @Column(name = "gia_von", precision = 18, scale = 2)
-    private BigDecimal giaVon = BigDecimal.ZERO;
+    @Column(name = "retail_price", nullable = false, precision = 18, scale = 2)
+    private BigDecimal retailPrice = BigDecimal.ZERO;
 
-    @Column(name = "gia_san", precision = 18, scale = 2)
-    private BigDecimal giaSan = BigDecimal.ZERO;
+    @Column(name = "cost_price", nullable = false, precision = 18, scale = 2)
+    private BigDecimal costPrice = BigDecimal.ZERO;
 
-    @Column(name = "so_luong_ton")
-    private Integer soLuongTon = 0;
+    @Column(name = "floor_price", nullable = false, precision = 18, scale = 2)
+    private BigDecimal floorPrice = BigDecimal.ZERO;
 
-    @Column(name = "dinh_muc_ton_toi_thieu")
-    private Integer dinhMucTonToiThieu = 5;
+    @Column(name = "stock_quantity", nullable = false)
+    private Integer stockQuantity = 0;
 
-    @Column(name = "bao_hanh_so_thang")
-    private Integer baoHanhSoThang = 0;
+    @Column(name = "min_stock_level", nullable = false)
+    private Integer minStockLevel = 5;
 
-    @Column(name = "bao_hanh_km")
-    private Integer baoHanhKm = 0;
+    @Column(name = "warranty_months")
+    private Integer warrantyMonths = 0;
 
-    @Column(name = "la_dich_vu")
-    private Boolean laDichVu = false;
+    @Column(name = "warranty_km")
+    private Integer warrantyKm = 0;
 
-    @Column(name = "thue_vat", precision = 5, scale = 2)
-    private BigDecimal thueVAT = new BigDecimal("10.00"); // Default 10%
+    @Column(name = "is_service", nullable = false)
+    private Boolean isService = false;
 
-    @Column(name = "cho_phep_bao_hanh")
-    private Boolean choPhepBaoHanh = true;
+    @Column(name = "vat_rate", precision = 5, scale = 2)
+    private BigDecimal vatRate = new BigDecimal("10.00"); // Default 10%
 
-    @Column(name = "ngay_tao")
-    private LocalDateTime ngayTao;
+    @Column(name = "is_warranty_eligible")
+    private Boolean isWarrantyEligible = true;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
     @Version
     @Column(name = "version")
@@ -58,31 +65,32 @@ public class Product {
 
     @PrePersist
     protected void onCreate() {
-        ngayTao = LocalDateTime.now();
-        if (thueVAT == null)
-            thueVAT = new BigDecimal("10.00");
+        createdAt = LocalDateTime.now();
+        if (vatRate == null)
+            vatRate = new BigDecimal("10.00");
     }
 
     public Product() {
     }
 
-    public Product(Integer id, String maHang, String tenHang, BigDecimal giaBanNiemYet, BigDecimal giaVon,
-            BigDecimal giaSan, Integer soLuongTon, Integer dinhMucTonToiThieu, Integer baoHanhSoThang,
-            Integer baoHanhKm, Boolean laDichVu, BigDecimal thueVAT, Boolean choPhepBaoHanh, LocalDateTime ngayTao) {
+    public Product(Integer id, String sku, String name, BigDecimal listPrice, BigDecimal retailPrice, BigDecimal costPrice,
+            BigDecimal floorPrice, Integer stockQuantity, Integer minStockLevel, Integer warrantyMonths,
+            Integer warrantyKm, Boolean isService, BigDecimal vatRate, Boolean isWarrantyEligible, LocalDateTime createdAt) {
         this.id = id;
-        this.maHang = maHang;
-        this.tenHang = tenHang;
-        this.giaBanNiemYet = giaBanNiemYet;
-        this.giaVon = giaVon;
-        this.giaSan = giaSan;
-        this.soLuongTon = soLuongTon;
-        this.dinhMucTonToiThieu = dinhMucTonToiThieu;
-        this.baoHanhSoThang = baoHanhSoThang;
-        this.baoHanhKm = baoHanhKm;
-        this.laDichVu = laDichVu;
-        this.thueVAT = thueVAT;
-        this.choPhepBaoHanh = choPhepBaoHanh;
-        this.ngayTao = ngayTao;
+        this.sku = sku;
+        this.name = name;
+        this.listPrice = listPrice;
+        this.retailPrice = retailPrice;
+        this.costPrice = costPrice;
+        this.floorPrice = floorPrice;
+        this.stockQuantity = stockQuantity;
+        this.minStockLevel = minStockLevel;
+        this.warrantyMonths = warrantyMonths;
+        this.warrantyKm = warrantyKm;
+        this.isService = isService;
+        this.vatRate = vatRate;
+        this.isWarrantyEligible = isWarrantyEligible;
+        this.createdAt = createdAt;
     }
 
     public Integer getId() {
@@ -93,108 +101,116 @@ public class Product {
         this.id = id;
     }
 
-    public String getMaHang() {
-        return maHang;
+    public String getSku() {
+        return sku;
     }
 
-    public void setMaHang(String maHang) {
-        this.maHang = maHang;
+    public void setSku(String sku) {
+        this.sku = sku;
     }
 
-    public String getTenHang() {
-        return tenHang;
+    public BigDecimal getListPrice() {
+        return listPrice;
     }
 
-    public void setTenHang(String tenHang) {
-        this.tenHang = tenHang;
+    public void setListPrice(BigDecimal listPrice) {
+        this.listPrice = listPrice;
     }
 
-    public BigDecimal getGiaBanNiemYet() {
-        return giaBanNiemYet;
+    public String getName() {
+        return name;
     }
 
-    public void setGiaBanNiemYet(BigDecimal giaBanNiemYet) {
-        this.giaBanNiemYet = giaBanNiemYet;
+    public void setName(String name) {
+        this.name = name;
     }
 
-    public BigDecimal getGiaVon() {
-        return giaVon;
+    public BigDecimal getRetailPrice() {
+        return retailPrice;
     }
 
-    public void setGiaVon(BigDecimal giaVon) {
-        this.giaVon = giaVon;
+    public void setRetailPrice(BigDecimal retailPrice) {
+        this.retailPrice = retailPrice;
     }
 
-    public BigDecimal getGiaSan() {
-        return giaSan;
+    public BigDecimal getCostPrice() {
+        return costPrice;
     }
 
-    public void setGiaSan(BigDecimal giaSan) {
-        this.giaSan = giaSan;
+    public void setCostPrice(BigDecimal costPrice) {
+        this.costPrice = costPrice;
     }
 
-    public Integer getSoLuongTon() {
-        return soLuongTon;
+    public BigDecimal getFloorPrice() {
+        return floorPrice;
     }
 
-    public void setSoLuongTon(Integer soLuongTon) {
-        this.soLuongTon = soLuongTon;
+    public void setFloorPrice(BigDecimal floorPrice) {
+        this.floorPrice = floorPrice;
     }
 
-    public Integer getDinhMucTonToiThieu() {
-        return dinhMucTonToiThieu;
+    public Integer getStockQuantity() {
+        return stockQuantity;
     }
 
-    public void setDinhMucTonToiThieu(Integer dinhMucTonToiThieu) {
-        this.dinhMucTonToiThieu = dinhMucTonToiThieu;
+    public void setStockQuantity(Integer stockQuantity) {
+        this.stockQuantity = stockQuantity;
     }
 
-    public Integer getBaoHanhSoThang() {
-        return baoHanhSoThang;
+    public Integer getMinStockLevel() {
+        return minStockLevel;
     }
 
-    public void setBaoHanhSoThang(Integer baoHanhSoThang) {
-        this.baoHanhSoThang = baoHanhSoThang;
+    public void setMinStockLevel(Integer minStockLevel) {
+        this.minStockLevel = minStockLevel;
     }
 
-    public Integer getBaoHanhKm() {
-        return baoHanhKm;
+    public Integer getWarrantyMonths() {
+        return warrantyMonths;
     }
 
-    public void setBaoHanhKm(Integer baoHanhKm) {
-        this.baoHanhKm = baoHanhKm;
+    public void setWarrantyMonths(Integer warrantyMonths) {
+        this.warrantyMonths = warrantyMonths;
     }
 
-    public Boolean getLaDichVu() {
-        return laDichVu;
+    public Integer getWarrantyKm() {
+        return warrantyKm;
     }
 
-    public void setLaDichVu(Boolean laDichVu) {
-        this.laDichVu = laDichVu;
+    public void setWarrantyKm(Integer warrantyKm) {
+        this.warrantyKm = warrantyKm;
     }
 
-    public BigDecimal getThueVAT() {
-        return thueVAT;
+    public Boolean getIsService() {
+        return isService;
     }
 
-    public void setThueVAT(BigDecimal thueVAT) {
-        this.thueVAT = thueVAT;
+    public void setIsService(Boolean isService) {
+        this.isService = isService;
     }
 
-    public Boolean getChoPhepBaoHanh() {
-        return choPhepBaoHanh;
+    public BigDecimal getVatRate() {
+        return vatRate;
     }
 
-    public void setChoPhepBaoHanh(Boolean choPhepBaoHanh) {
-        this.choPhepBaoHanh = choPhepBaoHanh;
+    public void setVatRate(BigDecimal vatRate) {
+        this.vatRate = vatRate;
     }
 
-    public LocalDateTime getNgayTao() {
-        return ngayTao;
+    public Boolean getIsWarrantyEligible() {
+        return isWarrantyEligible;
     }
 
-    public void setNgayTao(LocalDateTime ngayTao) {
-        this.ngayTao = ngayTao;
+    public void setIsWarrantyEligible(Boolean isWarrantyEligible) {
+        this.isWarrantyEligible = isWarrantyEligible;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 
     public Integer getVersion() {
@@ -211,19 +227,20 @@ public class Product {
 
     public static class ProductBuilder {
         private Integer id;
-        private String maHang;
-        private String tenHang;
-        private BigDecimal giaBanNiemYet;
-        private BigDecimal giaVon = BigDecimal.ZERO;
-        private BigDecimal giaSan = BigDecimal.ZERO;
-        private Integer soLuongTon = 0;
-        private Integer dinhMucTonToiThieu = 5;
-        private Integer baoHanhSoThang = 0;
-        private Integer baoHanhKm = 0;
-        private Boolean laDichVu = false;
-        private BigDecimal thueVAT = new BigDecimal("10.00");
-        private Boolean choPhepBaoHanh = true;
-        private LocalDateTime ngayTao;
+        private String sku;
+        private String name;
+        private BigDecimal listPrice = BigDecimal.ZERO;
+        private BigDecimal retailPrice = BigDecimal.ZERO;
+        private BigDecimal costPrice = BigDecimal.ZERO;
+        private BigDecimal floorPrice = BigDecimal.ZERO;
+        private Integer stockQuantity = 0;
+        private Integer minStockLevel = 5;
+        private Integer warrantyMonths = 0;
+        private Integer warrantyKm = 0;
+        private Boolean isService = false;
+        private BigDecimal vatRate = new BigDecimal("10.00");
+        private Boolean isWarrantyEligible = true;
+        private LocalDateTime createdAt;
         private Integer version;
 
         public ProductBuilder id(Integer id) {
@@ -231,68 +248,73 @@ public class Product {
             return this;
         }
 
-        public ProductBuilder maHang(String maHang) {
-            this.maHang = maHang;
+        public ProductBuilder sku(String sku) {
+            this.sku = sku;
             return this;
         }
 
-        public ProductBuilder tenHang(String tenHang) {
-            this.tenHang = tenHang;
+        public ProductBuilder name(String name) {
+            this.name = name;
             return this;
         }
 
-        public ProductBuilder giaBanNiemYet(BigDecimal giaBanNiemYet) {
-            this.giaBanNiemYet = giaBanNiemYet;
+        public ProductBuilder listPrice(BigDecimal listPrice) {
+            this.listPrice = listPrice;
             return this;
         }
 
-        public ProductBuilder giaVon(BigDecimal giaVon) {
-            this.giaVon = giaVon;
+        public ProductBuilder retailPrice(BigDecimal retailPrice) {
+            this.retailPrice = retailPrice;
             return this;
         }
 
-        public ProductBuilder giaSan(BigDecimal giaSan) {
-            this.giaSan = giaSan;
+        public ProductBuilder costPrice(BigDecimal costPrice) {
+            this.costPrice = costPrice;
             return this;
         }
 
-        public ProductBuilder soLuongTon(Integer soLuongTon) {
-            this.soLuongTon = soLuongTon;
+        public ProductBuilder floorPrice(BigDecimal floorPrice) {
+            this.floorPrice = floorPrice;
             return this;
         }
 
-        public ProductBuilder dinhMucTonToiThieu(Integer dinhMucTonToiThieu) {
-            this.dinhMucTonToiThieu = dinhMucTonToiThieu;
+        public ProductBuilder stockQuantity(Integer stockQuantity) {
+            this.stockQuantity = stockQuantity;
             return this;
         }
 
-        public ProductBuilder baoHanhSoThang(Integer baoHanhSoThang) {
-            this.baoHanhSoThang = baoHanhSoThang;
+        public ProductBuilder minStockLevel(Integer minStockLevel) {
+            this.minStockLevel = minStockLevel;
             return this;
         }
 
-        public ProductBuilder baoHanhKm(Integer baoHanhKm) {
-            this.baoHanhKm = baoHanhKm;
+        public ProductBuilder warrantyMonths(Integer warrantyMonths) {
+            this.warrantyMonths = warrantyMonths;
             return this;
         }
 
-        public ProductBuilder laDichVu(Boolean laDichVu) {
-            this.laDichVu = laDichVu;
+        public ProductBuilder warrantyKm(Integer warrantyKm) {
+            this.warrantyKm = warrantyKm;
             return this;
         }
 
-        public ProductBuilder thueVAT(BigDecimal thueVAT) {
-            this.thueVAT = thueVAT;
+        public ProductBuilder isService(Boolean isService) {
+            this.isService = isService;
             return this;
         }
 
-        public ProductBuilder choPhepBaoHanh(Boolean choPhepBaoHanh) {
-            this.choPhepBaoHanh = choPhepBaoHanh;
+        public ProductBuilder vatRate(BigDecimal vatRate) {
+            this.vatRate = vatRate;
             return this;
         }
 
-        public ProductBuilder ngayTao(LocalDateTime ngayTao) {
-            this.ngayTao = ngayTao;
+        public ProductBuilder isWarrantyEligible(Boolean isWarrantyEligible) {
+            this.isWarrantyEligible = isWarrantyEligible;
+            return this;
+        }
+
+        public ProductBuilder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
             return this;
         }
 
@@ -302,8 +324,8 @@ public class Product {
         }
 
         public Product build() {
-            Product product = new Product(id, maHang, tenHang, giaBanNiemYet, giaVon, giaSan, soLuongTon, dinhMucTonToiThieu,
-                    baoHanhSoThang, baoHanhKm, laDichVu, thueVAT, choPhepBaoHanh, ngayTao);
+            Product product = new Product(id, sku, name, listPrice, retailPrice, costPrice, floorPrice, stockQuantity, minStockLevel,
+                    warrantyMonths, warrantyKm, isService, vatRate, isWarrantyEligible, createdAt);
             product.setVersion(this.version);
             return product;
         }

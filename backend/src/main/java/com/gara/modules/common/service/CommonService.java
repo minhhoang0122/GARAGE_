@@ -43,7 +43,7 @@ public class CommonService {
 
         // 2. Search Vehicle by Plate (Contains)
         // Taking the first match and checking its latest order
-        List<Vehicle> vehicles = vehicleRepository.findByBienSoContaining(keyword);
+        List<Vehicle> vehicles = vehicleRepository.findByLicensePlateContaining(keyword);
 
         if (!vehicles.isEmpty()) {
             Vehicle vehicle = vehicles.get(0);
@@ -54,7 +54,7 @@ public class CommonService {
             return SearchResultDTO.builder()
                     .found(true)
                     .type("VEHICLE")
-                    .plate(vehicle.getBienSo())
+                    .plate(vehicle.getLicensePlate())
                     .build();
         }
 

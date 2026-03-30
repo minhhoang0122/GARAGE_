@@ -2,10 +2,9 @@
 
 import { useState } from 'react';
 import { UserMinus, Loader2, AlertTriangle } from 'lucide-react';
-import { unclaimJob } from '@/modules/service/mechanic';
+import { useUnclaimJob } from '@/modules/mechanic/hooks/useMechanic';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
-import { api } from '@/lib/api';
 
 interface UnclaimJobButtonProps {
     orderId: number;
@@ -13,31 +12,21 @@ interface UnclaimJobButtonProps {
 }
 
 export default function UnclaimJobButton({ orderId, completedItems }: UnclaimJobButtonProps) {
-    const [isLoading, setIsLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const router = useRouter();
     const { showToast } = useToast();
+    const { mutate: unclaimMatch, isPending: isLoading } = useUnclaimJob();
 
-    const handleUnclaim = async () => {
-        setIsLoading(true);
-        try {
-            const result = await unclaimJob(orderId);
-            if (result.success) {
-                // Invalidate mechanic cache
-                api.invalidateCache('/mechanic/jobs');
-                api.invalidateCache('/mechanic/stats');
-
+    const handleUnclaim = () => {
+        unclaimMatch(orderId, {
+            onSuccess: () => {
                 showToast('success', 'Đã hủy nhận việc thành công!');
                 setShowConfirm(false);
-                router.refresh(); // Refresh page data
-            } else {
-                showToast('error', result.error || 'Thao tác thất bại');
+            },
+            onError: (error: any) => {
+                showToast('error', error.message || 'Thao tác thất bại');
             }
-        } catch (error) {
-            showToast('error', 'Lỗi kết nối máy chủ');
-        } finally {
-            setIsLoading(false);
-        }
+        });
     };
 
     return (

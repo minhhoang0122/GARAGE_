@@ -1,22 +1,18 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Car, CheckCircle, XCircle, Loader2, AlertCircle, Clock, ShieldCheck, Phone, User, Calendar, Package, Edit } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
-import { getCustomerOrderDetails, approveQuote, rejectQuote, requestRevision } from '@/modules/customer/customer';
-
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMyOrderDetail, useApproveQuote, useRejectQuote, useRequestRevision } from '@/modules/customer/hooks/useCustomer';
+import { isWaitingForCustomer, isQuoting, getStatusLabel } from '@/lib/status';
 
 export default function CustomerOrderDetailPage() {
-    const { data: session, status: authStatus } = useSession();
     const router = useRouter();
     const params = useParams();
     const orderId = Number(params.id);
     const { showToast } = useToast();
-    const queryClient = useQueryClient();
     
     // Modals state
     const [showRejectModal, setShowRejectModal] = useState(false);
@@ -24,57 +20,18 @@ export default function CustomerOrderDetailPage() {
     const [reason, setReason] = useState('');
     const [note, setNote] = useState('');
 
-    const { data: order, isLoading } = useQuery({
-        queryKey: ['customer', 'orders', orderId],
-        queryFn: () => getCustomerOrderDetails(orderId),
-        enabled: authStatus === 'authenticated' && !!orderId
-    });
+    const { data: order, isLoading } = useMyOrderDetail(orderId);
 
-    const approveMutation = useMutation({
-        mutationFn: () => approveQuote(orderId),
-        onSuccess: (res) => {
-            if (res.success) {
-                showToast('success', 'Đã duyệt báo giá thành công');
-                queryClient.invalidateQueries({ queryKey: ['customer', 'orders', orderId] });
-            } else {
-                showToast('error', res.error || 'Duyệt thất bại');
-            }
-        }
-    });
-
-    const rejectMutation = useMutation({
-        mutationFn: (reason: string) => rejectQuote(orderId, reason),
-        onSuccess: (res) => {
-            if (res.success) {
-                showToast('success', 'Đã từ chối báo giá');
-                setShowRejectModal(false);
-                queryClient.invalidateQueries({ queryKey: ['customer', 'orders', orderId] });
-            } else {
-                showToast('error', res.error || 'Thao tác thất bại');
-            }
-        }
-    });
-
-    const revisionMutation = useMutation({
-        mutationFn: (note: string) => requestRevision(orderId, note),
-        onSuccess: (res) => {
-            if (res.success) {
-                showToast('success', 'Đã gửi yêu cầu chỉnh sửa');
-                setShowRevisionModal(false);
-                queryClient.invalidateQueries({ queryKey: ['customer', 'orders', orderId] });
-            } else {
-                showToast('error', res.error || 'Gửi yêu cầu thất bại');
-            }
-        }
-    });
-
-    useEffect(() => {
-        if (authStatus === 'unauthenticated') { router.push('/customer/login'); }
-    }, [authStatus]);
+    const approveMutation = useApproveQuote();
+    const rejectMutation = useRejectQuote();
+    const revisionMutation = useRequestRevision();
 
     const handleApprove = () => {
         if (!confirm('Bạn đồng ý với báo giá này?')) return;
-        approveMutation.mutate();
+        approveMutation.mutate(orderId, {
+            onSuccess: () => showToast('success', 'Đã duyệt báo giá thành công'),
+            onError: (err: any) => showToast('error', err.message || 'Duyệt thất bại')
+        });
     };
 
     const handleReject = () => {
@@ -82,7 +39,13 @@ export default function CustomerOrderDetailPage() {
             showToast('error', 'Vui lòng nhập lý do từ chối');
             return;
         }
-        rejectMutation.mutate(reason);
+        rejectMutation.mutate({ id: orderId, reason }, {
+            onSuccess: () => {
+                showToast('success', 'Đã từ chối báo giá');
+                setShowRejectModal(false);
+            },
+            onError: (err: any) => showToast('error', err.message || 'Thao tác thất bại')
+        });
     };
 
     const handleRequestRevision = () => {
@@ -90,18 +53,24 @@ export default function CustomerOrderDetailPage() {
             showToast('error', 'Vui lòng nhập ghi chú yêu cầu');
             return;
         }
-        revisionMutation.mutate(note);
+        revisionMutation.mutate({ id: orderId, note }, {
+            onSuccess: () => {
+                showToast('success', 'Đã gửi yêu cầu chỉnh sửa');
+                setShowRevisionModal(false);
+            },
+            onError: (err: any) => showToast('error', err.message || 'Thao tác thất bại')
+        });
     };
 
     const submitting = approveMutation.isPending || rejectMutation.isPending || revisionMutation.isPending;
 
-    if (authStatus === 'loading' || isLoading) {
+    if (isLoading) {
         return <div className="min-h-screen bg-stone-950 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={32} /></div>;
     }
 
     if (!order) return <div className="min-h-screen bg-stone-950 p-6 text-white text-center">Không tìm thấy đơn hàng</div>;
 
-    const isPendingQuote = order.status === 'CHO_KH_DUYET' || order.status === 'BAO_GIA_LAI';
+    const isPendingQuote = isWaitingForCustomer(order.status) || isQuoting(order.status);
 
     return (
         <div className="min-h-screen bg-stone-950 text-stone-200 pb-20">
@@ -135,7 +104,7 @@ export default function CustomerOrderDetailPage() {
                             isPendingQuote ? 'bg-orange-900/40 text-orange-400 border border-orange-500/30' : 'bg-stone-800 text-stone-400 border border-stone-700'
                         }`}>
                             {isPendingQuote ? <AlertCircle size={14} className="animate-pulse" /> : <Clock size={14} />}
-                            {order.status === 'BAO_GIA_LAI' ? 'ĐANG CẬP NHẬT BÁO GIÁ' : order.status}
+                            {isQuoting(order.status) ? 'ĐANG CẬP NHẬT BÁO GIÁ' : getStatusLabel(order.status)}
                         </div>
                     </div>
 

@@ -4,62 +4,48 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "exportdetail")
+@Table(name = "export_details")
 public class ExportDetail {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "so_luong", nullable = false)
-    private Integer soLuong;
+    @Column(name = "quantity", nullable = false)
+    private Integer quantity;
 
-    @Column(name = "don_gia_xuat", precision = 18, scale = 2)
-    private BigDecimal donGiaXuat;
+    @Column(name = "unit_price", precision = 18, scale = 2)
+    private BigDecimal exportPrice;
 
-    @Column(name = "thanh_tien", precision = 18, scale = 2)
-    private BigDecimal thanhTien;
-
-    // Foreign Keys
-    @Column(name = "phieu_xuat_kho_id", insertable = false, updatable = false)
-    private Integer phieuXuatKhoId;
-
-    @Column(name = "hang_hoa_id", insertable = false, updatable = false)
-    private Integer hangHoaId;
+    @Column(name = "total_price", precision = 18, scale = 2)
+    private BigDecimal totalAmount;
 
     // Relations
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "phieu_xuat_kho_id", nullable = false)
-    private ExportNote phieuXuatKho;
+    @JoinColumn(name = "export_note_id", nullable = false)
+    private ExportNote exportNote;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hang_hoa_id", nullable = false)
-    private Product hangHoa;
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
     public ExportDetail() {}
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
     
-    public Integer getSoLuong() { return soLuong; }
-    public void setSoLuong(Integer soLuong) { this.soLuong = soLuong; }
+    public Integer getQuantity() { return quantity; }
+    public void setQuantity(Integer quantity) { this.quantity = quantity; }
 
-    public BigDecimal getDonGiaXuat() { return donGiaXuat; }
-    public void setDonGiaXuat(BigDecimal donGiaXuat) { this.donGiaXuat = donGiaXuat; }
+    public BigDecimal getExportPrice() { return exportPrice; }
+    public void setExportPrice(BigDecimal exportPrice) { this.exportPrice = exportPrice; }
 
-    public BigDecimal getThanhTien() { return thanhTien; }
-    public void setThanhTien(BigDecimal thanhTien) { this.thanhTien = thanhTien; }
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
 
-    public Integer getPhieuXuatKhoId() { return phieuXuatKhoId; }
-    public void setPhieuXuatKhoId(Integer phieuXuatKhoId) { this.phieuXuatKhoId = phieuXuatKhoId; }
+    public ExportNote getExportNote() { return exportNote; }
+    public void setExportNote(ExportNote exportNote) { this.exportNote = exportNote; }
 
-    public Integer getHangHoaId() { return hangHoaId; }
-    public void setHangHoaId(Integer hangHoaId) { this.hangHoaId = hangHoaId; }
-
-    public ExportNote getPhieuXuatKho() { return phieuXuatKho; }
-    public void setPhieuXuatKho(ExportNote phieuXuatKho) { this.phieuXuatKho = phieuXuatKho; }
-
-    public Product getHangHoa() { return hangHoa; }
-    public void setHangHoa(Product hangHoa) { this.hangHoa = hangHoa; }
+    public Product getProduct() { return product; }
+    public void setProduct(Product product) { this.product = product; }
 }

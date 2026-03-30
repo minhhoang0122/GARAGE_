@@ -5,18 +5,19 @@ import com.gara.modules.inventory.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
+import java.math.BigDecimal;
 
 @Service
 public class ProductService {
-
     private final ProductRepository productRepository;
+    private final com.gara.modules.support.service.SseService sseService;
 
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository, com.gara.modules.support.service.SseService sseService) {
         this.productRepository = productRepository;
+        this.sseService = sseService;
     }
 
     @Cacheable("products")
@@ -38,33 +39,37 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
-        if (req.getTenHang() != null)
-            product.setTenHang(req.getTenHang());
+        if (req.getName() != null)
+            product.setName(req.getName());
 
         // Update Price
-        if (req.getGiaBanNiemYet() != null) {
-            product.setGiaBanNiemYet(req.getGiaBanNiemYet());
+        if (req.getRetailPrice() != null) {
+            product.setRetailPrice(req.getRetailPrice());
             validatePrice(product); // Rule 83 check
         }
 
-        if (req.getGiaVon() != null)
-            product.setGiaVon(req.getGiaVon());
+        if (req.getCostPrice() != null)
+            product.setCostPrice(req.getCostPrice());
 
-        if (req.getThueVAT() != null)
-            product.setThueVAT(req.getThueVAT());
-
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+        sseService.broadcast("metadata_updated", java.util.Map.of(
+            "type", "PRODUCT",
+            "id", saved.getId(),
+            "action", "UPDATE",
+            "message", "Giá hoặc thông tin vật tư/dịch vụ đã được cập nhật"
+        ));
+        return saved;
     }
 
     // Rule 83: Enforce Selling Price Control
     private void validatePrice(Product product) {
-        if (product.getGiaBanNiemYet() == null || product.getGiaVon() == null)
+        if (product.getRetailPrice() == null || product.getCostPrice() == null)
             return;
 
         // Example Rule: Selling Price must be >= Cost Price
-        if (product.getGiaBanNiemYet().compareTo(product.getGiaVon()) < 0) {
+        if (product.getRetailPrice().compareTo(product.getCostPrice()) < 0) {
             throw new RuntimeException("Vi phạm quy tắc giá (Rule 83): Giá bán (" +
-                    product.getGiaBanNiemYet() + ") thấp hơn Giá vốn (" + product.getGiaVon() + ").");
+                    product.getRetailPrice() + ") thấp hơn Giá vốn (" + product.getCostPrice() + ").");
         }
     }
 
@@ -78,17 +83,22 @@ public class ProductService {
                     .orElseThrow(() -> new RuntimeException("Product not found: " + id));
 
             if (item.containsKey("price")) {
-                product.setGiaBanNiemYet(new BigDecimal(item.get("price").toString()));
+                product.setRetailPrice(new BigDecimal(item.get("price").toString()));
             }
             if (item.containsKey("warrantyMonths")) {
-                product.setBaoHanhSoThang(Integer.parseInt(item.get("warrantyMonths").toString()));
+                product.setWarrantyMonths(Integer.parseInt(item.get("warrantyMonths").toString()));
             }
             if (item.containsKey("warrantyKm")) {
-                product.setBaoHanhKm(Integer.parseInt(item.get("warrantyKm").toString()));
+                product.setWarrantyKm(Integer.parseInt(item.get("warrantyKm").toString()));
             }
 
             validatePrice(product);
             productRepository.save(product);
         }
+        sseService.broadcast("metadata_updated", java.util.Map.of(
+            "type", "PRODUCT",
+            "action", "BATCH_UPDATE",
+            "message", "Danh sách giá vật tư đã được cập nhật hàng loạt"
+        ));
     }
 }

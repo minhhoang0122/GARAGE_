@@ -6,7 +6,6 @@ import {
     CalendarCheck, Clock, Car, Phone, User, Eye, CheckCircle, Loader2,
     ArrowRight, List, CalendarDays, ChevronLeft, ChevronRight, GripVertical, X
 } from 'lucide-react';
-import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import { Card } from '@/modules/shared/components/ui/card';
 import { EmptyState } from '@/modules/shared/components/ui/empty-state';
@@ -63,8 +62,8 @@ const parseBookingDate = (s: string): Date | null => {
 };
 
 // ─── Calendar View Component ───
-function CalendarView({ bookings, onReschedule, token }: {
-    bookings: any[]; onReschedule: (id: number, newDate: string) => void; token: string;
+function CalendarView({ bookings, onReschedule }: {
+    bookings: any[]; onReschedule: (id: number, newDate: string) => void;
 }) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [dragOverDate, setDragOverDate] = useState<string | null>(null);
@@ -279,26 +278,23 @@ function CalendarView({ bookings, onReschedule, token }: {
 
 // ─── Main Page Component ───
 export default function SaleBookingsPage() {
-    const { data: session } = useSession();
     const queryClient = useQueryClient();
+
     const [filter, setFilter] = useState<'all' | 'pending' | 'done'>('all');
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
     const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-    // @ts-ignore
-    const token = session?.user?.accessToken;
 
     const { data: bookings = [], isLoading } = useQuery({
         queryKey: ['bookings'],
         queryFn: async () => {
-            return await api.get('/sale/bookings', token);
-        },
-        enabled: !!token
+            return await api.get('/sale/bookings');
+        }
     });
 
     const rescheduleMutation = useMutation({
         mutationFn: async ({ bookingId, newDate }: { bookingId: number, newDate: string }) => {
-            return await api.patch(`/sale/bookings/${bookingId}/reschedule`, { newDate }, token);
+            return await api.patch(`/sale/bookings/${bookingId}/reschedule`, { newDate });
         },
         onSuccess: (data, variables) => {
             setToastMsg(`Đã đổi lịch LH#${variables.bookingId} sang ${variables.newDate}`);
@@ -417,7 +413,7 @@ export default function SaleBookingsPage() {
 
             {/* Content based on view mode */}
             {viewMode === 'calendar' ? (
-                <CalendarView bookings={bookings} onReschedule={handleReschedule} token={token || ''} />
+                <CalendarView bookings={bookings} onReschedule={handleReschedule} />
             ) : (
                 /* List view */
                 <Card className="overflow-hidden">

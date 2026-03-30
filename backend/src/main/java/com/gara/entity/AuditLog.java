@@ -5,7 +5,10 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "auditlog")
+@Table(name = "audit_logs", indexes = {
+    @Index(name = "idx_audit_logs_table_name", columnList = "table_name"),
+    @Index(name = "idx_audit_logs_record_id", columnList = "record_id")
+})
 public class AuditLog {
 
     @Id
@@ -13,56 +16,56 @@ public class AuditLog {
     @Column(name = "id")
     private Integer id;
 
-    @Column(name = "bang", length = 50, nullable = false)
-    private String bang;
+    @Column(name = "table_name", length = 50, nullable = false)
+    private String tableName;
 
-    @Column(name = "ban_ghi_id", nullable = false)
-    private Integer banGhiId;
+    @Column(name = "record_id", nullable = false)
+    private Integer recordId;
 
-    @Column(name = "hanh_dong", length = 20, nullable = false)
-    private String hanhDong; // INSERT, UPDATE, DELETE
+    @Column(name = "action", length = 20, nullable = false)
+    private String action; // INSERT, UPDATE, DELETE
 
-    @Column(name = "du_lieu_cu", columnDefinition = "TEXT")
-    private String duLieuCu;
+    @Column(name = "old_data", columnDefinition = "TEXT")
+    private String oldData;
 
-    @Column(name = "du_lieu_moi", columnDefinition = "TEXT")
-    private String duLieuMoi;
+    @Column(name = "new_data", columnDefinition = "TEXT")
+    private String newData;
 
-    @Column(name = "ly_do", length = 500)
-    private String lyDo;
+    @Column(name = "reason", length = 500)
+    private String reason;
 
-    @Column(name = "ngay_tao")
-    private LocalDateTime ngayTao;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
     // Foreign Keys - allow direct ID insertion
-    @Column(name = "nguoi_thuc_hien_id")
-    private Integer nguoiThucHienId;
+    @Column(name = "user_id")
+    private Integer userId;
 
     // Relations (read-only for display)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nguoi_thuc_hien_id", insertable = false, updatable = false)
-    private User nguoiThucHien;
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    private User user;
 
     @PrePersist
     protected void onCreate() {
-        ngayTao = LocalDateTime.now();
+        createdAt = LocalDateTime.now();
     }
 
     public AuditLog() {
     }
 
-    public AuditLog(Integer id, String bang, Integer banGhiId, String hanhDong, String duLieuCu, String duLieuMoi,
-            String lyDo, LocalDateTime ngayTao, Integer nguoiThucHienId, User nguoiThucHien) {
+    public AuditLog(Integer id, String tableName, Integer recordId, String action, String oldData, String newData,
+            String reason, LocalDateTime createdAt, Integer userId, User user) {
         this.id = id;
-        this.bang = bang;
-        this.banGhiId = banGhiId;
-        this.hanhDong = hanhDong;
-        this.duLieuCu = duLieuCu;
-        this.duLieuMoi = duLieuMoi;
-        this.lyDo = lyDo;
-        this.ngayTao = ngayTao;
-        this.nguoiThucHienId = nguoiThucHienId;
-        this.nguoiThucHien = nguoiThucHien;
+        this.tableName = tableName;
+        this.recordId = recordId;
+        this.action = action;
+        this.oldData = oldData;
+        this.newData = newData;
+        this.reason = reason;
+        this.createdAt = createdAt;
+        this.userId = userId;
+        this.user = user;
     }
 
     public Integer getId() {
@@ -73,77 +76,32 @@ public class AuditLog {
         this.id = id;
     }
 
-    public String getBang() {
-        return bang;
-    }
+    public String getTableName() { return tableName; }
+    public void setTableName(String tableName) { this.tableName = tableName; }
 
-    public void setBang(String bang) {
-        this.bang = bang;
-    }
+    public Integer getRecordId() { return recordId; }
+    public void setRecordId(Integer recordId) { this.recordId = recordId; }
 
-    public Integer getBanGhiId() {
-        return banGhiId;
-    }
+    public String getAction() { return action; }
+    public void setAction(String action) { this.action = action; }
 
-    public void setBanGhiId(Integer banGhiId) {
-        this.banGhiId = banGhiId;
-    }
+    public String getOldData() { return oldData; }
+    public void setOldData(String oldData) { this.oldData = oldData; }
 
-    public String getHanhDong() {
-        return hanhDong;
-    }
+    public String getNewData() { return newData; }
+    public void setNewData(String newData) { this.newData = newData; }
 
-    public void setHanhDong(String hanhDong) {
-        this.hanhDong = hanhDong;
-    }
+    public String getReason() { return reason; }
+    public void setReason(String reason) { this.reason = reason; }
 
-    public String getDuLieuCu() {
-        return duLieuCu;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
-    public void setDuLieuCu(String duLieuCu) {
-        this.duLieuCu = duLieuCu;
-    }
+    public Integer getUserId() { return userId; }
+    public void setUserId(Integer userId) { this.userId = userId; }
 
-    public String getDuLieuMoi() {
-        return duLieuMoi;
-    }
-
-    public void setDuLieuMoi(String duLieuMoi) {
-        this.duLieuMoi = duLieuMoi;
-    }
-
-    public String getLyDo() {
-        return lyDo;
-    }
-
-    public void setLyDo(String lyDo) {
-        this.lyDo = lyDo;
-    }
-
-    public LocalDateTime getNgayTao() {
-        return ngayTao;
-    }
-
-    public void setNgayTao(LocalDateTime ngayTao) {
-        this.ngayTao = ngayTao;
-    }
-
-    public Integer getNguoiThucHienId() {
-        return nguoiThucHienId;
-    }
-
-    public void setNguoiThucHienId(Integer nguoiThucHienId) {
-        this.nguoiThucHienId = nguoiThucHienId;
-    }
-
-    public User getNguoiThucHien() {
-        return nguoiThucHien;
-    }
-
-    public void setNguoiThucHien(User nguoiThucHien) {
-        this.nguoiThucHien = nguoiThucHien;
-    }
+    public User getUser() { return user; }
+    public void setUser(User user) { this.user = user; }
 
     public static AuditLogBuilder builder() {
         return new AuditLogBuilder();
@@ -151,72 +109,32 @@ public class AuditLog {
 
     public static class AuditLogBuilder {
         private Integer id;
-        private String bang;
-        private Integer banGhiId;
-        private String hanhDong;
-        private String duLieuCu;
-        private String duLieuMoi;
-        private String lyDo;
-        private LocalDateTime ngayTao;
-        private Integer nguoiThucHienId;
-        private User nguoiThucHien;
+        private String tableName;
+        private Integer recordId;
+        private String action;
+        private String oldData;
+        private String newData;
+        private String reason;
+        private LocalDateTime createdAt;
+        private Integer userId;
+        private User user;
 
         AuditLogBuilder() {
         }
 
-        public AuditLogBuilder id(Integer id) {
-            this.id = id;
-            return this;
-        }
-
-        public AuditLogBuilder bang(String bang) {
-            this.bang = bang;
-            return this;
-        }
-
-        public AuditLogBuilder banGhiId(Integer banGhiId) {
-            this.banGhiId = banGhiId;
-            return this;
-        }
-
-        public AuditLogBuilder hanhDong(String hanhDong) {
-            this.hanhDong = hanhDong;
-            return this;
-        }
-
-        public AuditLogBuilder duLieuCu(String duLieuCu) {
-            this.duLieuCu = duLieuCu;
-            return this;
-        }
-
-        public AuditLogBuilder duLieuMoi(String duLieuMoi) {
-            this.duLieuMoi = duLieuMoi;
-            return this;
-        }
-
-        public AuditLogBuilder lyDo(String lyDo) {
-            this.lyDo = lyDo;
-            return this;
-        }
-
-        public AuditLogBuilder ngayTao(LocalDateTime ngayTao) {
-            this.ngayTao = ngayTao;
-            return this;
-        }
-
-        public AuditLogBuilder nguoiThucHienId(Integer nguoiThucHienId) {
-            this.nguoiThucHienId = nguoiThucHienId;
-            return this;
-        }
-
-        public AuditLogBuilder nguoiThucHien(User nguoiThucHien) {
-            this.nguoiThucHien = nguoiThucHien;
-            return this;
-        }
+        public AuditLogBuilder id(Integer id) { this.id = id; return this; }
+        public AuditLogBuilder tableName(String tableName) { this.tableName = tableName; return this; }
+        public AuditLogBuilder recordId(Integer recordId) { this.recordId = recordId; return this; }
+        public AuditLogBuilder action(String action) { this.action = action; return this; }
+        public AuditLogBuilder oldData(String oldData) { this.oldData = oldData; return this; }
+        public AuditLogBuilder newData(String newData) { this.newData = newData; return this; }
+        public AuditLogBuilder reason(String reason) { this.reason = reason; return this; }
+        public AuditLogBuilder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
+        public AuditLogBuilder userId(Integer userId) { this.userId = userId; return this; }
+        public AuditLogBuilder user(User user) { this.user = user; return this; }
 
         public AuditLog build() {
-            return new AuditLog(id, bang, banGhiId, hanhDong, duLieuCu, duLieuMoi, lyDo, ngayTao, nguoiThucHienId,
-                    nguoiThucHien);
+            return new AuditLog(id, tableName, recordId, action, oldData, newData, reason, createdAt, userId, user);
         }
     }
 }

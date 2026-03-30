@@ -1,51 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @theme {
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Premium Industrial Palette */
-  --color-brand-primary: #0f172a;
-  /* Slate 900 */
-  --color-brand-secondary: #334155;
-  /* Slate 700 */
+  /* Standard Business Palette - High Contrast */
+  --color-brand-primary: #1e293b; /* Slate 800 */
+  --color-brand-secondary: #475569; /* Slate 600 */
+  --color-accent-emerald: #059669; /* Emerald 600 (Darker) */
+  --color-accent-amber: #d97706; /* Amber 600 (Darker) */
 
-  --shadow-premium: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
-  --shadow-premium-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+  /* Simple & Clean Shadows */
+  --shadow-premium: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-dribbble: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
 /* Explicitly support class-based dark mode in v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --grid-light: rgba(100, 116, 139, 0.12);
-  --grid-dark: rgba(255, 255, 255, 0.05);
+  --theme-transition: background-color 0.1s ease, color 0.1s ease;
 }
 
 /* Base styles */
 html {
-  font-size: 15px;
-  /* Slightly smaller base scaling */
+  font-size: 14px; /* Slightly smaller for density but clearer */
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  @apply bg-stone-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
-  line-height: 1.5;
-  letter-spacing: -0.01em;
+  font-family: var(--font-sans);
+  background-color: var(--color-slate-50);
+  color: var(--color-slate-900);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  letter-spacing: -0.02em;
-  font-weight: 700;
+.dark body {
+  background-color: var(--color-slate-950);
+  color: var(--color-slate-100);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-slate-900);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: var(--color-white);
 }
 
 aside,
@@ -58,7 +63,7 @@ header,
 .border,
 .border-slate-200,
 .dark .border-slate-800 {
-  transition: background-color 0.5s ease-in-out, border-color 0.5s ease-in-out, color 0.5s ease-in-out, box-shadow 0.5s ease-in-out;
+  transition: var(--theme-transition);
 }
 
 /* Grid layers for smooth opacity cross-fade */
@@ -66,7 +71,7 @@ header,
   position: absolute;
   inset: 0;
   pointer-events: none;
-  transition: opacity 0.5s ease-in-out;
+  transition: var(--theme-transition);
 }
 
 /* Unify transition for all interactive components */
@@ -434,4 +439,13 @@ td input[type="number"] {
   [class*="blur-"] {
     display: none !important;
   }
+}
+
+/* Tiptap Placeholder */
+.tiptap p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
 }

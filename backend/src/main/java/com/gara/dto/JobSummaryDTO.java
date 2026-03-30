@@ -1,6 +1,7 @@
 package com.gara.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record JobSummaryDTO(
                 Integer id,
@@ -15,7 +16,8 @@ public record JobSummaryDTO(
                 String imageUrl,
                 String status,
                 Integer claimedById,
-                String claimedByName) {
+                String claimedByName,
+                List<OrderItemDTO> items) {
 
         public static JobSummaryDTOBuilder builder() {
                 return new JobSummaryDTOBuilder();
@@ -35,6 +37,7 @@ public record JobSummaryDTO(
                 private String status;
                 private Integer claimedById;
                 private String claimedByName;
+                private List<OrderItemDTO> items;
 
                 public JobSummaryDTOBuilder id(Integer id) {
                         this.id = id;
@@ -101,10 +104,15 @@ public record JobSummaryDTO(
                         return this;
                 }
 
+                public JobSummaryDTOBuilder items(List<OrderItemDTO> items) {
+                        this.items = items;
+                        return this;
+                }
+
                 public JobSummaryDTO build() {
                         return new JobSummaryDTO(id, plate, customerName, customerPhone, vehicleBrand, vehicleModel,
                                         createdAt,
-                                        totalItems, completedItems, imageUrl, status, claimedById, claimedByName);
+                                        totalItems, completedItems, imageUrl, status, claimedById, claimedByName, items);
                 }
         }
 }

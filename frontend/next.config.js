@@ -9,6 +9,14 @@ const nextConfig = {
     compress: true, // Enable gzip compression
     images: {
         formats: ['image/avif', 'image/webp'],
+        remotePatterns: [
+            {
+                protocol: 'https',
+                hostname: 'res.cloudinary.com',
+                port: '',
+                pathname: '/**',
+            },
+        ],
     },
     // Faster refresh
     onDemandEntries: {

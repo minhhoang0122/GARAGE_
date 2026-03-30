@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "PhanCongCongViec")
+@Table(name = "task_assignments")
 public class TaskAssignment {
 
     @Id
@@ -13,33 +13,33 @@ public class TaskAssignment {
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "chi_tiet_don_hang_id", nullable = false)
-    private OrderItem chiTietDonHang;
+    @JoinColumn(name = "order_item_id", nullable = false)
+    private OrderItem orderItem;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tho_id", nullable = false)
-    private User tho;
+    @JoinColumn(name = "mechanic_id", nullable = false)
+    private User mechanic;
 
-    @Column(name = "phan_tram_cong", precision = 5, scale = 2)
-    private BigDecimal phanTramCong; // e.g. 70.00 for 70%
+    @Column(name = "work_percentage", precision = 5, scale = 2)
+    private BigDecimal laborPercentage; // e.g. 70.00 for 70%
 
-    @Column(name = "la_tho_chinh")
-    private Boolean laThoChinh = false;
+    @Column(name = "is_main_mechanic")
+    private Boolean isMainMechanic = false;
 
-    @Column(name = "trang_thai", length = 20)
-    private String trangThai; // APPROVED, PENDING
+    @Column(name = "status", length = 20)
+    private String status; // APPROVED, PENDING
 
     public TaskAssignment() {
     }
 
-    public TaskAssignment(Integer id, OrderItem chiTietDonHang, User tho, BigDecimal phanTramCong, Boolean laThoChinh,
-            String trangThai) {
+    public TaskAssignment(Integer id, OrderItem orderItem, User mechanic, BigDecimal laborPercentage, Boolean isMainMechanic,
+            String status) {
         this.id = id;
-        this.chiTietDonHang = chiTietDonHang;
-        this.tho = tho;
-        this.phanTramCong = phanTramCong;
-        this.laThoChinh = laThoChinh != null ? laThoChinh : false;
-        this.trangThai = trangThai;
+        this.orderItem = orderItem;
+        this.mechanic = mechanic;
+        this.laborPercentage = laborPercentage;
+        this.isMainMechanic = isMainMechanic != null ? isMainMechanic : false;
+        this.status = status;
     }
 
     public Integer getId() {
@@ -50,44 +50,44 @@ public class TaskAssignment {
         this.id = id;
     }
 
-    public OrderItem getChiTietDonHang() {
-        return chiTietDonHang;
+    public OrderItem getOrderItem() {
+        return orderItem;
     }
 
-    public void setChiTietDonHang(OrderItem chiTietDonHang) {
-        this.chiTietDonHang = chiTietDonHang;
+    public void setOrderItem(OrderItem orderItem) {
+        this.orderItem = orderItem;
     }
 
-    public User getTho() {
-        return tho;
+    public User getMechanic() {
+        return mechanic;
     }
 
-    public void setTho(User tho) {
-        this.tho = tho;
+    public void setMechanic(User mechanic) {
+        this.mechanic = mechanic;
     }
 
-    public BigDecimal getPhanTramCong() {
-        return phanTramCong;
+    public BigDecimal getLaborPercentage() {
+        return laborPercentage;
     }
 
-    public void setPhanTramCong(BigDecimal phanTramCong) {
-        this.phanTramCong = phanTramCong;
+    public void setLaborPercentage(BigDecimal laborPercentage) {
+        this.laborPercentage = laborPercentage;
     }
 
-    public Boolean getLaThoChinh() {
-        return laThoChinh;
+    public Boolean getIsMainMechanic() {
+        return isMainMechanic;
     }
 
-    public void setLaThoChinh(Boolean laThoChinh) {
-        this.laThoChinh = laThoChinh;
+    public void setIsMainMechanic(Boolean isMainMechanic) {
+        this.isMainMechanic = isMainMechanic;
     }
 
-    public String getTrangThai() {
-        return trangThai;
+    public String getStatus() {
+        return status;
     }
 
-    public void setTrangThai(String trangThai) {
-        this.trangThai = trangThai;
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public static TaskAssignmentBuilder builder() {
@@ -96,44 +96,44 @@ public class TaskAssignment {
 
     public static class TaskAssignmentBuilder {
         private Integer id;
-        private OrderItem chiTietDonHang;
-        private User tho;
-        private BigDecimal phanTramCong;
-        private Boolean laThoChinh = false;
-        private String trangThai;
+        private OrderItem orderItem;
+        private User mechanic;
+        private BigDecimal laborPercentage;
+        private Boolean isMainMechanic = false;
+        private String status;
 
         public TaskAssignmentBuilder id(Integer id) {
             this.id = id;
             return this;
         }
 
-        public TaskAssignmentBuilder chiTietDonHang(OrderItem chiTietDonHang) {
-            this.chiTietDonHang = chiTietDonHang;
+        public TaskAssignmentBuilder orderItem(OrderItem orderItem) {
+            this.orderItem = orderItem;
             return this;
         }
 
-        public TaskAssignmentBuilder tho(User tho) {
-            this.tho = tho;
+        public TaskAssignmentBuilder mechanic(User mechanic) {
+            this.mechanic = mechanic;
             return this;
         }
 
-        public TaskAssignmentBuilder phanTramCong(BigDecimal phanTramCong) {
-            this.phanTramCong = phanTramCong;
+        public TaskAssignmentBuilder laborPercentage(BigDecimal laborPercentage) {
+            this.laborPercentage = laborPercentage;
             return this;
         }
 
-        public TaskAssignmentBuilder laThoChinh(Boolean laThoChinh) {
-            this.laThoChinh = laThoChinh;
+        public TaskAssignmentBuilder isMainMechanic(Boolean isMainMechanic) {
+            this.isMainMechanic = isMainMechanic;
             return this;
         }
 
-        public TaskAssignmentBuilder trangThai(String trangThai) {
-            this.trangThai = trangThai;
+        public TaskAssignmentBuilder status(String status) {
+            this.status = status;
             return this;
         }
 
         public TaskAssignment build() {
-            return new TaskAssignment(id, chiTietDonHang, tho, phanTramCong, laThoChinh, trangThai);
+            return new TaskAssignment(id, orderItem, mechanic, laborPercentage, isMainMechanic, status);
         }
     }
 }

@@ -1,48 +1,25 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, QrCode, CreditCard, Loader2 } from 'lucide-react';
+import { api } from '@/lib/api';
+import { useMyOrders } from '@/modules/customer/hooks/useCustomer';
 
 export default function CustomerPaymentPage() {
-    const { data: session, status: authStatus } = useSession();
     const router = useRouter();
-    const [orders, setOrders] = useState<any[]>([]);
     const [selectedOrder, setSelectedOrder] = useState<any>(null);
     const [qrData, setQrData] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
     const [qrLoading, setQrLoading] = useState(false);
 
-    const token = (session?.user as any)?.accessToken;
-
-    useEffect(() => {
-        if (authStatus === 'unauthenticated') { router.push('/customer/login'); return; }
-        if (authStatus !== 'authenticated') return;
-        if (!token) return;
-
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/api/customer/orders`, {
-            headers: { Authorization: `Bearer ${token}` },
-        })
-            .then(r => r.json())
-            .then(data => {
-                // Only show orders with debt > 0
-                const withDebt = (data || []).filter((o: any) => o.debt > 0);
-                setOrders(withDebt);
-            })
-            .catch(() => setOrders([]))
-            .finally(() => setLoading(false));
-    }, [authStatus, session, router, token]);
+    const { data: allOrders = [], isLoading } = useMyOrders();
+    const orders = allOrders.filter((o: any) => (o.debt || o.ConNo) > 0);
 
     const loadQR = async (orderId: number) => {
         setQrLoading(true);
         try {
-            const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/api/customer/qr-payment/${orderId}`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            const data = await res.json();
+            const data = await api.get(`/customer/qr-payment/${orderId}`);
             setQrData(data);
             setSelectedOrder(orderId);
         } catch {
@@ -52,7 +29,7 @@ export default function CustomerPaymentPage() {
         }
     };
 
-    if (authStatus === 'loading' || loading) {
+    if (isLoading) {
         return <div className="min-h-screen bg-stone-950 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={32} /></div>;
     }
 

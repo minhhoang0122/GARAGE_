@@ -7,6 +7,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "financial_transactions", indexes = {
+    @Index(name = "idx_financial_transactions_order_id", columnList = "repair_order_id"),
+    @Index(name = "idx_financial_transactions_customer_id", columnList = "customer_id")
+})
 public class FinancialTransaction {
 
     @Id
@@ -32,11 +36,15 @@ public class FinancialTransaction {
     private String note;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id")
+    @JoinColumn(name = "repair_order_id")
     private RepairOrder order;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by")
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_id")
     private User createdBy;
 
     @CreationTimestamp
@@ -47,7 +55,7 @@ public class FinancialTransaction {
     }
 
     public FinancialTransaction(Integer id, BigDecimal amount, TransactionType type, PaymentMethod method,
-            String referenceCode, String note, RepairOrder order, User createdBy, LocalDateTime createdAt) {
+            String referenceCode, String note, RepairOrder order, Customer customer, User createdBy, LocalDateTime createdAt) {
         this.id = id;
         this.amount = amount;
         this.type = type;
@@ -55,6 +63,7 @@ public class FinancialTransaction {
         this.referenceCode = referenceCode;
         this.note = note;
         this.order = order;
+        this.customer = customer;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
     }
@@ -115,6 +124,14 @@ public class FinancialTransaction {
         this.order = order;
     }
 
+    public Customer getCustomer() {
+        return customer;
+    }
+
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
+    }
+
     public User getCreatedBy() {
         return createdBy;
     }
@@ -143,6 +160,7 @@ public class FinancialTransaction {
         private String referenceCode;
         private String note;
         private RepairOrder order;
+        private Customer customer;
         private User createdBy;
         private LocalDateTime createdAt;
 
@@ -181,6 +199,11 @@ public class FinancialTransaction {
             return this;
         }
 
+        public FinancialTransactionBuilder customer(Customer customer) {
+            this.customer = customer;
+            return this;
+        }
+
         public FinancialTransactionBuilder createdBy(User createdBy) {
             this.createdBy = createdBy;
             return this;
@@ -192,7 +215,7 @@ public class FinancialTransaction {
         }
 
         public FinancialTransaction build() {
-            return new FinancialTransaction(id, amount, type, method, referenceCode, note, order, createdBy, createdAt);
+            return new FinancialTransaction(id, amount, type, method, referenceCode, note, order, customer, createdBy, createdAt);
         }
     }
 

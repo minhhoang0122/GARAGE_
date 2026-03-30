@@ -7,6 +7,8 @@ export const VaiTro = {
     THO_SUA_CHUA: 'THO_SUA_CHUA',
     THU_NGAN: 'KE_TOAN',
     KHACH_HANG: 'KHACH_HANG',
+    CUVAN: 'CUVAN',
+    THO: 'THO',
 } as const;
 
 export type VaiTroType = (typeof VaiTro)[keyof typeof VaiTro];

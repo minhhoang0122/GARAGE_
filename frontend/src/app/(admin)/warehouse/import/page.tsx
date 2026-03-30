@@ -1,21 +1,22 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useSession } from 'next-auth/react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { ArrowLeft, Plus, Save, Trash2, Search, Loader2, Package, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatCurrency, removeAccents } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
-import { importStock } from '@/modules/inventory/warehouse';
-import { getAllProducts, createProduct } from '@/modules/service/order';
+import { useInventory, useCreateProduct, useWarehouseImport } from '@/modules/warehouse/hooks/useWarehouse';
+import { Product, warehouseService } from '@/modules/warehouse/services/warehouse';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/modules/shared/components/ui/dialog";
 import { Label } from "@/modules/shared/components/ui/label";
 import { Input } from "@/modules/shared/components/ui/input";
 import { Button } from "@/modules/shared/components/ui/button";
+import { supplierService } from '@/modules/warehouse/services/supplier';
+import { Supplier } from '@/modules/warehouse/types/supplier';
 import { useToast } from '@/modules/shared/components/ui/use-toast';
-import PrintImportNote from '@/modules/inventory/components/PrintImportNote';
+import PrintImportNote from '@/modules/warehouse/components/PrintImportNote';
 import { api } from '@/lib/api';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,91 +24,25 @@ import { importSchema, type ImportSchema } from '@/app/(admin)/warehouse/schemas
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/modules/shared/components/ui/form';
 import { Checkbox } from '@/modules/shared/components/ui/checkbox';
 import { usePermission } from '@/hooks/usePermission';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
-interface Product {
-    ID: number;
-    MaHang: string;
-    TenHang: string;
-    GiaVon: number;
-    GiaBanNiemYet?: number;
-    SoLuongTon: number;
-    LaDichVu: boolean;
-}
 
 export default function ImportStockPage() {
-    const { data: session } = useSession();
-    const queryClient = useQueryClient();
     const { hasPermission, isAdmin } = usePermission();
-    // @ts-ignore
-    const token = session?.user?.accessToken;
+    const { toast } = useToast();
+    const router = useRouter();
 
-    const { data: allProducts = [] } = useQuery<Product[]>({
-        queryKey: ['warehouse', 'products'],
-        queryFn: async () => {
-            const res = await getAllProducts();
-            // @ts-ignore
-            return (res as any[]).filter(p => !p.LaDichVu);
-        },
-        enabled: !!token
-    });
-
-    const createProductMutation = useMutation({
-        mutationFn: async (payload: any) => {
-            const res = await createProduct(payload);
-            if (!res.success) throw new Error(res.error);
-            return res;
-        },
-        onSuccess: () => {
-            toast({ title: "Thành công", description: "Đã tạo sản phẩm mới", variant: "default" });
-            setIsCreateOpen(false);
-            queryClient.invalidateQueries({ queryKey: ['warehouse', 'products'] });
-            setSearchTerm(newProduct.code);
-        },
-        onError: (error: any) => {
-            toast({ title: "Lỗi", description: "Lỗi: " + error.message, variant: "destructive" });
-        }
-    });
-
-    const importStockMutation = useMutation({
-        mutationFn: async (data: any) => {
-            const result = await importStock(data);
-            if (!result.success) throw new Error(result.error);
-            return result;
-        },
-        onSuccess: async (result) => {
-            if (isAdminOrSale) {
-                toast({ title: "Thành công", description: 'Nhập kho thành công!', variant: "default" });
-            } else {
-                toast({ title: "Thành công", description: 'Đã gửi yêu cầu nhập kho. Vui lòng chờ duyệt.', variant: "default" });
-            }
-
-            queryClient.invalidateQueries({ queryKey: ['warehouse'] });
-
-            try {
-                const sessionStr = localStorage.getItem('session');
-                const token = sessionStr ? JSON.parse(sessionStr)?.user?.accessToken : '';
-                const detail = await api.get(`/warehouse/import/${result.importId}`, token);
-                setPrintData(detail);
-            } catch (err) {
-                console.error("Could not fetch print data", err);
-                router.replace('/warehouse');
-            }
-        },
-        onError: (error: any) => {
-            toast({ title: "Lỗi", description: 'Lỗi: ' + error.message, variant: "destructive" });
-        }
-    });
+    const { data: allProducts = [] } = useInventory();
+    const createProductMutation = useCreateProduct();
+    const importStockMutation = useWarehouseImport();
 
     const isAdminOrManager = isAdmin || hasPermission('MANAGE_INVENTORY');
     const isAdminOrSale = isAdminOrManager;
 
-    const router = useRouter();
     const [printData, setPrintData] = useState<any>(null);
 
     const form = useForm<ImportSchema>({
         resolver: zodResolver(importSchema),
         defaultValues: {
+            supplierId: undefined as any,
             supplierName: '',
             items: [],
             note: ''
@@ -127,7 +62,20 @@ export default function ImportStockPage() {
     const [addCostPrice, setAddCostPrice] = useState<number>(0);
 
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [newProduct, setNewProduct] = useState({ name: '', code: '', costPrice: 0, minStock: 5 });
+
+    useEffect(() => {
+        const fetchSuppliers = async () => {
+            try {
+                const data = await supplierService.getActive();
+                setSuppliers(data);
+            } catch (error) {
+                console.error("Error fetching suppliers", error);
+            }
+        };
+        fetchSuppliers();
+    }, []);
 
     const handleCreateProduct = async () => {
         if (!newProduct.name || !newProduct.code) {
@@ -135,18 +83,22 @@ export default function ImportStockPage() {
             return;
         }
         createProductMutation.mutate({
-            ...newProduct,
             tenHang: newProduct.name,
             maHang: newProduct.code,
             giaVon: newProduct.costPrice,
             dinhMucTonToiThieu: newProduct.minStock
+        }, {
+            onSuccess: () => {
+                toast({ title: "Thành công", description: "Đã tạo sản phẩm mới", variant: "default" });
+                setIsCreateOpen(false);
+                setSearchTerm(newProduct.code);
+            }
         });
     };
 
     const debouncedSearch = useDebounce(searchTerm, 300);
     const isCreating = createProductMutation.isPending;
     const isLoading = importStockMutation.isPending;
-    const { toast } = useToast();
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -162,9 +114,9 @@ export default function ImportStockPage() {
 
         const term = removeAccents(debouncedSearch.toLowerCase().trim());
         const results = allProducts.filter(p => {
-            const name = p.TenHang ? removeAccents(p.TenHang.toLowerCase()) : '';
-            const code = p.MaHang ? removeAccents(p.MaHang.toLowerCase()) : '';
-            return name.includes(term) || code.includes(term) || (p.TenHang && p.TenHang.toLowerCase().includes(debouncedSearch.toLowerCase()));
+            const name = p.name ? removeAccents(p.name.toLowerCase()) : '';
+            const code = p.code ? removeAccents(p.code.toLowerCase()) : '';
+            return name.includes(term) || code.includes(term) || (p.name && p.name.toLowerCase().includes(debouncedSearch.toLowerCase()));
         });
         setFilteredProducts(results.slice(0, 10));
     }, [debouncedSearch, allProducts, isSearching]);
@@ -182,7 +134,7 @@ export default function ImportStockPage() {
 
     const handleSelectProduct = (p: Product) => {
         setSelectedProduct(p);
-        setAddCostPrice(p.GiaVon || 0);
+        setAddCostPrice(p.price || 0);
         setAddQuantity(1);
         setSearchTerm('');
         setFilteredProducts([]);
@@ -195,17 +147,34 @@ export default function ImportStockPage() {
             return;
         }
         const payload = {
+            supplierId: data.supplierId,
             supplierName: data.supplierName,
             note: data.note,
             items: data.items.map((i) => ({
-                productId: i.product.ID,
+                productId: i.product.id,
                 quantity: i.quantity,
                 costPrice: i.costPrice,
                 vatRate: i.vatRate,
                 updateGlobalPrice: i.updateGlobalPrice
             }))
         };
-        importStockMutation.mutate(payload);
+        importStockMutation.mutate(payload, {
+            onSuccess: async (result: any) => {
+                if (isAdminOrSale) {
+                    toast({ title: "Thành công", description: 'Nhập kho thành công!', variant: "default" });
+                } else {
+                    toast({ title: "Thành công", description: 'Đã gửi yêu cầu nhập kho. Vui lòng chờ duyệt.', variant: "default" });
+                }
+
+                try {
+                    const detail = await warehouseService.getImportDetail(result.id || result.importId);
+                    setPrintData(detail);
+                } catch (err) {
+                    console.error("Could not fetch print data", err);
+                    router.replace('/warehouse');
+                }
+            }
+        });
     };
 
     const handleAddItem = () => {
@@ -275,12 +244,26 @@ export default function ImportStockPage() {
                                 <div className="space-y-4">
                                     <FormField
                                         control={form.control}
-                                        name="supplierName"
+                                        name="supplierId"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Nhà cung cấp (*)</FormLabel>
                                                 <FormControl>
-                                                    <Input {...field} placeholder="Tên NCC..." />
+                                                    <select
+                                                        {...field}
+                                                        onChange={(e) => {
+                                                            const id = Number(e.target.value);
+                                                            field.onChange(id);
+                                                            const s = suppliers.find(sup => sup.id === id);
+                                                            if (s) form.setValue('supplierName', s.tenNcc);
+                                                        }}
+                                                        className="w-full h-10 px-3 bg-white border border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 font-medium"
+                                                    >
+                                                        <option value="">-- Chọn nhà cung cấp --</option>
+                                                        {suppliers.map(s => (
+                                                            <option key={s.id} value={s.id}>{s.tenNcc} ({s.maNcc})</option>
+                                                        ))}
+                                                    </select>
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -407,16 +390,16 @@ export default function ImportStockPage() {
                                             {filteredProducts.length > 0 && (
                                                 <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl max-h-80 overflow-auto divide-y divide-slate-100 dark:divide-slate-800 scrollbar-thin">
                                                     {filteredProducts.map(p => (
-                                                        <button key={p.ID} type="button" onClick={() => handleSelectProduct(p)} className="w-full px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-slate-800/80 flex items-start gap-4 group transition-colors">
+                                                        <button key={p.id} type="button" onClick={() => handleSelectProduct(p)} className="w-full px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-slate-800/80 flex items-start gap-4 group transition-colors">
                                                             <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 group-hover:text-blue-600 transition-colors">
                                                                 <Package className="w-4 h-4" />
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                                <div className="font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-blue-700">{p.TenHang}</div>
+                                                                <div className="font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-blue-700">{p.name}</div>
                                                                 <div className="flex items-center gap-3 mt-1">
-                                                                    <span className="font-mono text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-400 font-bold">{p.MaHang}</span>
-                                                                    <span className="text-xs font-black text-slate-700 dark:text-slate-300">{formatCurrency(p.GiaVon || 0)}</span>
-                                                                    <span className="text-[10px] text-slate-400">Tồn: {p.SoLuongTon}</span>
+                                                                    <span className="font-mono text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-400 font-bold">{p.code}</span>
+                                                                    <span className="text-xs font-black text-slate-700 dark:text-slate-300">{formatCurrency(p.price || 0)}</span>
+                                                                    <span className="text-[10px] text-slate-400">Tồn: {p.stock}</span>
                                                                 </div>
                                                             </div>
                                                         </button>
@@ -432,8 +415,8 @@ export default function ImportStockPage() {
                                                         <Package className="w-5 h-5" />
                                                     </div>
                                                     <div>
-                                                        <h4 className="font-black text-slate-900 dark:text-white leading-tight">{selectedProduct.TenHang}</h4>
-                                                        <p className="text-xs font-bold text-blue-600 dark:text-blue-400 font-mono mt-0.5">{selectedProduct.MaHang}</p>
+                                                        <h4 className="font-black text-slate-900 dark:text-white leading-tight">{selectedProduct.name}</h4>
+                                                        <p className="text-xs font-bold text-blue-600 dark:text-blue-400 font-mono mt-0.5">{selectedProduct.code}</p>
                                                     </div>
                                                 </div>
                                                 <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedProduct(null)} className="h-8 w-8 p-0 text-slate-400 hover:text-red-500 rounded-full hover:bg-red-50">
@@ -506,8 +489,8 @@ export default function ImportStockPage() {
                                                 fields.map((field: any, index: number) => (
                                                     <tr key={field.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                                                         <td className="px-4 py-3">
-                                                            <div className="font-bold text-slate-800 dark:text-slate-100">{field.product?.TenHang}</div>
-                                                            <div className="font-mono text-[10px] text-slate-400 uppercase">{field.product?.MaHang}</div>
+                                                            <div className="font-bold text-slate-800 dark:text-slate-100">{field.product?.name}</div>
+                                                            <div className="font-mono text-[10px] text-slate-400 uppercase">{field.product?.code}</div>
 
                                                             <div className="flex items-center gap-2 mt-2">
                                                                 <Checkbox

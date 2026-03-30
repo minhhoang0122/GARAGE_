@@ -4,9 +4,11 @@ import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
-@Table(name = "phieutiepnhan")
+@Table(name = "receptions")
 public class Reception {
 
     @Id
@@ -14,65 +16,68 @@ public class Reception {
     @Column(name = "id")
     private Integer id;
 
-    @Column(name = "ngay_gio")
-    private LocalDateTime ngayGio;
+    @Column(name = "reception_date")
+    private LocalDateTime receptionDate;
 
-    @Column(name = "tinh_trang_vo_xe", length = 500)
-    private String tinhTrangVoXe;
+    @Column(name = "shell_status", length = 500)
+    private String shellStatus;
 
-    @Column(name = "muc_xang", precision = 3, scale = 2)
-    private BigDecimal mucXang;
+    @Column(name = "fuel_level", precision = 3, scale = 2)
+    private BigDecimal fuelLevel;
 
     @Column(name = "odo")
     private Integer odo;
 
-    @Column(name = "yeu_cau_so_bo", length = 500)
-    private String yeuCauSoBo;
+    @Column(name = "preliminary_request", length = 500)
+    private String preliminaryRequest;
 
-    @Column(name = "hinh_anh", columnDefinition = "TEXT")
-    private String hinhAnh;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "images")
+    private String images; // Lưu trữ mảng JSON các URL ảnh
 
-    @Column(name = "xe_bien_so", insertable = false, updatable = false)
-    private String xeBienSo;
+    @Column(name = "license_plate", insertable = false, updatable = false)
+    private String licensePlate;
 
-    @Column(name = "nguoi_tiep_nhan_id", insertable = false, updatable = false)
-    private Integer nguoiTiepNhanId;
+    @Column(name = "receptionist_id", insertable = false, updatable = false)
+    private Integer receptionistId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "xe_bien_so", referencedColumnName = "bien_so", nullable = false)
-    private Vehicle xe;
+    @JoinColumn(name = "license_plate", referencedColumnName = "license_plate", nullable = false)
+    private Vehicle vehicle;
 
     @com.fasterxml.jackson.annotation.JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nguoi_tiep_nhan_id", nullable = false)
-    private User nguoiTiepNhan;
+    @JoinColumn(name = "receptionist_id", nullable = false)
+    private User receptionist;
 
-    @OneToOne(mappedBy = "phieuTiepNhan", cascade = CascadeType.ALL)
-    private RepairOrder donHangSuaChua;
+    @OneToOne(mappedBy = "reception", cascade = CascadeType.ALL)
+    private RepairOrder repairOrder;
 
     @PrePersist
     protected void onCreate() {
-        ngayGio = LocalDateTime.now();
+        if (receptionDate == null) {
+            receptionDate = LocalDateTime.now();
+        }
     }
 
     public Reception() {
     }
 
-    public Reception(Integer id, LocalDateTime ngayGio, String tinhTrangVoXe, BigDecimal mucXang, Integer odo,
-            String yeuCauSoBo, String hinhAnh, String xeBienSo, Integer nguoiTiepNhanId, Vehicle xe, User nguoiTiepNhan,
-            RepairOrder donHangSuaChua) {
+    public Reception(Integer id, LocalDateTime receptionDate, String shellStatus, BigDecimal fuelLevel, Integer odo,
+            String preliminaryRequest, String images, String licensePlate, Integer receptionistId, Vehicle vehicle, User receptionist,
+            RepairOrder repairOrder) {
         this.id = id;
-        this.ngayGio = ngayGio;
-        this.tinhTrangVoXe = tinhTrangVoXe;
-        this.mucXang = mucXang;
+        this.receptionDate = receptionDate;
+        this.shellStatus = shellStatus;
+        this.fuelLevel = fuelLevel;
         this.odo = odo;
-        this.yeuCauSoBo = yeuCauSoBo;
-        this.hinhAnh = hinhAnh;
-        this.xeBienSo = xeBienSo;
-        this.nguoiTiepNhanId = nguoiTiepNhanId;
-        this.xe = xe;
-        this.nguoiTiepNhan = nguoiTiepNhan;
-        this.donHangSuaChua = donHangSuaChua;
+        this.preliminaryRequest = preliminaryRequest;
+        this.images = images;
+        this.licensePlate = licensePlate;
+        this.receptionistId = receptionistId;
+        this.vehicle = vehicle;
+        this.receptionist = receptionist;
+        this.repairOrder = repairOrder;
     }
 
     public Integer getId() {
@@ -83,28 +88,28 @@ public class Reception {
         this.id = id;
     }
 
-    public LocalDateTime getNgayGio() {
-        return ngayGio;
+    public LocalDateTime getReceptionDate() {
+        return receptionDate;
     }
 
-    public void setNgayGio(LocalDateTime ngayGio) {
-        this.ngayGio = ngayGio;
+    public void setReceptionDate(LocalDateTime receptionDate) {
+        this.receptionDate = receptionDate;
     }
 
-    public String getTinhTrangVoXe() {
-        return tinhTrangVoXe;
+    public String getShellStatus() {
+        return shellStatus;
     }
 
-    public void setTinhTrangVoXe(String tinhTrangVoXe) {
-        this.tinhTrangVoXe = tinhTrangVoXe;
+    public void setShellStatus(String shellStatus) {
+        this.shellStatus = shellStatus;
     }
 
-    public BigDecimal getMucXang() {
-        return mucXang;
+    public BigDecimal getFuelLevel() {
+        return fuelLevel;
     }
 
-    public void setMucXang(BigDecimal mucXang) {
-        this.mucXang = mucXang;
+    public void setFuelLevel(BigDecimal fuelLevel) {
+        this.fuelLevel = fuelLevel;
     }
 
     public Integer getOdo() {
@@ -115,60 +120,60 @@ public class Reception {
         this.odo = odo;
     }
 
-    public String getYeuCauSoBo() {
-        return yeuCauSoBo;
+    public String getPreliminaryRequest() {
+        return preliminaryRequest;
     }
 
-    public void setYeuCauSoBo(String yeuCauSoBo) {
-        this.yeuCauSoBo = yeuCauSoBo;
+    public void setPreliminaryRequest(String preliminaryRequest) {
+        this.preliminaryRequest = preliminaryRequest;
     }
 
-    public String getHinhAnh() {
-        return hinhAnh;
+    public String getImages() {
+        return images;
     }
 
-    public void setHinhAnh(String hinhAnh) {
-        this.hinhAnh = hinhAnh;
+    public void setImages(String images) {
+        this.images = images;
     }
 
-    public String getXeBienSo() {
-        return xeBienSo;
+    public String getLicensePlate() {
+        return licensePlate;
     }
 
-    public void setXeBienSo(String xeBienSo) {
-        this.xeBienSo = xeBienSo;
+    public void setLicensePlate(String licensePlate) {
+        this.licensePlate = licensePlate;
     }
 
-    public Integer getNguoiTiepNhanId() {
-        return nguoiTiepNhanId;
+    public Integer getReceptionistId() {
+        return receptionistId;
     }
 
-    public void setNguoiTiepNhanId(Integer nguoiTiepNhanId) {
-        this.nguoiTiepNhanId = nguoiTiepNhanId;
+    public void setReceptionistId(Integer receptionistId) {
+        this.receptionistId = receptionistId;
     }
 
-    public Vehicle getXe() {
-        return xe;
+    public Vehicle getVehicle() {
+        return vehicle;
     }
 
-    public void setXe(Vehicle xe) {
-        this.xe = xe;
+    public void setVehicle(Vehicle vehicle) {
+        this.vehicle = vehicle;
     }
 
-    public User getNguoiTiepNhan() {
-        return nguoiTiepNhan;
+    public User getReceptionist() {
+        return receptionist;
     }
 
-    public void setNguoiTiepNhan(User nguoiTiepNhan) {
-        this.nguoiTiepNhan = nguoiTiepNhan;
+    public void setReceptionist(User receptionist) {
+        this.receptionist = receptionist;
     }
 
-    public RepairOrder getDonHangSuaChua() {
-        return donHangSuaChua;
+    public RepairOrder getRepairOrder() {
+        return repairOrder;
     }
 
-    public void setDonHangSuaChua(RepairOrder donHangSuaChua) {
-        this.donHangSuaChua = donHangSuaChua;
+    public void setRepairOrder(RepairOrder repairOrder) {
+        this.repairOrder = repairOrder;
     }
 
     public static ReceptionBuilder builder() {
@@ -177,17 +182,17 @@ public class Reception {
 
     public static class ReceptionBuilder {
         private Integer id;
-        private LocalDateTime ngayGio;
-        private String tinhTrangVoXe;
-        private BigDecimal mucXang;
+        private LocalDateTime receptionDate;
+        private String shellStatus;
+        private BigDecimal fuelLevel;
         private Integer odo;
-        private String yeuCauSoBo;
-        private String hinhAnh;
-        private String xeBienSo;
-        private Integer nguoiTiepNhanId;
-        private Vehicle xe;
-        private User nguoiTiepNhan;
-        private RepairOrder donHangSuaChua;
+        private String preliminaryRequest;
+        private String images;
+        private String licensePlate;
+        private Integer receptionistId;
+        private Vehicle vehicle;
+        private User receptionist;
+        private RepairOrder repairOrder;
 
         ReceptionBuilder() {
         }
@@ -197,18 +202,18 @@ public class Reception {
             return this;
         }
 
-        public ReceptionBuilder ngayGio(LocalDateTime ngayGio) {
-            this.ngayGio = ngayGio;
+        public ReceptionBuilder receptionDate(LocalDateTime receptionDate) {
+            this.receptionDate = receptionDate;
             return this;
         }
 
-        public ReceptionBuilder tinhTrangVoXe(String tinhTrangVoXe) {
-            this.tinhTrangVoXe = tinhTrangVoXe;
+        public ReceptionBuilder shellStatus(String shellStatus) {
+            this.shellStatus = shellStatus;
             return this;
         }
 
-        public ReceptionBuilder mucXang(BigDecimal mucXang) {
-            this.mucXang = mucXang;
+        public ReceptionBuilder fuelLevel(BigDecimal fuelLevel) {
+            this.fuelLevel = fuelLevel;
             return this;
         }
 
@@ -217,44 +222,44 @@ public class Reception {
             return this;
         }
 
-        public ReceptionBuilder yeuCauSoBo(String yeuCauSoBo) {
-            this.yeuCauSoBo = yeuCauSoBo;
+        public ReceptionBuilder preliminaryRequest(String preliminaryRequest) {
+            this.preliminaryRequest = preliminaryRequest;
             return this;
         }
 
-        public ReceptionBuilder hinhAnh(String hinhAnh) {
-            this.hinhAnh = hinhAnh;
+        public ReceptionBuilder images(String images) {
+            this.images = images;
             return this;
         }
 
-        public ReceptionBuilder xeBienSo(String xeBienSo) {
-            this.xeBienSo = xeBienSo;
+        public ReceptionBuilder licensePlate(String licensePlate) {
+            this.licensePlate = licensePlate;
             return this;
         }
 
-        public ReceptionBuilder nguoiTiepNhanId(Integer nguoiTiepNhanId) {
-            this.nguoiTiepNhanId = nguoiTiepNhanId;
+        public ReceptionBuilder receptionistId(Integer receptionistId) {
+            this.receptionistId = receptionistId;
             return this;
         }
 
-        public ReceptionBuilder xe(Vehicle xe) {
-            this.xe = xe;
+        public ReceptionBuilder vehicle(Vehicle vehicle) {
+            this.vehicle = vehicle;
             return this;
         }
 
-        public ReceptionBuilder nguoiTiepNhan(User nguoiTiepNhan) {
-            this.nguoiTiepNhan = nguoiTiepNhan;
+        public ReceptionBuilder receptionist(User receptionist) {
+            this.receptionist = receptionist;
             return this;
         }
 
-        public ReceptionBuilder donHangSuaChua(RepairOrder donHangSuaChua) {
-            this.donHangSuaChua = donHangSuaChua;
+        public ReceptionBuilder repairOrder(RepairOrder repairOrder) {
+            this.repairOrder = repairOrder;
             return this;
         }
 
         public Reception build() {
-            return new Reception(id, ngayGio, tinhTrangVoXe, mucXang, odo, yeuCauSoBo, hinhAnh, xeBienSo,
-                    nguoiTiepNhanId, xe, nguoiTiepNhan, donHangSuaChua);
+            return new Reception(id, receptionDate, shellStatus, fuelLevel, odo, preliminaryRequest, images, licensePlate,
+                    receptionistId, vehicle, receptionist, repairOrder);
         }
     }
 }

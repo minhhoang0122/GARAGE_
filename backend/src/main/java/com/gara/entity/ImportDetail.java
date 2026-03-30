@@ -5,65 +5,64 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "importdetail")
+@Table(name = "import_details")
 public class ImportDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "phieu_nhap_kho_id", nullable = false)
-    private ImportNote phieuNhap;
+    @JoinColumn(name = "import_note_id", nullable = false)
+    private ImportNote importNote;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hang_hoa_id", nullable = false)
-    private Product hangHoa;
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
-    @Column(name = "so_luong", nullable = false)
-    private Integer soLuong;
+    @Column(name = "quantity", nullable = false)
+    private Integer quantity;
 
-    @Column(name = "don_gia_nhap", precision = 18, scale = 2)
-    private BigDecimal donGiaNhap;
+    @Column(name = "import_price", precision = 18, scale = 2)
+    private BigDecimal importPrice;
 
-    @Column(name = "thanh_tien", precision = 18, scale = 2)
-    private BigDecimal thanhTien;
+    @Column(name = "total_amount", precision = 18, scale = 2)
+    private BigDecimal totalAmount;
 
-    @Column(name = "han_su_dung")
-    private LocalDate hanSuDung;
+    @Column(name = "expiry_date")
+    private LocalDate expiryDate;
 
-    @Column(name = "thue_vat", precision = 5, scale = 2)
-    private BigDecimal thueVAT;
+    @Column(name = "vat_rate", precision = 5, scale = 2)
+    private BigDecimal vatRate;
 
-    @Column(name = "so_luong_con_lai")
-    private Integer soLuongConLai;
+    @Column(name = "remaining_quantity")
+    private Integer remainingQuantity;
 
     public ImportDetail() {}
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
 
-    public ImportNote getPhieuNhap() { return phieuNhap; }
-    public void setPhieuNhap(ImportNote phieuNhap) { this.phieuNhap = phieuNhap; }
+    public ImportNote getImportNote() { return importNote; }
+    public void setImportNote(ImportNote importNote) { this.importNote = importNote; }
 
-    public Product getHangHoa() { return hangHoa; }
-    public void setHangHoa(Product hangHoa) { this.hangHoa = hangHoa; }
+    public Product getProduct() { return product; }
+    public void setProduct(Product product) { this.product = product; }
 
-    public Integer getSoLuong() { return soLuong; }
-    public void setSoLuong(Integer soLuong) { this.soLuong = soLuong; }
+    public Integer getQuantity() { return quantity; }
+    public void setQuantity(Integer quantity) { this.quantity = quantity; }
 
-    public BigDecimal getDonGiaNhap() { return donGiaNhap; }
-    public void setDonGiaNhap(BigDecimal donGiaNhap) { this.donGiaNhap = donGiaNhap; }
+    public BigDecimal getImportPrice() { return importPrice; }
+    public void setImportPrice(BigDecimal importPrice) { this.importPrice = importPrice; }
 
-    public BigDecimal getThanhTien() { return thanhTien; }
-    public void setThanhTien(BigDecimal thanhTien) { this.thanhTien = thanhTien; }
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
 
-    public LocalDate getHanSuDung() { return hanSuDung; }
-    public void setHanSuDung(LocalDate hanSuDung) { this.hanSuDung = hanSuDung; }
+    public LocalDate getExpiryDate() { return expiryDate; }
+    public void setExpiryDate(LocalDate expiryDate) { this.expiryDate = expiryDate; }
 
-    public BigDecimal getThueVAT() { return thueVAT; }
-    public void setThueVAT(BigDecimal thueVAT) { this.thueVAT = thueVAT; }
+    public BigDecimal getVatRate() { return vatRate; }
+    public void setVatRate(BigDecimal vatRate) { this.vatRate = vatRate; }
 
-    public Integer getSoLuongConLai() { return soLuongConLai; }
-    public void setSoLuongConLai(Integer soLuongConLai) { this.soLuongConLai = soLuongConLai; }
+    public Integer getRemainingQuantity() { return remainingQuantity; }
+    public void setRemainingQuantity(Integer remainingQuantity) { this.remainingQuantity = remainingQuantity; }
 }

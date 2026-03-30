@@ -6,6 +6,7 @@ import Topbar from './Topbar';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSSE } from '@/hooks/useSSE';
 import { useQueryClient } from '@tanstack/react-query';
+import { useLayoutContext } from '../../contexts/LayoutContext';
 
 interface DashboardLayoutProps {
     children: ReactNode;
@@ -17,22 +18,28 @@ interface DashboardLayoutProps {
 const MemoizedSidebar = memo(Sidebar);
 const MemoizedTopbar = memo(Topbar);
 
-export default function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
+/**
+ * DashboardShell: Phần khung cố định (Sidebar, Topbar, Main container)
+ * Component này sẽ mount 1 lần duy nhất ở root layout để tránh flicker.
+ */
+export function DashboardShell({ children }: { children: ReactNode }) {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
- 
     const queryClient = useQueryClient();
- 
+    
+    // Lấy tiêu đề động từ Context
+    const { title, subtitle } = useLayoutContext();
+
     // Lắng nghe sự kiện để tự động refresh dữ liệu (Real-time Sync)
-    useSSE('notification', () => {
-        // Refresh Server Components
+    const handleNotification = useCallback(() => {
         router.refresh();
-        // Invalidate all TanStack Queries for Client Components
         queryClient.invalidateQueries();
-    });
- 
-    // Close mobile menu when route changes (backup safety)
+    }, [router, queryClient]);
+
+    useSSE('notification', handleNotification);
+
+    // Close mobile menu when route changes
     useEffect(() => {
         setIsMobileMenuOpen(false);
     }, [pathname]);
@@ -45,8 +52,13 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
         setIsMobileMenuOpen(false);
     }, []);
 
+    // Nếu là trang Login, không hiển thị Sidebar/Topbar
+    if (pathname === '/login' || pathname === '/admin/login') {
+        return <>{children}</>;
+    }
+
     return (
-        <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200 relative overflow-hidden">
+        <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative overflow-hidden">
             {/* Smooth Double-Grid Transition Layers */}
             <div
                 className="grid-layer opacity-100 dark:opacity-0"
@@ -69,13 +81,10 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
             {/* Mobile Sidebar Overlay */}
             {isMobileMenuOpen && (
                 <div className="fixed inset-0 z-50 lg:hidden font-sans">
-                    {/* Backdrop */}
                     <div
                         className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity"
                         onClick={closeMobileMenu}
                     />
-
-                    {/* Sidebar Drawer */}
                     <div className="absolute left-0 top-0 bottom-0 w-[280px] shadow-2xl animate-in slide-in-from-left duration-300">
                         <Sidebar onNavigate={closeMobileMenu} className="w-full h-full" />
                     </div>
@@ -88,10 +97,27 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
                     subtitle={subtitle}
                     onMenuClick={toggleMobileMenu}
                 />
-                <main className="flex-1 p-4 lg:p-6 overflow-y-auto custom-scrollbar animate-fade-in">
+                <main className="flex-1 p-4 lg:p-6 overflow-y-auto overflow-x-hidden custom-scrollbar animate-fade-in text-slate-900 dark:text-slate-100">
                     {children}
                 </main>
             </div>
         </div>
     );
+}
+
+/**
+ * DashboardLayout (Default Export):
+ * Component bọc ở mỗi trang con. Bây giờ nó chỉ làm nhiệm vụ cập nhật Title/Subtitle lên Shell.
+ * Nó KHÔNG vẽ lại Sidebar/Topbar, nên tuyệt đối không gây flicker.
+ */
+export default function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
+    const { setTitle, setSubtitle } = useLayoutContext();
+    
+    // Cập nhật thông tin tiêu đề khi trang mount hoặc props thay đổi
+    useEffect(() => {
+        setTitle(title || '');
+        setSubtitle(subtitle || '');
+    }, [title, subtitle, setTitle, setSubtitle]);
+
+    return <>{children}</>;
 }

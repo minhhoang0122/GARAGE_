@@ -4,14 +4,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public record PublicBookingDTO(
-        String hoTen,
-        String soDienThoai,
+        String fullName,
+        String phone,
         String email,
-        String diaChi,
-        String bienSoXe,
-        String modelXe,
-        LocalDateTime ngayHen,
-        String ghiChu,
+        String address,
+        String licensePlate,
+        String model,
+        LocalDateTime appointmentTime,
+        String notes,
         List<Integer> selectedServiceIds,
         Integer userId) {
 }

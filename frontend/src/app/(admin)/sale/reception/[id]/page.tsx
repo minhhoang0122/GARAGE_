@@ -5,41 +5,22 @@ import { useParams } from 'next/navigation';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import PrintLayout from '@/modules/shared/components/common/PrintLayout';
 import { getStatusBadge } from '@/lib/status';
-import { api } from '@/lib/api';
-import { useSession } from 'next-auth/react';
+import { useReceptionDetail } from '@/modules/reception/hooks/useReception';
 import { Printer, Car, User, Clock, MapPin, Phone, Fuel, ShieldCheck, Clipboard, ArrowLeft, AlertTriangle, RefreshCw } from 'lucide-react';
 import ImageGallery from '@/modules/shared/components/common/ImageGallery';
 import Link from 'next/link';
 
 export default function ReceptionDetailPage() {
     const { id } = useParams();
-    const { data: session } = useSession();
-    const [reception, setReception] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: reception, isLoading: loading, error: queryError } = useReceptionDetail(id as string);
 
     useEffect(() => {
-        // @ts-ignore
-        const token = session?.user?.accessToken;
-        if (token && id) {
-            setLoading(true);
-            setError(null);
-
-            api.get(`/reception/${id}`, token)
-                .then(data => {
-                    setReception(data);
-                    // If ?print=true is in URL, trigger print after data loads
-                    if (typeof window !== 'undefined' && window.location.search.includes('print=true')) {
-                        setTimeout(() => window.print(), 800);
-                    }
-                })
-                .catch(err => {
-                    console.error("Error loading reception:", err);
-                    setError(err.message || 'Có lỗi xảy ra khi tải dữ liệu');
-                })
-                .finally(() => setLoading(false));
+        if (reception && typeof window !== 'undefined' && window.location.search.includes('print=true')) {
+            setTimeout(() => window.print(), 800);
         }
-    }, [id, session]);
+    }, [reception]);
+
+    const error = queryError ? (queryError as any).message : null;
 
     if (loading) return (
         <DashboardLayout title="Đang tải...">
@@ -89,7 +70,7 @@ export default function ReceptionDetailPage() {
     };
 
     return (
-        <DashboardLayout title="Chi tiết tiếp nhận" subtitle={`Phiếu #${reception.id}`}>
+        <DashboardLayout title="Hồ sơ Tiếp nhận xe" subtitle={`Mã phiếu #${reception.id}`}>
             <div className="mb-6 flex items-center justify-between no-print">
                 <Link
                     href="/sale/reception"
@@ -97,13 +78,15 @@ export default function ReceptionDetailPage() {
                 >
                     <ArrowLeft className="w-4 h-4" /> Quay lại danh sách
                 </Link>
-                <button
-                    onClick={handlePrint}
-                    className="flex items-center gap-2 px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg shadow-sm transition-all font-medium"
-                >
-                    <Printer className="w-4 h-4" />
-                    In phiếu tiếp nhận
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handlePrint}
+                        className="flex items-center gap-2 px-6 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-all font-medium"
+                    >
+                        <Printer className="w-4 h-4" />
+                        In phiếu
+                    </button>
+                </div>
             </div>
 
             <PrintLayout title="PHIẾU TIẾP NHẬN XE">
@@ -111,8 +94,8 @@ export default function ReceptionDetailPage() {
                     {/* Customer & Vehicle Info */}
                     <div className="lg:col-span-2 space-y-6">
                         <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                                <User className="w-5 h-5" /> Thông tin khách hàng
+                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                                <User className="w-5 h-5" /> Thông tin Chủ sở hữu
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-3">
@@ -136,15 +119,15 @@ export default function ReceptionDetailPage() {
                                     <div className="flex items-center gap-3 text-sm">
                                         <Clock className="w-4 h-4 text-slate-400" />
                                         <span className="text-slate-500 w-20">Thời gian:</span>
-                                        <span className="font-bold">{new Date(reception.ngayGio).toLocaleString('vi-VN')}</span>
+                                        <span className="font-bold">{reception.ngayGio ? new Date(reception.ngayGio).toLocaleString('vi-VN') : '—'}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                                <Car className="w-5 h-5" /> Thông tin phương tiện
+                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-600 dark:text-indigo-400 uppercase tracking-tight">
+                                <Car className="w-5 h-5" /> Dữ liệu Phương tiện
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-3">
@@ -184,7 +167,7 @@ export default function ReceptionDetailPage() {
 
                         <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
                             <h3 className="text-lg font-bold mb-3 flex items-center gap-2 text-slate-800 dark:text-slate-200 italic">
-                                <Clipboard className="w-5 h-5" /> Yêu cầu của khách hàng
+                                <Clipboard className="w-5 h-5" /> Yêu cầu dịch vụ & Tình trạng xe
                             </h3>
                             <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border-l-4 border-amber-400 rounded-r-lg">
                                 <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-medium italic">
@@ -222,6 +205,7 @@ export default function ReceptionDetailPage() {
                                 )}
                             </div>
                         </div>
+
                     </div>
                 </div>
             </PrintLayout>

@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -9,6 +9,8 @@ import { DashboardLayout } from '@/modules/common/components/layout';
 import Link from 'next/link';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { mechanicService } from '@/modules/mechanic/services/mechanic';
+import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
 
 export default function TechnicalReviewPage() {
     const queryClient = useQueryClient();
@@ -16,42 +18,25 @@ export default function TechnicalReviewPage() {
     const router = useRouter();
     const { showToast } = useToast();
 
-    // @ts-ignore
-    const token = session?.user?.accessToken;
+    // Realtime Sync
+    useRealtimeUpdate(['mechanic-qc-orders']);
 
     const { data: orders = [], isLoading } = useQuery({
         queryKey: ['mechanic-qc-orders'],
-        queryFn: async () => {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
-            const res = await fetch(`${apiUrl}/api/mechanic/technical-review`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) throw new Error('Failed to fetch orders');
-            return await res.json();
-        },
-        enabled: !!token && authStatus === 'authenticated'
+        queryFn: () => mechanicService.getTechnicalReviewOrders(),
+        enabled: authStatus === 'authenticated'
     });
 
     const confirmMutation = useMutation({
-        mutationFn: async ({ orderId, itemIds }: { orderId: number, itemIds: number[] }) => {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
-            const res = await fetch(`${apiUrl}/api/mechanic/jobs/${orderId}/confirm-technical`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify(itemIds),
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || 'Duyệt thất bại');
+        mutationFn: ({ orderId, itemIds }: { orderId: number, itemIds: number[] }) => 
+            mechanicService.confirmTechnicalReview(orderId, itemIds),
+        onSuccess: (res) => {
+            if (res.success) {
+                queryClient.invalidateQueries({ queryKey: ['mechanic-qc-orders'] });
+                showToast('success', 'Đã duyệt kỹ thuật thành công');
+            } else {
+                showToast('error', res.error || 'Duyệt thất bại');
             }
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['mechanic-qc-orders'] });
-            showToast('success', 'Đã duyệt kỹ thuật thành công');
         },
         onError: (error: any) => {
             showToast('error', error.message || 'Lỗi kết nối');
@@ -113,11 +98,11 @@ export default function TechnicalReviewPage() {
 
                                         <div className="hidden sm:flex items-center gap-6 border-l border-slate-200 pl-8">
                                             <div className="flex flex-col">
-                                                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">Chủ xe</span>
+                                                <span className="text-[9px] font-bold text-slate-400 mb-1 leading-none">Chủ xe</span>
                                                 <span className="text-sm font-bold text-slate-700">{order.customerName}</span>
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1 leading-none">Ngày lập</span>
+                                                <span className="text-[9px] font-bold text-slate-400 mb-1 leading-none">Ngày lập</span>
                                                 <span className="text-sm font-bold text-slate-700">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
                                             </div>
                                         </div>

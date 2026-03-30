@@ -4,42 +4,30 @@ import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Wrench, Clock, CheckCircle, Search, AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import { usePermission } from '@/hooks/usePermission';
 
 import { useQuery } from '@tanstack/react-query';
 
-export default function MechanicDashboard() {
-    const { data: session } = useSession();
-    const { hasPermission, isAdmin, roles } = usePermission();
+import { useInspectJobs, useRepairJobs, useMechanicStats } from '@/modules/mechanic/hooks/useMechanic';
+import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
+import { queryKeys } from '@/lib/query-keys';
 
-    // @ts-ignore
-    const token = session?.user?.accessToken;
+export default function MechanicDashboard() {
+    const { hasPermission, isAdmin, roles } = usePermission();
 
     const isDiagnose = hasPermission('CREATE_PROPOSAL');
     const isRepair = hasPermission('CLAIM_REPAIR_JOB');
 
-    // Query for Inspection Jobs
-    const { data: inspectJobs = [] } = useQuery({
-        queryKey: ['mechanic', 'inspect'],
-        queryFn: () => api.get('/mechanic/inspect', token),
-        enabled: !!token && (isDiagnose || isAdmin)
-    });
+    // NEW HOOKS
+    const { data: inspectJobs = [] } = useInspectJobs(isDiagnose || isAdmin);
+    const { data: repairJobs = [] } = useRepairJobs(isRepair || isAdmin);
+    const { data: stats = { inProgressJobs: 0, completedToday: 0 } } = useMechanicStats(isRepair || isAdmin);
 
-    // Query for Repair Jobs
-    const { data: repairJobs = [] } = useQuery({
-        queryKey: ['mechanic', 'jobs'],
-        queryFn: () => api.get('/mechanic/jobs', token),
-        enabled: !!token && (isRepair || isAdmin)
-    });
-
-    // Query for Stats
-    const { data: stats = { inProgressJobs: 0, completedToday: 0 } } = useQuery({
-        queryKey: ['mechanic', 'stats'],
-        queryFn: () => api.get('/mechanic/stats', token),
-        enabled: !!token && (isRepair || isAdmin)
-    });
+    // Realtime Sync
+    useRealtimeUpdate(queryKeys.mechanic.jobs());
+    useRealtimeUpdate(queryKeys.mechanic.inspect());
+    useRealtimeUpdate(queryKeys.mechanic.stats());
 
     return (
         <DashboardLayout
@@ -159,7 +147,7 @@ export default function MechanicDashboard() {
                                                     {job.vehicleBrand} {job.vehicleModel} - {job.customerName}
                                                 </p>
                                             </div>
-                                            <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                            <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-bold text-slate-500">
                                                 {job.totalItems} hạng mục
                                             </div>
                                         </Link>
@@ -177,7 +165,7 @@ export default function MechanicDashboard() {
                                 </Link>
                             </div>
                             <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {repairJobs.slice(0, 5).map(job => {
+                                {repairJobs.slice(0, 5).map((job: any) => {
                                     const progress = job.totalItems > 0
                                         ? Math.round((job.completedItems / job.totalItems) * 100)
                                         : 0;
@@ -192,7 +180,7 @@ export default function MechanicDashboard() {
                                                 <Wrench className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="font-semibold text-slate-800 dark:text-slate-200">{job.plate}</p>
+                                                <p className="font-bold text-slate-800 dark:text-slate-200">{job.plate}</p>
                                                 <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
                                                     {job.vehicleBrand} {job.vehicleModel} - {job.customerName}
                                                 </p>

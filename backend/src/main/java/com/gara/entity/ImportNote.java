@@ -6,64 +6,67 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "importnote")
+@Table(name = "import_notes")
 public class ImportNote {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
     private Integer id;
 
-    @Column(name = "ma_phieu", length = 50, unique = true)
-    private String maPhieu;
-
-    @Column(name = "nha_cung_cap", length = 200)
-    private String nhaCungCap;
-
-    @Column(name = "ngay_nhap")
-    private LocalDateTime ngayNhap;
+    @Column(name = "import_code", length = 50, unique = true)
+    private String importCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nguoi_nhap_id")
-    private User nguoiNhap;
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplierEntity;
 
-    @Column(name = "tong_tien", precision = 18, scale = 2)
-    private BigDecimal tongTien;
+    @Column(name = "supplier_name", length = 200)
+    private String supplierName;
 
-    @Column(name = "ghi_chu", length = 500)
-    private String ghiChu;
+    @Column(name = "import_date")
+    private LocalDateTime importDate;
 
-    @Column(name = "trang_thai", length = 20)
-    private String trangThai; // PENDING, COMPLETED, REJECTED
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "imported_by_id")
+    private User creator;
 
-    @OneToMany(mappedBy = "phieuNhap", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<ImportDetail> chiTietNhap;
+    @Column(name = "total_amount", precision = 18, scale = 2)
+    private BigDecimal totalAmount;
+
+    @Column(name = "notes", length = 500)
+    private String note;
+
+    @Column(name = "status", length = 20)
+    private String status; // PENDING, COMPLETED, REJECTED
+
+    @OneToMany(mappedBy = "importNote", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<ImportDetail> importDetails;
 
     public ImportNote() {}
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
 
-    public String getMaPhieu() { return maPhieu; }
-    public void setMaPhieu(String maPhieu) { this.maPhieu = maPhieu; }
+    public String getImportCode() { return importCode; }
+    public void setImportCode(String importCode) { this.importCode = importCode; }
 
-    public String getNhaCungCap() { return nhaCungCap; }
-    public void setNhaCungCap(String nhaCungCap) { this.nhaCungCap = nhaCungCap; }
+    public String getSupplierName() { return supplierName; }
+    public void setSupplierName(String supplierName) { this.supplierName = supplierName; }
 
-    public LocalDateTime getNgayNhap() { return ngayNhap; }
-    public void setNgayNhap(LocalDateTime ngayNhap) { this.ngayNhap = ngayNhap; }
+    public LocalDateTime getImportDate() { return importDate; }
+    public void setImportDate(LocalDateTime importDate) { this.importDate = importDate; }
 
-    public User getNguoiNhap() { return nguoiNhap; }
-    public void setNguoiNhap(User nguoiNhap) { this.nguoiNhap = nguoiNhap; }
+    public User getCreator() { return creator; }
+    public void setCreator(User creator) { this.creator = creator; }
 
-    public BigDecimal getTongTien() { return tongTien; }
-    public void setTongTien(BigDecimal tongTien) { this.tongTien = tongTien; }
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
 
-    public String getGhiChu() { return ghiChu; }
-    public void setGhiChu(String ghiChu) { this.ghiChu = ghiChu; }
+    public String getNote() { return note; }
+    public void setNote(String note) { this.note = note; }
 
-    public String getTrangThai() { return trangThai; }
-    public void setTrangThai(String trangThai) { this.trangThai = trangThai; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
     
-    public List<ImportDetail> getChiTietNhap() { return chiTietNhap; }
-    public void setChiTietNhap(List<ImportDetail> chiTietNhap) { this.chiTietNhap = chiTietNhap; }
+    public List<ImportDetail> getImportDetails() { return importDetails; }
+    public void setImportDetails(List<ImportDetail> importDetails) { this.importDetails = importDetails; }
 }

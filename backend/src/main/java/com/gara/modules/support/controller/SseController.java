@@ -2,10 +2,9 @@ package com.gara.modules.support.controller;
 
 import com.gara.modules.support.service.SseService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.http.ResponseEntity;
 
 @RestController
 @RequestMapping("/api/sse")
@@ -29,5 +28,19 @@ public class SseController {
         
         Integer userId = (Integer) principal;
         return sseService.subscribe(userId);
+    }
+
+    @PostMapping("/subscribe/{topic}")
+    public ResponseEntity<?> subscribeToTopic(@AuthenticationPrincipal Object principal, @PathVariable String topic) {
+        if (!(principal instanceof Integer)) return ResponseEntity.status(401).build();
+        sseService.subscribeToTopic((Integer) principal, topic);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/unsubscribe/{topic}")
+    public ResponseEntity<?> unsubscribeFromTopic(@AuthenticationPrincipal Object principal, @PathVariable String topic) {
+        if (!(principal instanceof Integer)) return ResponseEntity.status(401).build();
+        sseService.unsubscribeFromTopic((Integer) principal, topic);
+        return ResponseEntity.ok().build();
     }
 }

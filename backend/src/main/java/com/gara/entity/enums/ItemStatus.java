@@ -1,16 +1,19 @@
 package com.gara.entity.enums;
 
 public enum ItemStatus {
-    TIEP_NHAN("Tiếp nhận xe"),
-    CHO_CHAN_DOAN("Chờ kỹ thuật kiểm tra"),
-    KHACH_DONG_Y("Khách đồng ý sửa chữa"),
-    KHACH_TU_CHOI("Khách từ chối sửa chữa"),
-    BAO_GIA_LAI("Yêu cầu báo giá lại"),
-    CHO_KY_THUAT_DUYET("Chờ Quản lý duyệt kỹ thuật"),
-    DE_XUAT("Thợ sửa đề xuất phát sinh thêm"),
-    CHO_SUA_CHUA("Chờ kho xuất phụ tùng"),
-    DANG_SUA("Đang tiến hành sửa chữa"),
-    HOAN_THANH("Sửa chữa hoàn tất");
+    RECEIVED("Tiếp nhận xe"),
+    WAITING_FOR_DIAGNOSIS("Chờ kỹ thuật kiểm tra"),
+    CUSTOMER_APPROVED("Khách đồng ý sửa chữa"),
+    CUSTOMER_REJECTED("Khách từ chối sửa chữa"),
+    RE_QUOTATION("Yêu cầu báo giá lại"),
+    WAITING_FOR_MANAGER_APPROVAL("Chờ Quản lý duyệt kỹ thuật"),
+    PROPOSAL("Thợ sửa đề xuất phát sinh thêm"),
+    WAITING_FOR_PARTS("Chờ kho xuất phụ tùng"),
+    IN_PROGRESS("Đang tiến hành sửa chữa"),
+    COMPLETED("Sửa chữa hoàn tất"),
+    CANCELLED("Đã hủy"),
+    SETTLED("Đã quyết toán"),
+    EXPORTED("Đã xuất kho");
 
     private final String description;
 
@@ -22,3 +25,4 @@ public enum ItemStatus {
         return description;
     }
 }
+

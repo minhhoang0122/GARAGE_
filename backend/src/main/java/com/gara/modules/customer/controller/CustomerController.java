@@ -53,13 +53,13 @@ public class CustomerController {
         if (customer == null) {
             return ResponseEntity.ok(Collections.emptyList());
         }
-        List<Vehicle> vehicles = vehicleRepository.findByKhachHangId(customer.getId());
+        List<Vehicle> vehicles = vehicleRepository.findByCustomerId(customer.getId());
         return ResponseEntity.ok(vehicles.stream().map(v -> Map.of(
                 "id", v.getId(),
-                "bienSo", v.getBienSo(),
-                "nhanHieu", v.getNhanHieu() != null ? v.getNhanHieu() : "",
-                "model", v.getModel() != null ? v.getModel() : "",
-                "odoHienTai", v.getOdoHienTai() != null ? v.getOdoHienTai() : 0)).toList());
+                "licensePlate", v.getLicensePlate(),
+                "brand", v.getBrand() != null? v.getBrand() : "",
+                "model", v.getModel() != null? v.getModel() : "",
+                "currentOdo", v.getCurrentOdo() != null? v.getCurrentOdo() : 0)).toList());
     }
 
     /**
@@ -80,10 +80,10 @@ public class CustomerController {
 
         List<CustomerOrderDTO> result = orders.stream()
                 .map(order -> CustomerOrderDTO.builder().id(order.getId())
-                        .plate(order.getPhieuTiepNhan().getXe().getBienSo())
-                        .status(order.getTrangThai() != null ? order.getTrangThai().name() : null)
-                        .createdAt(order.getNgayTao()).total(order.getTongCong()).paid(order.getSoTienDaTra())
-                        .debt(order.getCongNo()).build())
+                        .plate(order.getReception().getVehicle().getLicensePlate())
+                        .status(order.getStatus() != null? order.getStatus().name() : null)
+                        .createdAt(order.getCreatedAt()).total(order.getGrandTotal()).paid(order.getAmountPaid())
+                        .debt(order.getBalanceDue()).build())
                 .toList();
 
         return ResponseEntity.ok(result);
@@ -106,7 +106,7 @@ public class CustomerController {
             return ResponseEntity.status(403).body(Map.of("error", "Không tìm thấy thông tin khách hàng"));
         }
 
-        Integer orderCustomerId = order.getPhieuTiepNhan().getXe().getKhachHang().getId();
+        Integer orderCustomerId = order.getReception().getVehicle().getCustomer().getId();
         if (!orderCustomerId.equals(customer.getId())) {
             return ResponseEntity.status(403).body(Map.of("error", "Bạn không có quyền xem đơn hàng này"));
         }
@@ -131,13 +131,13 @@ public class CustomerController {
         if (customer == null) {
             return ResponseEntity.status(403).body(Map.of("error", "Không tìm thấy thông tin khách hàng"));
         }
-        Integer orderCustomerId = order.getPhieuTiepNhan().getXe().getKhachHang().getId();
+        Integer orderCustomerId = order.getReception().getVehicle().getCustomer().getId();
         if (!orderCustomerId.equals(customer.getId())) {
             return ResponseEntity.status(403).body(Map.of("error", "Bạn không có quyền thao tác"));
         }
 
         // Build VietQR info
-        long amountDue = order.getCongNo() != null ? order.getCongNo().longValue() : 0;
+        long amountDue = order.getBalanceDue() != null? order.getBalanceDue().longValue() : 0;
         String content = "GarageMaster DH" + order.getId();
 
         return ResponseEntity.ok(Map.of(
@@ -166,14 +166,14 @@ public class CustomerController {
             Customer customer = customerRepository.findByUserId(user.getId()).orElse(null);
             if (customer != null) {
                 bookingDto = new PublicBookingDTO(
-                        customer.getHoTen(),
-                        customer.getSoDienThoai(),
+                        customer.getFullName(),
+                        customer.getPhone(),
                         customer.getEmail(), // use stored email
-                        customer.getDiaChi(), // use stored address
-                        bookingDto.bienSoXe(),
-                        bookingDto.modelXe(),
-                        bookingDto.ngayHen(),
-                        bookingDto.ghiChu(),
+                        customer.getAddress(), // use stored address
+                        bookingDto.licensePlate(),
+                        bookingDto.model(),
+                        bookingDto.appointmentTime(),
+                        bookingDto.notes(),
                         bookingDto.selectedServiceIds(),
                         user.getId());
             }
@@ -201,7 +201,7 @@ public class CustomerController {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         Customer customer = customerRepository.findByUserId(user.getId()).orElse(null);
-        if (customer == null || !order.getPhieuTiepNhan().getXe().getKhachHang().getId().equals(customer.getId())) {
+        if (customer == null ||!order.getReception().getVehicle().getCustomer().getId().equals(customer.getId())) {
             return ResponseEntity.status(403).body(Map.of("error", "Không có quyền thao tác"));
         }
 
@@ -226,7 +226,7 @@ public class CustomerController {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         Customer customer = customerRepository.findByUserId(user.getId()).orElse(null);
-        if (customer == null || !order.getPhieuTiepNhan().getXe().getKhachHang().getId().equals(customer.getId())) {
+        if (customer == null ||!order.getReception().getVehicle().getCustomer().getId().equals(customer.getId())) {
             return ResponseEntity.status(403).body(Map.of("error", "Không có quyền thao tác"));
         }
 
@@ -252,7 +252,7 @@ public class CustomerController {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         Customer customer = customerRepository.findByUserId(user.getId()).orElse(null);
-        if (customer == null || !order.getPhieuTiepNhan().getXe().getKhachHang().getId().equals(customer.getId())) {
+        if (customer == null ||!order.getReception().getVehicle().getCustomer().getId().equals(customer.getId())) {
             return ResponseEntity.status(403).body(Map.of("error", "Không có quyền thao tác"));
         }
 
@@ -286,26 +286,26 @@ public class CustomerController {
 
         for (RepairOrder order : orders) {
             // Only completed/closed orders have warranty
-            if (order.getTrangThai() == null) continue;
-            String status = order.getTrangThai().name();
-            if (!status.equals("HOAN_THANH") && !status.equals("DONG")) continue;
+            if (order.getStatus() == null) continue;
+            String status = order.getStatus().name();
+            if (!status.equals("COMPLETED") && !status.equals("CLOSED")) continue;
 
-            if (order.getChiTietDonHang() == null) continue;
+            if (order.getOrderItems() == null) continue;
 
             Integer orderOdo = 0;
-            if (order.getPhieuTiepNhan() != null && order.getPhieuTiepNhan().getOdo() != null) {
-                orderOdo = order.getPhieuTiepNhan().getOdo();
+            if (order.getReception() != null && order.getReception().getOdo() != null) {
+                orderOdo = order.getReception().getOdo();
             }
 
-            String plate = order.getPhieuTiepNhan() != null && order.getPhieuTiepNhan().getXe() != null
-                    ? order.getPhieuTiepNhan().getXe().getBienSo() : "";
+            String plate = order.getReception() != null && order.getReception().getVehicle() != null
+                   ? order.getReception().getVehicle().getLicensePlate() : "";
 
-            for (OrderItem item : order.getChiTietDonHang()) {
-                Product product = item.getHangHoa();
+            for (OrderItem item : order.getOrderItems()) {
+                Product product = item.getProduct();
                 if (product == null) continue;
 
-                int baoHanhThang = product.getBaoHanhSoThang() != null ? product.getBaoHanhSoThang() : 0;
-                int baoHanhKm = product.getBaoHanhKm() != null ? product.getBaoHanhKm() : 0;
+                int baoHanhThang = product.getWarrantyMonths() != null? product.getWarrantyMonths() : 0;
+                int baoHanhKm = product.getWarrantyKm() != null? product.getWarrantyKm() : 0;
 
                 // Skip items without warranty policy
                 if (baoHanhThang == 0 && baoHanhKm == 0) continue;
@@ -313,8 +313,8 @@ public class CustomerController {
                 // Check time-based warranty
                 boolean dateValid = true;
                 java.time.LocalDateTime expiryDate = null;
-                if (baoHanhThang > 0 && order.getNgayTao() != null) {
-                    expiryDate = order.getNgayTao().plusMonths(baoHanhThang);
+                if (baoHanhThang > 0 && order.getCreatedAt() != null) {
+                    expiryDate = order.getCreatedAt().plusMonths(baoHanhThang);
                     if (now.isAfter(expiryDate)) {
                         dateValid = false;
                     }
@@ -325,20 +325,20 @@ public class CustomerController {
                 Integer maxKm = null;
                 if (baoHanhKm > 0) {
                     maxKm = orderOdo + baoHanhKm;
-                    Vehicle vehicle = order.getPhieuTiepNhan().getXe();
-                    if (vehicle != null && vehicle.getOdoHienTai() != null && vehicle.getOdoHienTai() > maxKm) {
+                    Vehicle vehicle = order.getReception().getVehicle();
+                    if (vehicle != null && vehicle.getCurrentOdo() != null && vehicle.getCurrentOdo() > maxKm) {
                         kmValid = false;
                     }
                 }
 
                 // Already claimed warranty
-                boolean daBaoHanh = item.getDaBaoHanh() != null && item.getDaBaoHanh();
+                boolean daBaoHanh = item.getIsWarrantyProcessed() != null && item.getIsWarrantyProcessed();
 
                 // Determine overall status
                 String warrantyStatus;
                 if (daBaoHanh) {
                     warrantyStatus = "DA_BAO_HANH";
-                } else if (!dateValid || !kmValid) {
+                } else if (!dateValid ||!kmValid) {
                     warrantyStatus = "HET_HAN";
                 } else {
                     warrantyStatus = "CON_HAN";
@@ -348,10 +348,10 @@ public class CustomerController {
                 entry.put("orderId", order.getId());
                 entry.put("orderItemId", item.getId());
                 entry.put("plate", plate);
-                entry.put("productName", product.getTenHang());
+                entry.put("productName", product.getName());
                 entry.put("baoHanhThang", baoHanhThang);
                 entry.put("baoHanhKm", baoHanhKm);
-                entry.put("ngaySuaChua", order.getNgayTao());
+                entry.put("ngaySuaChua", order.getCreatedAt());
                 entry.put("ngayHetHan", expiryDate);
                 entry.put("maxKm", maxKm);
                 entry.put("warrantyStatus", warrantyStatus);
@@ -378,7 +378,7 @@ public class CustomerController {
             Integer orderId = (Integer) body.get("orderId");
             @SuppressWarnings("unchecked")
             List<Integer> itemIds = (List<Integer>) body.get("itemIds");
-            Integer currentOdo = body.get("currentOdo") != null ? (Integer) body.get("currentOdo") : null;
+            Integer currentOdo = body.get("currentOdo") != null? (Integer) body.get("currentOdo") : null;
 
             if (orderId == null || itemIds == null || itemIds.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(
@@ -394,7 +394,7 @@ public class CustomerController {
 
             RepairOrder order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại"));
-            Integer orderCustomerId = order.getPhieuTiepNhan().getXe().getKhachHang().getId();
+            Integer orderCustomerId = order.getReception().getVehicle().getCustomer().getId();
             if (!orderCustomerId.equals(customer.getId())) {
                 return ResponseEntity.status(403).body(Map.of("error", "Bạn không có quyền yêu cầu bảo hành đơn này"));
             }
@@ -411,4 +411,3 @@ public class CustomerController {
         }
     }
 }
-

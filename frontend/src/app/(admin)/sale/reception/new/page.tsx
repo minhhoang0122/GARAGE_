@@ -1,21 +1,21 @@
 'use client';
 
-import { useState, useEffect, useTransition, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useDebounce } from '@/hooks/use-debounce';
-import { searchVehicle, createReception, VehicleSearchResult } from '@/modules/customer/vehicle';
+import { useCreateReception, useSearchVehicle } from '@/modules/reception/hooks/useReception';
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { Car, User, History, Save, ArrowLeft, Fuel, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Car, User, History, Save, ArrowLeft, Fuel, AlertTriangle, CheckCircle2, Phone, MapPin, Mail, Camera } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import ImageCapture from '@/modules/shared/components/common/ImageCapture';
 import { useToast } from '@/contexts/ToastContext';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { receptionSchema, ReceptionSchema } from '@/lib/schemas';
-
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { LicensePlateInput } from '@/modules/reception/components/LicensePlateInput';
+import { cn } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function ReceptionPage() {
     const router = useRouter();
@@ -34,10 +34,7 @@ export default function ReceptionPage() {
 
     const vehicleType = watch('vehicleType');
     const plate = watch('bienSo');
-    const odo = watch('odo');
     const fuel = watch('fuel');
-
-    const [segments, setSegments] = useState({ s1: '', s2: '', s3: '' });
     const debouncedPlate = useDebounce(plate, 500);
 
     const [bodyStatus, setBodyStatus] = useState<string[]>([]);
@@ -50,18 +47,10 @@ export default function ReceptionPage() {
             const next = prev.includes(status)
                 ? prev.filter(s => s !== status)
                 : [...prev, status];
-            
-            // Sync to form bodyStatus string
-            let text = next.join(', ');
-            if (bodyStatusNote) {
-                text = text ? `${text}. Ghi chú: ${bodyStatusNote}` : bodyStatusNote;
-            }
-            setValue('bodyStatus', text || 'Nguyên vẹn');
             return next;
         });
     };
 
-    // Update form when note changes
     useEffect(() => {
         let text = bodyStatus.join(', ');
         if (bodyStatusNote) {
@@ -70,81 +59,29 @@ export default function ReceptionPage() {
         setValue('bodyStatus', text || 'Nguyên vẹn');
     }, [bodyStatusNote, bodyStatus, setValue]);
 
-    const { data: session } = useSession();
-    // @ts-ignore
-    const token = session?.user?.accessToken;
+    const { data: searchResult = null, isFetching: isSearching } = useSearchVehicle(debouncedPlate);
 
-    // Sync segments to plate string
     useEffect(() => {
-        let formatted = '';
-        if (vehicleType === 'CAR') {
-            if (segments.s1 && segments.s2) {
-                const s2Formatted = segments.s2.length === 5
-                    ? `${segments.s2.slice(0, 3)}.${segments.s2.slice(3)}`
-                    : segments.s2;
-                formatted = `${segments.s1}-${s2Formatted}`;
-            } else {
-                formatted = segments.s1 + (segments.s2 ? '-' + segments.s2 : '');
-            }
-        } else {
-            if (segments.s1 && segments.s2 && segments.s3) {
-                const s3Formatted = segments.s3.length === 5
-                    ? `${segments.s3.slice(0, 3)}.${segments.s3.slice(3)}`
-                    : segments.s3;
-                formatted = `${segments.s1}-${segments.s2} ${s3Formatted}`;
-            } else {
-                formatted = [segments.s1, segments.s2, segments.s3].filter(Boolean).join('-');
-            }
+        if (searchResult?.exists) {
+            if (searchResult.odo !== undefined) setValue('odo', searchResult.odo);
+            if (searchResult.brand) setValue('nhanHieu', searchResult.brand);
+            if (searchResult.model) setValue('model', searchResult.model);
+            if (searchResult.customerName) setValue('tenKhach', searchResult.customerName);
+            if (searchResult.customerPhone) setValue('sdtKhach', searchResult.customerPhone);
+            if (searchResult.customerAddress) setValue('diaChiKhach', searchResult.customerAddress);
+            if (searchResult.customerEmail) setValue('emailKhach', searchResult.customerEmail);
+            if (searchResult.soKhung) setValue('soKhung', searchResult.soKhung);
+            if (searchResult.soMay) setValue('soMay', searchResult.soMay);
         }
-        formatted = formatted.replace(/[-.\s]*$/, '').toUpperCase();
-        setValue('bienSo', formatted);
-    }, [segments, vehicleType, setValue]);
+    }, [searchResult, setValue]);
 
-    const { data: searchResult = null, isFetching: isSearching } = useQuery({
-        queryKey: ['sale', 'search', debouncedPlate],
-        queryFn: async () => {
-            if (debouncedPlate.length < 3) return null;
-            const res = await searchVehicle(debouncedPlate);
-            if (res.exists && res.vehicle) {
-                setValue('odo', res.vehicle.ODO_HienTai);
-                setValue('nhanHieu', res.vehicle.NhanHieu);
-                setValue('model', res.vehicle.Model);
-                setValue('tenKhach', res.customer.HoTen);
-                setValue('sdtKhach', res.customer.SoDienThoai);
-            }
-            return res;
-        },
-        enabled: debouncedPlate.length >= 3 && !!token,
-        staleTime: 60000
-    });
-
-    const createMutation = useMutation({
-        mutationFn: async (payload: any) => {
-            const result = await createReception(payload);
-            if (!result.success) throw new Error(result.error);
-            return result;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['sale'] });
-            queryClient.invalidateQueries({ queryKey: ['reception'] });
-            queryClient.invalidateQueries({ queryKey: ['mechanic'] });
-            queryClient.invalidateQueries({ queryKey: ['warehouse'] });
-            showToast('success', 'Đã tiếp nhận xe thành công!');
-            router.replace('/sale');
-            router.refresh();
-        },
-        onError: (error: any) => {
-            setError(error.message || 'Có lỗi xảy ra');
-            showToast('error', error.message || 'Có lỗi xảy ra khi tạo phiếu tiếp nhận');
-        }
-    });
+    const createMutation = useCreateReception();
 
     const onSubmit = async (data: ReceptionSchema) => {
         if (createMutation.isPending) return;
         
-        // Additional business logic validation
-        if (searchResult?.vehicle && data.odo < searchResult.vehicle.ODO_HienTai) {
-            setError(`ODO mới (${data.odo}) không thể nhỏ hơn ODO cũ (${searchResult.vehicle.ODO_HienTai})`);
+        if (searchResult?.exists && data.odo < (searchResult.odo || 0)) {
+            setError(`ODO mới (${data.odo}) không thể nhỏ hơn ODO cũ (${searchResult.odo || 0})`);
             return;
         }
 
@@ -157,26 +94,48 @@ export default function ReceptionPage() {
 
         try {
             let finalImageUrl = '';
-            if (selectedFiles.length > 0 && token) {
+            if (selectedFiles.length > 0) {
                 const uploadPromises = selectedFiles.map(file => {
                     const formData = new FormData();
                     formData.append('file', file);
                     formData.append('folder', 'receptions');
-                    return api.upload('/images/upload', formData, token);
+                    return api.upload('/images/upload', formData);
                 });
                 const uploadResults = await Promise.all(uploadPromises);
-                finalImageUrl = uploadResults.map(res => res.url).join(',');
+                finalImageUrl = uploadResults.map((res: any) => res.url).join(',');
             }
 
-            createMutation.mutate({
-                ...data,
-                tinhTrangVo: bodyStatusText,
-                hinhAnh: finalImageUrl,
-                mucXang: data.fuel / 100,
+            const payload = {
+                bienSo: data.bienSo,
+                odo: Number(data.odo),
+                nhanHieu: data.nhanHieu || searchResult?.brand || '',
+                model: data.model || searchResult?.model || '',
+                soKhung: data.soKhung || searchResult?.soKhung || '',
+                soMay: data.soMay || searchResult?.soMay || '',
+                tenKhach: data.tenKhach || searchResult?.customerName || '',
+                sdtKhach: (data.sdtKhach || searchResult?.customerPhone || '').replace(/[\s.-]/g, ''),
+                diaChiKhach: data.diaChiKhach || searchResult?.customerAddress || '',
+                emailKhach: data.emailKhach || searchResult?.customerEmail || '',
+                mucXang: (fuel || 0) / 100,
+                tinhTrangVo: bodyStatusText || 'Nguyên vẹn',
+                yeuCauKhach: data.request || '',
+                hinhAnh: finalImageUrl || null
+            };
+
+            createMutation.mutate(payload, {
+                onSuccess: () => {
+                    showToast('success', 'Tạo phiếu tiếp nhận thành công');
+                    router.push('/sale/reception');
+                },
+                onError: (err: any) => {
+                    const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Lỗi không xác định từ máy chủ';
+                    setError(`Lỗi: ${errorMsg}`);
+                    showToast('error', `Không thể tạo phiếu: ${errorMsg}`);
+                }
             });
         } catch (e) {
-            setError('Lỗi kết nối');
-            showToast('error', 'Lỗi kết nối đến máy chủ');
+            setError('Lỗi kết nối hoặc xử lý ảnh');
+            showToast('error', 'Lỗi xử lý yêu cầu');
         }
     };
 
@@ -184,401 +143,347 @@ export default function ReceptionPage() {
     const isSubmitting = createMutation.isPending;
 
     return (
-        <DashboardLayout title="Tiếp nhận xe" subtitle="Tạo phiếu tiếp nhận mới">
-            <div className="max-w-5xl mx-auto">
-                <Link href="/sale/reception" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 mb-6 transition-colors">
-                    <ArrowLeft className="w-4 h-4" /> Quay lại
-                </Link>
+        <DashboardLayout title="Tiếp nhận phương tiện" subtitle="Ghi nhận thông tin xe và tình trạng thực tế">
+            <div className="max-w-7xl mx-auto px-6 py-6 font-sans">
+                {/* 1. Header Navigation */}
+                <div className="flex items-center justify-between mb-8">
+                    <Link href="/sale/reception" className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors">
+                        <ArrowLeft className="w-4 h-4" />
+                        <span className="text-sm font-medium">Quay lại danh sách</span>
+                    </Link>
+                </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Cột trái: Tìm kiếm & Thông tin xe */}
-                    <div className="lg:col-span-1 space-y-6">
-                        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Loại phương tiện</label>
-                            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg mb-4">
-                                <button
-                                    onClick={() => {
-                                        setValue('vehicleType', 'CAR');
-                                        setSegments({ s1: '', s2: '', s3: '' });
-                                    }}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${vehicleType === 'CAR'
-                                        ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
-                                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                                        }`}
-                                >
-                                    <Car className="w-4 h-4" /> Ô tô
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setValue('vehicleType', 'MOTO');
-                                        setSegments({ s1: '', s2: '', s3: '' });
-                                    }}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${vehicleType === 'MOTO'
-                                        ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
-                                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                                        }`}
-                                >
-                                    <div className="w-4 h-4 text-center font-bold">M</div> Xe máy
-                                </button>
+                <form onSubmit={handleFormSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    
+                    {/* LEFT COLUMN: Main Form Body */}
+                    <div className="lg:col-span-8 space-y-8">
+                        
+                        {/* A. Identity Section */}
+                        <section className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                                <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-wider">Thông tin Phương tiện & Khách hàng</h2>
                             </div>
-
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Biển số xe</label>
-                            <div className="relative">
-                                <div className="flex items-center gap-2">
-                                    {vehicleType === 'CAR' ? (
-                                        <>
-                                            {/* CAR FORMAT: [30K] - [123.45] */}
-                                            <div className="relative w-1/3">
-                                                <input
-                                                    type="text"
-                                                    placeholder="30K"
-                                                    value={segments.s1}
-                                                    onChange={(e) => {
-                                                        let val = e.target.value.toUpperCase();
-                                                        const chars = val.split('');
-                                                        const newChars: string[] = [];
-                                                        for (let i = 0; i < chars.length; i++) {
-                                                            const c = chars[i];
-                                                            if (i < 2) {
-                                                                if (/[0-9]/.test(c)) newChars.push(c);
-                                                            } else if (i === 2) {
-                                                                if (/[A-Z]/.test(c)) newChars.push(c);
-                                                            }
-                                                        }
-                                                        val = newChars.join('').slice(0, 3);
-                                                        setSegments(prev => ({ ...prev, s1: val }));
-                                                        if (val.length === 3) document.getElementById('plate-s2')?.focus();
-                                                    }}
-                                                    className="w-full text-center text-xl font-bold p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none uppercase"
-                                                />
-                                                <span className="absolute -right-3 top-1/2 -translate-y-[60%] text-slate-400 font-bold text-3xl">-</span>
-                                            </div>
-                                            <div className="w-2/3 relative">
-                                                <input
-                                                    id="plate-s2"
-                                                    type="text"
-                                                    placeholder="12345"
-                                                    value={segments.s2}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
-                                                        setSegments(prev => ({ ...prev, s2: val }));
-                                                    }}
-                                                    className="w-full text-center text-xl font-bold p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none tracking-widest"
-                                                />
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            {/* MOTO FORMAT: [29] - [X1] [123.45] */}
-                                            <div className="relative w-1/4">
-                                                <input
-                                                    type="text"
-                                                    placeholder="29"
-                                                    value={segments.s1}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 2);
-                                                        setSegments(prev => ({ ...prev, s1: val }));
-                                                        if (val.length === 2) document.getElementById('plate-s2')?.focus();
-                                                    }}
-                                                    className="w-full text-center text-xl font-bold p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                                />
-                                                <span className="absolute -right-2 top-1/2 -translate-y-[60%] text-slate-400 font-bold text-3xl">-</span>
-                                            </div>
-                                            <div className="w-1/4 relative">
-                                                <input
-                                                    id="plate-s2"
-                                                    type="text"
-                                                    placeholder="X1"
-                                                    value={segments.s2}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 2);
-                                                        setSegments(prev => ({ ...prev, s2: val }));
-                                                        if (val.length === 2) document.getElementById('plate-s3')?.focus();
-                                                    }}
-                                                    className="w-full text-center text-xl font-bold p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                                />
-                                            </div>
-                                            <div className="w-2/4 relative">
-                                                <input
-                                                    id="plate-s3"
-                                                    type="text"
-                                                    placeholder="12345"
-                                                    value={segments.s3}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
-                                                        setSegments(prev => ({ ...prev, s3: val }));
-                                                    }}
-                                                    className="w-full text-center text-xl font-bold p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none tracking-widest"
-                                                />
-                                            </div>
-                                        </>
-                                    )}
-
-                                    {isSearchingActive && (
-                                        <div className="absolute right-[-30px] top-1/2 -translate-y-1/2">
-                                            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="mt-4 flex justify-between items-center px-1">
-                                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                                        {vehicleType === 'CAR' ? 'Nhập biển số OTO' : 'Nhập biển số XE MÁY'}
-                                    </span>
-                                    {plate.length > 3 && (
-                                        <span className="text-sm font-mono font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">
-                                            {plate}
-                                        </span>
-                                    )}
-                                </div>
-                                {zodErrors.bienSo && <p className="text-xs text-red-500 mt-1">{zodErrors.bienSo.message}</p>}
-                            </div>
-
-                            {/* Hiển thị thông tin xe nếu tìm thấy */}
-                            {searchResult?.exists && (
-                                <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-4 rounded-xl transition-colors">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <User className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-                                                <h3 className="font-semibold text-blue-800 dark:text-blue-300">Khách hàng</h3>
-                                            </div>
-                                            <span className="bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200 text-xs px-2 py-1 rounded font-medium">Khách quen</span>
-                                        </div>
-                                        <p className="font-medium text-lg text-slate-900 dark:text-white">{searchResult.customer.HoTen}</p>
-                                        <p className="text-slate-600 dark:text-slate-400">{searchResult.customer.SoDienThoai}</p>
-                                    </div>
-
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-4 rounded-xl transition-colors">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Car className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-                                            <h3 className="font-semibold text-slate-800 dark:text-slate-200">Thông tin xe</h3>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2 text-sm">
-                                            <div className="text-slate-500 dark:text-slate-400">Hiệu xe:</div>
-                                            <div className="font-medium text-slate-900 dark:text-white">{searchResult.vehicle.NhanHieu}</div>
-                                            <div className="text-slate-500 dark:text-slate-400">Model:</div>
-                                            <div className="font-medium text-slate-900 dark:text-white">{searchResult.vehicle.Model}</div>
-                                            <div className="text-slate-500 dark:text-slate-400">ODO cũ:</div>
-                                            <div className="font-medium text-slate-900 dark:text-white">{searchResult.vehicle.ODO_HienTai} km</div>
-                                        </div>
-                                    </div>
-
-                                    {/* Lịch sử sửa chữa */}
-                                    {searchResult.history && searchResult.history.length > 0 && (
-                                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl transition-colors">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <History className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-                                                <h3 className="font-semibold text-slate-800 dark:text-slate-200">Lịch sử gần đây</h3>
-                                            </div>
-                                            <div className="space-y-3">
-                                                {searchResult.history.map((h: any) => (
-                                                    <div key={h.ID} className="text-sm border-l-2 border-slate-200 dark:border-slate-700 pl-3">
-                                                        <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-                                                            <span>{new Date(h.NgayTao).toLocaleDateString('vi-VN')}</span>
-                                                            <span className={h.TrangThai === 'HOAN_THANH' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}>
-                                                                {h.TrangThai}
-                                                            </span>
-                                                        </div>
-                                                        <p className="font-medium truncate mt-0.5 text-slate-900 dark:text-white">
-                                                            {h.ChiTietDonHang.map((ct: any) => ct.HangHoa.TenHang).join(', ')}
-                                                        </p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Cảnh báo bảo hành */}
-                            {searchResult?.exists && searchResult.activeWarrantyCount > 0 && (
-                                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4 rounded-xl mt-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                                    <div className="flex items-start gap-3">
-                                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                                            <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
-                                        </div>
+                            
+                            <div className="p-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {/* Vehicle ID */}
+                                    <div className="space-y-6">
                                         <div>
-                                            <h3 className="font-bold text-green-800 dark:text-green-300 text-lg">
-                                                Phát hiện {searchResult.activeWarrantyCount} mục còn bảo hành
-                                            </h3>
-                                            <p className="text-green-700 dark:text-green-400 text-sm mt-1 mb-2">
-                                                Xe này có phụ tùng/dịch vụ vẫn còn trong thời hạn bảo hành từ các đơn hàng trước.
-                                            </p>
-                                            <div className="flex gap-2">
+                                            <label className="block text-xs font-bold text-slate-500 mb-3 tracking-tight">Loại phương tiện</label>
+                                            <div className="grid grid-cols-2 gap-2">
                                                 <button
-                                                    onClick={() => {
-                                                        // Logic to view warranty details or auto-navigate
-                                                        // For now just scroll to history
-                                                        const historyEl = document.getElementById('history-section');
-                                                        if (historyEl) historyEl.scrollIntoView({ behavior: 'smooth' });
-                                                    }}
-                                                    className="text-sm font-semibold text-green-700 dark:text-green-300 underline hover:text-green-800"
+                                                    type="button"
+                                                    onClick={() => { setValue('vehicleType', 'CAR'); setValue('bienSo', ''); }}
+                                                    className={cn(
+                                                        "flex items-center justify-center gap-2 py-2.5 rounded-lg border font-bold text-xs transition-all",
+                                                        vehicleType === 'CAR'
+                                                            ? "bg-slate-900 border-slate-900 text-white dark:bg-slate-50 dark:text-slate-900"
+                                                            : "bg-white border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700"
+                                                    )}
                                                 >
-                                                    Xem lịch sử bên dưới
+                                                    <Car className="w-4 h-4" />
+                                                    <span>Ô TÔ</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setValue('vehicleType', 'MOTO'); setValue('bienSo', ''); }}
+                                                    className={cn(
+                                                        "flex items-center justify-center gap-2 py-2.5 rounded-lg border font-bold text-xs transition-all",
+                                                        vehicleType === 'MOTO'
+                                                            ? "bg-slate-900 border-slate-900 text-white dark:bg-slate-50 dark:text-slate-900"
+                                                            : "bg-white border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700"
+                                                    )}
+                                                >
+                                                    <div className="w-4 h-4 flex items-center justify-center font-bold">M</div>
+                                                    <span>XE MÁY</span>
                                                 </button>
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
-                            )}
 
-                            {/* Form đăng ký khách mới nếu KHÔNG tìm thấy */}
-                            {debouncedPlate.length >= 3 && !isSearchingActive && !searchResult?.exists && (
-                                <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-xl transition-colors">
-                                        <div className="flex items-center gap-2 mb-3 text-amber-700 dark:text-amber-400">
-                                            <AlertTriangle className="w-5 h-5" />
-                                            <h3 className="font-semibold">Xe mới - Đăng ký</h3>
-                                        </div>
-                                        <div className="space-y-3">
-                                            <div>
-                                                <input
-                                                    placeholder="Tên khách hàng *"
-                                                    className={`w-full p-2 border rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${zodErrors.tenKhach ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-700 focus:ring-amber-500'}`}
-                                                    {...register('tenKhach')}
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 mb-3 tracking-tight">Biển số (Số hiệu định danh)</label>
+                                            <div className="relative">
+                                                <LicensePlateInput
+                                                    type={vehicleType}
+                                                    value={plate}
+                                                    onChange={(val) => setValue('bienSo', val)}
+                                                    error={zodErrors.bienSo?.message}
                                                 />
-                                                {zodErrors.tenKhach && <p className="text-xs text-red-500 mt-1">{zodErrors.tenKhach.message}</p>}
+                                                {isSearchingActive && (
+                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                                        <div className="w-4 h-4 border-2 border-slate-400 border-t-slate-900 rounded-full animate-spin" />
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div>
-                                                <input
-                                                    placeholder="Số điện thoại *"
-                                                    className={`w-full p-2 border rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${zodErrors.sdtKhach ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-700 focus:ring-amber-500'}`}
-                                                    {...register('sdtKhach')}
-                                                />
-                                                {zodErrors.sdtKhach && <p className="text-xs text-red-500 mt-1">{zodErrors.sdtKhach.message}</p>}
-                                            </div>
-                                            <div>
-                                                <input
-                                                    placeholder="Nhãn hiệu (VD: Toyota) *"
-                                                    className={`w-full p-2 border rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${zodErrors.nhanHieu ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-700 focus:ring-amber-500'}`}
-                                                    {...register('nhanHieu')}
-                                                />
-                                                {zodErrors.nhanHieu && <p className="text-xs text-red-500 mt-1">{zodErrors.nhanHieu.message}</p>}
-                                            </div>
-                                            <div>
-                                                <input
-                                                    placeholder="Model (VD: Vios) *"
-                                                    className={`w-full p-2 border rounded bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${zodErrors.model ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 dark:border-slate-700 focus:ring-amber-500'}`}
-                                                    {...register('model')}
-                                                />
-                                                {zodErrors.model && <p className="text-xs text-red-500 mt-1">{zodErrors.model.message}</p>}
-                                            </div>
-                                            <input
-                                                placeholder="Email (để gửi hóa đơn)"
-                                                type="email"
-                                                className={`w-full p-2 border rounded bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 ${zodErrors.emailKhach ? 'border-red-500' : ''}`}
-                                                {...register('emailKhach')}
-                                            />
-                                            {zodErrors.emailKhach && <p className="text-xs text-red-500 mt-1">{zodErrors.emailKhach.message}</p>}
                                         </div>
                                     </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
 
-                    {/* Cột phải: Form Tiếp Nhận */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">Thông tin tiếp nhận</h3>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Số ODO hiện tại (km)</label>
-                                    <input
-                                        type="number"
-                                        placeholder="0"
-                                        className={`w-full p-3 bg-slate-50 dark:bg-slate-950 border rounded-lg font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${zodErrors.odo ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 dark:border-slate-700 focus:ring-blue-500'}`}
-                                        {...register('odo', { valueAsNumber: true })}
-                                    />
-                                    {zodErrors.odo && <p className="text-xs text-red-500 mt-1">{zodErrors.odo.message}</p>}
+                                    {/* Quick Customer View / Alert */}
+                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-5 border border-slate-100 dark:border-slate-700/50 flex flex-col justify-center">
+                                        {searchResult?.exists ? (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                                                    <CheckCircle2 className="w-4 h-4" />
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest">Khách hàng cũ</span>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-400 mb-1">Chủ xe</p>
+                                                    <p className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{searchResult.customerName}</p>
+                                                    <p className="text-sm font-mono font-bold text-slate-600 dark:text-slate-400">{searchResult.customerPhone}</p>
+                                                </div>
+                                                <Link 
+                                                    href={`/sale/reception?search=${plate}`}
+                                                    className="inline-flex items-center gap-1.5 text-[10px] font-bold text-blue-600 hover:text-blue-700"
+                                                >
+                                                    <History className="w-3.5 h-3.5" />
+                                                    Lịch sử dịch vụ
+                                                </Link>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-4">
+                                                <User className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                                                <p className="text-xs text-slate-400 px-4">Thông tin khách hàng sẽ tự động tải sau khi nhập biển số hợp lệ</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex justify-between">
-                                        <span>Mức xăng</span>
-                                        <span className="font-bold text-slate-900 dark:text-white">{fuel}%</span>
-                                    </label>
-                                    <div className="flex items-center gap-3">
-                                        <Fuel className="w-5 h-5 text-slate-400 dark:text-slate-500" />
-                                        <input
-                                            type="range"
-                                            min="0" max="100"
-                                            value={fuel}
-                                            onChange={(e) => setValue('fuel', Number(e.target.value))}
-                                            className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
+
+                                {/* Detailed Fields */}
+                                <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6 pt-8 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-4 tracking-wider">Thông tin Chủ xe</h3>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                                                <User className="w-3 h-3" /> Họ tên khách hàng
+                                            </label>
+                                            <input {...register('tenKhach')} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-900 dark:text-white" placeholder="Nguyễn Văn A" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                                                <Phone className="w-3 h-3" /> Số điện thoại
+                                            </label>
+                                            <input {...register('sdtKhach')} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-white" placeholder="090..." />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                                                <MapPin className="w-3 h-3" /> Địa chỉ
+                                            </label>
+                                            <input {...register('diaChiKhach')} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-900 dark:text-white" placeholder="Phố..., Quận..." />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-4 tracking-wider">Thông tin Kỹ thuật xe</h3>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-bold text-slate-500">Hãng / Hiệu</label>
+                                                <input {...register('nhanHieu')} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-900 dark:text-white" placeholder="VD: Toyota" />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-bold text-slate-500">Dòng xe (Model)</label>
+                                                <input {...register('model')} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-900 dark:text-white" placeholder="VD: Vios" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-slate-500 italic">Số Khung (VIN)</label>
+                                            <input {...register('soKhung')} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-white" placeholder="..." />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-slate-500 italic">Số Máy</label>
+                                            <input {...register('soMay')} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono font-bold text-slate-900 dark:text-white" placeholder="..." />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* B. Inspection Section */}
+                        <section className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                                <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-wider">Khảo sát tình trạng & Yêu cầu</h2>
+                            </div>
+                            
+                            <div className="p-6 space-y-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                    {/* ODO & Fuel */}
+                                    <div className="space-y-8">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 mb-3">Chỉ số ODO hiện tại (km)</label>
+                                            <div className="relative">
+                                                <input 
+                                                    type="number" 
+                                                    {...register('odo', { valueAsNumber: true })} 
+                                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-3xl font-mono font-bold text-slate-900 dark:text-white"
+                                                />
+                                                <History className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                            </div>
+                                            {searchResult?.exists && (
+                                                <p className="mt-2 text-[10px] font-bold text-slate-500 uppercase">Mốc gần nhất: <span className="text-slate-900 dark:text-slate-200 font-mono">{searchResult.odo?.toLocaleString()} km</span></p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <div className="flex items-center justify-between mb-3">
+                                                <label className="text-xs font-bold text-slate-500">Mức nhiên liệu hiện tại</label>
+                                                <span className="text-sm font-bold text-slate-900 dark:text-white font-mono">{fuel}%</span>
+                                            </div>
+                                            <div className="px-2 py-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
+                                                <input 
+                                                    type="range" 
+                                                    min="0" max="100" step="5"
+                                                    {...register('fuel', { valueAsNumber: true })}
+                                                    value={fuel}
+                                                    onChange={(e) => setValue('fuel', Number(e.target.value))}
+                                                    className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-slate-900 dark:accent-slate-100"
+                                                />
+                                                <div className="flex justify-between mt-2 px-1">
+                                                    <span className="text-[10px] font-bold text-slate-400">E</span>
+                                                    <span className="text-[10px] font-bold text-slate-400">1/2</span>
+                                                    <span className="text-[10px] font-bold text-slate-400">F</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Body Status */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 mb-4 tracking-tight">Kiểm tra ngoại quan (Vỏ / Thân xe)</label>
+                                        <div className="flex flex-wrap gap-2 mb-4">
+                                            {['Trầy xước', 'Móp méo', 'Bể vỡ', 'Nứt kính', 'Thiếu chi tiết', 'Dơ / Bẩn'].map(status => (
+                                                <button
+                                                    key={status}
+                                                    type="button"
+                                                    onClick={() => handleBodyStatusToggle(status)}
+                                                    className={cn(
+                                                        "px-3 py-1.5 rounded-md border text-[11px] font-bold transition-all",
+                                                        bodyStatus.includes(status)
+                                                            ? "bg-slate-900 border-slate-900 text-white dark:bg-white dark:text-slate-900"
+                                                            : "bg-white border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700"
+                                                    )}
+                                                >
+                                                    {status}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <textarea 
+                                            value={bodyStatusNote}
+                                            onChange={(e) => setBodyStatusNote(e.target.value)}
+                                            placeholder="Ghi chú thêm về ngoại quan..."
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white min-h-[100px]"
                                         />
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="mb-6">
-                                <ImageCapture onImagesChange={setSelectedFiles} isUploading={isSubmitting} />
-                            </div>
-
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Tình trạng vỏ xe</label>
-                                <div className="flex flex-wrap gap-2 mb-3">
-                                    {['Trầy xước cản trước', 'Trầy xước cản sau', 'Móp cửa trái', 'Móp cửa phải', 'Vỡ đèn'].map(status => (
-                                        <button
-                                            key={status}
-                                            type="button"
-                                            onClick={() => handleBodyStatusToggle(status)}
-                                            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${bodyStatus.includes(status)
-                                                ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400'
-                                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-                                                }`}
-                                        >
-                                            {status}
-                                        </button>
-                                    ))}
+                                {/* Customer Request */}
+                                <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                                    <label className="block text-xs font-bold text-slate-900 dark:text-white mb-3">Yêu cầu cụ thể của khách hàng</label>
+                                    <textarea 
+                                        {...register('request')}
+                                        placeholder="Nhập chi tiết yêu cầu sửa chữa, bảo dưỡng hoặc các vấn đề xe đang gặp phải..."
+                                        className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white min-h-[120px] focus:ring-2 ring-slate-900/5 transition-all"
+                                    />
                                 </div>
-                                <textarea
-                                    className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-lg h-24 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
-                                    placeholder="Ghi chú thêm về trầy xước..."
-                                    value={bodyStatusNote}
-                                    onChange={(e) => setBodyStatusNote(e.target.value)}
-                                ></textarea>
                             </div>
+                        </section>
 
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Yêu cầu từ khách hàng</label>
-                                <textarea
-                                    className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-lg h-32 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-950 text-slate-900 dark:text-white"
-                                    placeholder="Ví dụ: Xe có tiếng kêu lạ khi đạp phanh, thay nhớt..."
-                                    {...register('request')}
-                                ></textarea>
+                        {/* C. Images Capture */}
+                        <section className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Hình ảnh hiện trạng</h2>
+                                <span className="text-[10px] font-bold text-slate-400">Tối đa 4 ảnh</span>
                             </div>
+                            <div className="p-6">
+                                <ImageCapture 
+                                    onImagesChange={setSelectedFiles} 
+                                    maxImages={4}
+                                    disabled={isSubmitting}
+                                />
+                            </div>
+                        </section>
+                    </div>
 
-                            {error && (
-                                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800 flex items-center gap-2 animate-in fade-in">
-                                    <AlertTriangle className="w-4 h-4" /> {error}
+                    {/* RIGHT COLUMN: Summary & Actions (4/12) */}
+                    <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
+                        
+                        {/* Status Bar */}
+                        <div className="bg-slate-900 dark:bg-slate-800 rounded-xl p-5 text-white">
+                            <h3 className="text-[10px] font-bold text-slate-400 tracking-widest mb-4">Trạng thái định danh</h3>
+                            <div className="flex items-center gap-3">
+                                <div className={cn(
+                                    "w-10 h-10 rounded-full flex items-center justify-center transition-colors duration-500",
+                                    plate.length > 5 ? "bg-emerald-500" : "bg-slate-700"
+                                )}>
+                                    <Car className="w-5 h-5 text-white" />
                                 </div>
-                            )}
+                                <div>
+                                    <p className="text-sm font-mono font-bold">{plate || 'CHỜ BIỂN SỐ'}</p>
+                                    <p className="text-[10px] font-medium text-slate-400 uppercase">{searchResult?.exists ? 'Phương tiện đã đăng ký' : 'Phương tiện mới'}</p>
+                                </div>
+                            </div>
+                        </div>
 
-                            <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
-                                <button
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        handleFormSubmit(onSubmit)(e);
-                                    }}
-                                    disabled={isSubmitting || !plate}
-                                    className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-white shadow-lg transition-all ${isSubmitting || !plate
-                                        ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed'
-                                        : 'bg-slate-900 hover:bg-slate-800 hover:scale-[1.02]'
-                                        }`}
-                                >
-                                    {isSubmitting ? (
-                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    ) : (
-                                        <Save className="w-5 h-5" />
-                                    )}
-                                    Tạo phiếu tiếp nhận
-                                </button>
+                        {/* Validations & Error */}
+                        {(error || Object.keys(zodErrors).length > 0) && (
+                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-xl p-4">
+                                <div className="flex items-start gap-3">
+                                    <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5" />
+                                    <div className="flex-1">
+                                        <p className="text-xs font-bold text-red-600 uppercase mb-2">Cảnh báo dữ liệu</p>
+                                        <ul className="space-y-1 list-disc list-inside">
+                                            {error && <li className="text-xs font-medium text-red-700 dark:text-red-400">{error}</li>}
+                                            {Object.entries(zodErrors).map(([key, err]) => (
+                                                <li key={key} className="text-xs font-medium text-red-700 dark:text-red-400">
+                                                    {err?.message as string}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Submit Button */}
+                        <div className="space-y-3 pt-4">
+                            <button
+                                type="submit"
+                                disabled={isSubmitting || plate.length < 3}
+                                className={cn(
+                                    "w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-sm tracking-wider transition-all shadow-lg active:scale-95",
+                                    isSubmitting || plate.length < 3
+                                        ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+                                        : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                                )}
+                            >
+                                {isSubmitting ? (
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <Save className="w-5 h-5" />
+                                )}
+                                <span>Xác nhận Tiếp nhận</span>
+                            </button>
+                            <p className="text-[10px] text-center text-slate-400 font-medium px-6 tracking-tight">Nhân viên xác nhận thông tin thực tế khớp với dữ liệu phiếu</p>
+                        </div>
+
+                        {/* Helper Info */}
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
+                            <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-4 tracking-wider">Hỗ trợ nghiệp vụ</h3>
+                            <div className="space-y-4">
+                                <div className="flex gap-3">
+                                    <div className="p-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded">
+                                        <History className="w-3.5 h-3.5" />
+                                    </div>
+                                    <p className="text-xs text-slate-500 leading-relaxed font-medium">Báo giá và Lệnh sửa chữa sẽ được tự động kích hoạt sau bước này.</p>
+                                </div>
+                                <div className="flex gap-3">
+                                    <div className="p-1.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded">
+                                        <Camera className="w-3.5 h-3.5" />
+                                    </div>
+                                    <p className="text-xs text-slate-500 leading-relaxed font-medium">Khuyến khích chụp ảnh ODO và 4 góc xe để làm bằng chứng pháp lý khi bàn giao.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                </form>
             </div>
         </DashboardLayout>
     );

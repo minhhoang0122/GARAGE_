@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Badge } from '@/modules/shared/components/ui/badge';
 import { api } from '@/lib/api';
-import { useSession } from 'next-auth/react';
 import { formatCurrency } from '@/lib/utils';
 import { History, Loader2, Car, Calendar, Wrench } from 'lucide-react';
 import Link from 'next/link';
@@ -25,24 +24,20 @@ interface JobHistory {
 import { useQuery } from '@tanstack/react-query';
 
 export default function MechanicHistoryPage() {
-    const { data: session } = useSession();
     const { hasPermission } = usePermission();
 
     const isDiagnostic = hasPermission('CREATE_PROPOSAL');
-    
-    // @ts-ignore
-    const token = session?.user?.accessToken;
+
 
     const { data: jobs = [], isLoading } = useQuery({
         queryKey: ['mechanic-history', isDiagnostic],
         queryFn: async () => {
             if (isDiagnostic) {
-                return await api.get('/mechanic/inspect/history', token);
+                return await api.get('/mechanic/inspect/history');
             } else {
-                return await api.get('/mechanic/jobs/history', token);
+                return await api.get('/mechanic/jobs/history');
             }
         },
-        enabled: !!token
     });
 
     return (

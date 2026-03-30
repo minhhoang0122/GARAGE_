@@ -3,51 +3,25 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { ArrowUpRight, ArrowDownRight, Wallet, Calendar, Loader2, CreditCard, Banknote, RefreshCw } from 'lucide-react';
-import { api } from '@/lib/api';
-import { useSession } from 'next-auth/react';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useFinanceStats, useTransactions } from '@/modules/finance/hooks/useFinance';
+import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
+import { queryKeys } from '@/lib/query-keys';
+import { Transaction, TransactionStats } from '@/modules/finance/services/finance';
 
-import { useQuery } from '@tanstack/react-query';
-
-interface TransactionStats {
-    currentBalance: number;
-    totalRevenueThisMonth: number;
-    totalRefundThisMonth: number;
-}
-
-interface Transaction {
-    id: number;
-    amount: number;
-    type: 'DEPOSIT' | 'PAYMENT' | 'REFUND';
-    method: 'CASH' | 'TRANSFER' | 'CARD';
-    referenceCode: string;
-    note: string;
-    createdAt: string;
-    createdBy: string;
-}
 
 export default function FinancePage() {
-    const { data: session } = useSession();
-    // @ts-ignore
-    const token = session?.user?.accessToken;
+    const { data: stats, isLoading: statsLoading } = useFinanceStats();
+    const { data: transactions = [], isLoading: transactionsLoading, refetch } = useTransactions();
 
-    const { data: stats, isLoading: statsLoading } = useQuery<TransactionStats>({
-        queryKey: ['transactions', 'stats'],
-        queryFn: () => api.get('/transactions/stats', token),
-        enabled: !!token
-    });
+    useRealtimeUpdate(queryKeys.finance.transactions.all());
 
-    const { data: transactions = [], isLoading: transactionsLoading, refetch } = useQuery<Transaction[]>({
-        queryKey: ['transactions', 'recent'],
-        queryFn: () => api.get('/transactions/recent', token),
-        enabled: !!token
-    });
 
     const loading = statsLoading || transactionsLoading;
 
-    async function handleRefresh() {
+    function handleRefresh() {
         refetch();
     }
 

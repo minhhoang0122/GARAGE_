@@ -54,7 +54,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     // Bug 11 Fix: Verify user is still active in Database
                     // Prevents "Stale Session" where blocked users stay logged in via old JWT
                     com.gara.entity.User user = userRepository.findById(userId).orElse(null);
-                    if (user == null || !user.getTrangThaiHoatDong()) {
+                    if (user == null || !user.getIsActive()) {
                         SecurityContextHolder.clearContext();
                         filterChain.doFilter(request, response);
                         return;

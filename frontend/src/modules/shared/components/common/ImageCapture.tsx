@@ -8,13 +8,15 @@ interface ImageCaptureProps {
     label?: string;
     isUploading?: boolean;
     maxImages?: number;
+    disabled?: boolean;
 }
 
 export default function ImageCapture({
     onImagesChange,
     label = "Hình ảnh hiện trạng",
     isUploading = false,
-    maxImages = 5
+    maxImages = 5,
+    disabled = false
 }: ImageCaptureProps) {
     const [previews, setPreviews] = useState<{ id: string; url: string; file: File }[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);

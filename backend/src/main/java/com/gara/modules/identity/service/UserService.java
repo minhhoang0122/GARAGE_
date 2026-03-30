@@ -20,13 +20,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.gara.modules.support.service.SseService sseService;
 
     public UserService(UserRepository userRepository,
             RoleRepository roleRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            com.gara.modules.support.service.SseService sseService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
+        this.sseService = sseService;
     }
 
     @org.springframework.cache.annotation.Cacheable(value = "users_list")
@@ -36,34 +39,34 @@ public class UserService {
 
     public List<User> getStaffOnly() {
         return userRepository.findAll().stream()
-                .filter(u -> u.getRoles() != null && u.getRoles().stream()
-                        .anyMatch(r -> !r.getName().equals("KHACH_HANG")))
+                .filter(u -> u.getUserType() == com.gara.entity.enums.UserType.STAFF)
                 .collect(java.util.stream.Collectors.toList());
     }
 
     public List<User> getCustomersOnly() {
         return userRepository.findAll().stream()
-                .filter(u -> u.getRoles() != null && u.getRoles().stream()
-                        .anyMatch(r -> r.getName().equals("KHACH_HANG")))
+                .filter(u -> u.getUserType() == com.gara.entity.enums.UserType.CUSTOMER)
                 .collect(java.util.stream.Collectors.toList());
     }
 
     @Transactional
     @CacheEvict(value = "users_list", allEntries = true)
     public User createUser(UserReqDTO req) {
-        if (userRepository.findByTenDangNhap(req.getTenDangNhap()).isPresent()) {
+        if (userRepository.findByUsername(req.getUsername()).isPresent()) {
             throw new RuntimeException("Tên đăng nhập đã tồn tại");
         }
-        if (req.getMatKhauHash() == null || req.getMatKhauHash().isBlank()) {
+        if (req.getPassword() == null || req.getPassword().isBlank()) {
             throw new RuntimeException("Mật khẩu không được để trống khi tạo mới");
         }
 
         User user = new User();
-        user.setTenDangNhap(req.getTenDangNhap());
-        user.setHoTen(req.getHoTen());
-        user.setSoDienThoai(req.getSoDienThoai());
-        user.setMatKhauHash(passwordEncoder.encode(req.getMatKhauHash()));
-        user.setTrangThaiHoatDong(true);
+        user.setUsername(req.getUsername());
+        user.setFullName(req.getFullName());
+        user.setAvatar(req.getAvatar());
+        user.setEmail(req.getEmail());
+        user.setPhone(req.getPhone());
+        user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+        user.setIsActive(true);
 
         Set<Role> roles = new HashSet<>();
         if (req.getRoleCodes() != null) {
@@ -72,6 +75,13 @@ public class UserService {
             }
         }
         user.setRoles(roles);
+
+        // Tự động gán UserType dựa trên Roles
+        if (roles.stream().anyMatch(r -> r.getName().equals("KHACH_HANG"))) {
+            user.setUserType(com.gara.entity.enums.UserType.CUSTOMER);
+        } else {
+            user.setUserType(com.gara.entity.enums.UserType.STAFF);
+        }
 
         return userRepository.save(user);
     }
@@ -82,10 +92,14 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (req.getHoTen() != null)
-            user.setHoTen(req.getHoTen());
-        if (req.getSoDienThoai() != null)
-            user.setSoDienThoai(req.getSoDienThoai());
+        if (req.getFullName() != null)
+            user.setFullName(req.getFullName());
+        if (req.getPhone() != null)
+            user.setPhone(req.getPhone());
+        if (req.getAvatar() != null)
+            user.setAvatar(req.getAvatar());
+        if (req.getEmail() != null)
+            user.setEmail(req.getEmail());
 
         // Cập nhật Roles nếu có
         if (req.getRoleCodes() != null) {
@@ -97,11 +111,22 @@ public class UserService {
         }
 
         // Update password if provided
-        if (req.getMatKhauHash() != null && !req.getMatKhauHash().isEmpty()) {
-            user.setMatKhauHash(passwordEncoder.encode(req.getMatKhauHash()));
+        if (req.getPassword() != null && !req.getPassword().isEmpty()) {
+            user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         }
 
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        sseService.send(savedUser.getId(), "user_security_updated", java.util.Map.of("userId", savedUser.getId()));
+        return savedUser;
+    }
+
+    @Transactional
+    @CacheEvict(value = "users_list", allEntries = true)
+    public void updateAvatar(Integer id, String avatarUrl) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        user.setAvatar(avatarUrl);
+        userRepository.save(user);
     }
 
     @Transactional
@@ -114,8 +139,14 @@ public class UserService {
 
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        user.setTrangThaiHoatDong(!user.getTrangThaiHoatDong());
+        user.setIsActive(!user.getIsActive());
         userRepository.save(user);
+        sseService.send(id, "user_security_updated", java.util.Map.of("userId", id));
+    }
+
+    public User getUserById(Integer id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
     }
 
     public User getCurrentUser() {
@@ -132,7 +163,7 @@ public class UserService {
         }
 
         if (principal instanceof String) {
-            return userRepository.findByTenDangNhap((String) principal).orElse(null);
+            return userRepository.findByUsername((String) principal).orElse(null);
         }
 
         if (principal instanceof Integer) {

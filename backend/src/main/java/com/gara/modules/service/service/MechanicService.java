@@ -5,10 +5,11 @@ import com.gara.dto.*;
 import com.gara.entity.*;
 import com.gara.modules.mechanic.repository.*;
 import com.gara.modules.service.repository.*;
-import com.gara.modules.auth.repository.*;
+import com.gara.modules.auth.repository.UserRepository;
 import com.gara.modules.inventory.repository.*;
 import com.gara.modules.reception.repository.*;
 import com.gara.modules.support.service.AsyncAuditService;
+import com.gara.modules.support.service.AsyncNotificationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.stream.Collectors;
 import com.gara.entity.enums.OrderStatus;
 import com.gara.entity.enums.ItemStatus;
@@ -24,7 +26,7 @@ import com.gara.entity.enums.ItemStatus;
 @Service
 public class MechanicService {
 
-    private final RepairOrderRepository orderRepository;
+    private final RepairOrderRepository repairOrderRepository;
     private final OrderItemRepository orderItemRepository;
     private final ProductRepository productRepository;
     private final ReceptionRepository receptionRepository;
@@ -32,10 +34,11 @@ public class MechanicService {
     private final WarehouseService warehouseService;
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final OrderCalculationService orderCalculationService;
-    private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
+    private final AsyncNotificationService asyncNotificationService;
     private final AsyncAuditService asyncAuditService;
+    private final TimelineService timelineService;
 
-    public MechanicService(RepairOrderRepository orderRepository,
+    public MechanicService(RepairOrderRepository repairOrderRepository,
             OrderItemRepository orderItemRepository,
             ProductRepository productRepository,
             ReceptionRepository receptionRepository,
@@ -43,9 +46,10 @@ public class MechanicService {
             WarehouseService warehouseService,
             TaskAssignmentRepository taskAssignmentRepository,
             OrderCalculationService orderCalculationService,
-            com.gara.modules.support.service.AsyncNotificationService asyncNotificationService,
-            AsyncAuditService asyncAuditService) {
-        this.orderRepository = orderRepository;
+            AsyncNotificationService asyncNotificationService,
+            AsyncAuditService asyncAuditService,
+            TimelineService timelineService) {
+        this.repairOrderRepository = repairOrderRepository;
         this.orderItemRepository = orderItemRepository;
         this.productRepository = productRepository;
         this.receptionRepository = receptionRepository;
@@ -55,9 +59,10 @@ public class MechanicService {
         this.orderCalculationService = orderCalculationService;
         this.asyncNotificationService = asyncNotificationService;
         this.asyncAuditService = asyncAuditService;
+        this.timelineService = timelineService;
     }
 
-    // Helper: Mask PII for Mechanics (Bug 94)
+    // Helper: Mask PII for Mechanics
     private String maskPhone(String fullPhone) {
         if (fullPhone == null || fullPhone.equals("N/A")) return "N/A";
         if (fullPhone.length() > 6) {
@@ -72,19 +77,18 @@ public class MechanicService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // QUAN_LY_XUONG / Admin: See ALL jobs + QC jobs
-        if (user.isQuanLy() || user.isAdmin() || user.hasPermission("VIEW_ALL_JOBS")) {
+        if (user.isManager() || user.isAdmin() || user.hasPermission("VIEW_ALL_JOBS")) {
             List<JobSummaryDTO> allJobs = new ArrayList<>();
-
+            
             // Active repair jobs
-            allJobs.addAll(orderRepository.findJobsForMechanic().stream()
-                    .filter(o -> !o.getChiTietDonHang().isEmpty())
+            allJobs.addAll(repairOrderRepository.findJobsForMechanic().stream()
+                    .filter(o -> !o.getOrderItems().isEmpty())
                     .map(this::mapToJobSummary)
                     .toList());
 
             // QC jobs assigned to this manager
-            allJobs.addAll(orderRepository.findByTrangThaiIn(List.of(OrderStatus.CHO_KCS)).stream()
-                    .filter(o -> o.getThoChanDoan() != null && o.getThoChanDoan().getId().equals(userId))
+            allJobs.addAll(repairOrderRepository.findByStatusIn(List.of(OrderStatus.WAITING_FOR_QC)).stream()
+                    .filter(o -> o.getDiagnosticMechanic() != null && o.getDiagnosticMechanic().getId().equals(userId))
                     .map(this::mapToJobSummary)
                     .toList());
 
@@ -92,127 +96,170 @@ public class MechanicService {
         }
 
         // THO_SUA_CHUA: Only see jobs that have items assigned to them via TaskAssignment
-        return orderRepository.findJobsForMechanic().stream()
-                .filter(o -> !o.getChiTietDonHang().isEmpty())
-                .filter(o -> o.getChiTietDonHang().stream().anyMatch(item ->
-                        item.getPhanCongTho() != null && item.getPhanCongTho().stream()
-                                .anyMatch(ta -> ta.getTho().getId().equals(userId))
+        return repairOrderRepository.findJobsForMechanic().stream()
+                .filter(o -> !o.getOrderItems().isEmpty())
+                .filter(o -> o.getOrderItems().stream().anyMatch(item ->
+                        item.getTaskAssignments() != null && item.getTaskAssignments().stream()
+                                .anyMatch(ta -> ta.getMechanic().getId().equals(userId))
                 ))
                 .map(this::mapToJobSummary)
                 .toList();
     }
 
-    // Assign Job - DEPRECATED: Legacy method, now split into claimJob + submitAssignments
-    @Transactional
-    public void assignJob(Integer orderId, Integer mechanicId, Integer assignedById) {
-        // Keep for backward compat but redirect to new flow
-        claimJob(orderId, assignedById);
+    private JobSummaryDTO mapToJobSummary(RepairOrder order) {
+        return mapToJobSummary(order, null);
     }
 
-    // Quản đốc "Nhận phụ trách" - Chỉ lưu ai phụ trách, KHÔNG đổi trạng thái
+    private JobSummaryDTO mapToJobSummary(RepairOrder order, List<OrderItemDTO> items) {
+        Reception r = order.getReception();
+        return JobSummaryDTO.builder()
+                .id(order.getId())
+                .plate(r.getVehicle().getLicensePlate())
+                .customerName(r.getVehicle().getCustomer().getFullName())
+                .customerPhone(maskPhone(r.getVehicle().getCustomer().getPhone()))
+                .vehicleBrand(r.getVehicle().getBrand())
+                .vehicleModel(r.getVehicle().getModel())
+                .createdAt(order.getCreatedAt())
+                .totalItems(order.getOrderItems().size())
+                .completedItems((int) order.getOrderItems().stream()
+                        .filter(i -> ItemStatus.COMPLETED.equals(i.getStatus())).count())
+                .imageUrl(r.getImages())
+                .status(order.getStatus().name())
+                .claimedById(order.getAssignedMechanic() != null ? order.getAssignedMechanic().getId() : null)
+                .claimedByName(order.getAssignedMechanic() != null ? order.getAssignedMechanic().getFullName() : null)
+                .items(items)
+                .build();
+    }
+
+    private AssignmentDTO mapToAssignmentDTO(TaskAssignment ta) {
+        return new AssignmentDTO(
+                ta.getId(),
+                ta.getMechanic() != null ? ta.getMechanic().getId() : null,
+                ta.getMechanic() != null ? ta.getMechanic().getFullName() : "N/A",
+                Boolean.TRUE.equals(ta.getIsMainMechanic())
+        );
+    }
+
+    private OrderItemDTO mapToOrderItemDTO(OrderItem item) {
+        List<AssignmentDTO> assignments = (item.getTaskAssignments() != null)
+                ? item.getTaskAssignments().stream().map(this::mapToAssignmentDTO).toList()
+                : new ArrayList<>();
+
+        return OrderItemDTO.builder()
+                .id(item.getId())
+                .productId(item.getProduct() != null ? item.getProduct().getId() : null)
+                .productCode(item.getProduct() != null ? item.getProduct().getSku() : "N/A")
+                .productName(item.getProduct() != null ? item.getProduct().getName() : "N/A")
+                .quantity(item.getQuantity())
+                .unitPrice(item.getUnitPrice())
+                .total(item.getTotalAmount())
+                .itemStatus(item.getStatus() != null ? item.getStatus().name() : "PROPOSAL")
+                .isWarranty(Boolean.TRUE.equals(item.getIsWarranty()))
+                .assignments(assignments)
+                .version(item.getVersion())
+                .build();
+    }
+
     @Transactional
     public void claimJob(Integer orderId, Integer userId) {
-        RepairOrder order = orderRepository.findById(orderId)
+        RepairOrder order = repairOrderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng."));
         User quanDoc = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Permission check
         if (!quanDoc.hasPermission("ASSIGN_WORK") && !quanDoc.isAdmin()) {
             throw new RuntimeException("Chỉ Quản đốc hoặc Admin mới được nhận phụ trách.");
         }
 
-        // Prevent double-claim
-        if (order.getThoPhanCong() != null) {
-            throw new RuntimeException("Đơn hàng đã được phụ trách bởi: " + order.getThoPhanCong().getHoTen());
+        if (order.getAssignedMechanic() != null) {
+            throw new RuntimeException("Đơn hàng đã được phụ trách bởi: " + order.getAssignedMechanic().getFullName());
         }
 
         // Rule 10.4: Check Deposit
-        java.math.BigDecimal threshold = new java.math.BigDecimal("5000000");
-        java.math.BigDecimal minRate = new java.math.BigDecimal("0.3");
-        if (order.getTongCong().compareTo(threshold) > 0) {
-            java.math.BigDecimal minDeposit = order.getTongCong().multiply(minRate);
-            if (order.getTienCoc().compareTo(minDeposit) < 0) {
-                throw new RuntimeException(
-                        "Đơn hàng chưa đủ tiền cọc (Cần tối thiểu 30%). Vui lòng báo Sale thu tiền.");
+        BigDecimal threshold = new BigDecimal("5000000");
+        BigDecimal minRate = new BigDecimal("0.3");
+        if (order.getGrandTotal().compareTo(threshold) > 0) {
+            BigDecimal minDeposit = order.getGrandTotal().multiply(minRate);
+            if (order.getDeposit() == null || order.getDeposit().compareTo(minDeposit) < 0) {
+                throw new RuntimeException("Đơn hàng chưa đủ tiền cọc (Cần tối thiểu 30%). Vui lòng báo Sale thu tiền.");
             }
         }
 
-        // Chỉ lưu QĐ phụ trách, KHÔNG chuyển trạng thái
-        order.setThoPhanCong(quanDoc);
-        orderRepository.save(order);
+        order.setAssignedMechanic(quanDoc);
+        repairOrderRepository.save(order);
 
-        // Audit log
         asyncAuditService.logAsync(AuditLog.builder()
-                .bang("DonHangSuaChua")
-                .banGhiId(orderId)
-                .hanhDong("UPDATE")
-                .duLieuCu("")
-                .duLieuMoi("QD:" + quanDoc.getHoTen())
-                .lyDo("Quản đốc " + quanDoc.getHoTen() + " nhận phụ trách đơn hàng")
-                .nguoiThucHienId(userId)
+                .tableName("RepairOrder")
+                .recordId(orderId)
+                .action("UPDATE")
+                .oldData("")
+                .newData("QD:" + quanDoc.getFullName())
+                .reason("Quản đốc " + quanDoc.getFullName() + " nhận phụ trách đơn hàng")
+                .userId(userId)
                 .build());
     }
 
-    // Quản đốc "Xác nhận phân công" - Chuyển DANG_SUA + notify thợ
+    @Transactional
+    public void unclaimJob(Integer orderId, Integer userId) {
+        RepairOrder order = repairOrderRepository.findById(orderId).orElseThrow();
+        if (order.getAssignedMechanic() != null && order.getAssignedMechanic().getId().equals(userId)) {
+            order.setAssignedMechanic(null);
+            repairOrderRepository.save(order);
+        }
+    }
+
     @Transactional
     public void submitAssignments(Integer orderId, Integer userId) {
-        RepairOrder order = orderRepository.findById(orderId)
+        RepairOrder order = repairOrderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng."));
         User quanDoc = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Permission check
         if (!quanDoc.hasPermission("ASSIGN_WORK") && !quanDoc.isAdmin()) {
             throw new RuntimeException("Chỉ Quản đốc hoặc Admin mới được xác nhận phân công.");
         }
 
-        // Must be the assigned QD
-        if (order.getThoPhanCong() == null || !order.getThoPhanCong().getId().equals(userId)) {
+        if (order.getAssignedMechanic() == null || !order.getAssignedMechanic().getId().equals(userId)) {
             if (!quanDoc.isAdmin()) {
                 throw new RuntimeException("Bạn không phải Quản đốc phụ trách đơn này.");
             }
         }
 
-        // Check: must have at least 1 TaskAssignment
-        List<OrderItem> items = order.getChiTietDonHang();
-        List<TaskAssignment> allAssignments = new java.util.ArrayList<>();
+        List<OrderItem> items = order.getOrderItems();
+        List<TaskAssignment> allAssignments = new ArrayList<>();
         for (OrderItem item : items) {
-            if (item.getPhanCongTho() != null) {
-                allAssignments.addAll(item.getPhanCongTho());
+            if (item.getTaskAssignments() != null) {
+                allAssignments.addAll(item.getTaskAssignments());
             }
         }
         if (allAssignments.isEmpty()) {
             throw new RuntimeException("Chưa phân công thợ cho hạng mục nào. Vui lòng gán thợ trước khi xác nhận.");
         }
 
-        // Change status
-        OrderStatus oldStatus = order.getTrangThai();
-        order.setTrangThai(OrderStatus.DANG_SUA);
-        orderRepository.save(order);
+        OrderStatus oldStatus = order.getStatus();
+        order.setStatus(OrderStatus.IN_PROGRESS);
+        repairOrderRepository.save(order);
 
-        // Audit log
         asyncAuditService.logAsync(AuditLog.builder()
-                .bang("DonHangSuaChua")
-                .banGhiId(orderId)
-                .hanhDong("UPDATE")
-                .duLieuCu(oldStatus.name())
-                .duLieuMoi(order.getTrangThai().name())
-                .lyDo("Quản đốc " + quanDoc.getHoTen() + " xác nhận phân công")
-                .nguoiThucHienId(userId)
+                .tableName("RepairOrder")
+                .recordId(orderId)
+                .action("UPDATE")
+                .oldData(oldStatus.name())
+                .newData(order.getStatus().name())
+                .reason("Quản đốc " + quanDoc.getFullName() + " xác nhận phân công")
+                .userId(userId)
                 .build());
 
-        // Notify each unique mechanic assigned
-        String bienSo = order.getPhieuTiepNhan().getXe().getBienSo();
+        String bienSo = order.getReception().getVehicle().getLicensePlate();
         allAssignments.stream()
-                .map(a -> a.getTho().getId())
+                .map(a -> a.getMechanic().getId())
                 .distinct()
                 .forEach(mechanicId -> {
                     asyncNotificationService.pushUniqueAsync(Notification.builder()
                             .userId(mechanicId)
                             .role("THO_SUA_CHUA")
                             .title("Việc mới: " + bienSo)
-                            .content("Quản đốc " + quanDoc.getHoTen() + " đã phân công việc cho bạn. Vui lòng kiểm tra.")
+                            .content("Quản đốc " + quanDoc.getFullName() + " đã phân công việc cho bạn. Vui lòng kiểm tra.")
                             .type("INFO")
                             .link("/mechanic/jobs/" + orderId)
                             .createdAt(LocalDateTime.now())
@@ -221,218 +268,34 @@ public class MechanicService {
                 });
     }
 
-    // Get Available Mechanics with specialty, level, and workload
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getAvailableMechanics() {
-        // Find all users with THO_SUA_CHUA role
-        List<User> allUsers = userRepository.findAll();
-        List<User> mechanics = allUsers.stream()
-                .filter(u -> u.getTrangThaiHoatDong() != null && u.getTrangThaiHoatDong())
+        List<User> mechanics = userRepository.findAll().stream()
+                .filter(u -> u.getIsActive() != null && u.getIsActive())
                 .filter(u -> u.getRoles().stream().anyMatch(r -> "THO_SUA_CHUA".equals(r.getName())))
                 .toList();
 
-        // Count active assignments per mechanic from TaskAssignment table
         List<Object[]> workloadData = taskAssignmentRepository.countActiveOrdersPerMechanic();
-        Map<Integer, Long> workloadMap = new java.util.HashMap<>();
+        Map<Integer, Long> workloadMap = new HashMap<>();
         for (Object[] row : workloadData) {
-            Integer mechanicId = (Integer) row[0];
-            Long count = (Long) row[1];
-            workloadMap.put(mechanicId, count);
+            workloadMap.put((Integer) row[0], (Long) row[1]);
         }
 
         return mechanics.stream().map(m -> {
-            Map<String, Object> info = new java.util.HashMap<>();
+            Map<String, Object> info = new HashMap<>();
             info.put("id", m.getId());
-            info.put("hoTen", m.getHoTen());
-            info.put("chuyenMon", m.getChuyenMon() != null ? m.getChuyenMon().name() : null);
-            info.put("chuyenMonLabel", m.getChuyenMon() != null ? m.getChuyenMon().getDescription() : "Chưa xác định");
-            info.put("capBac", m.getCapBac() != null ? m.getCapBac().name() : null);
-            info.put("capBacLabel", m.getCapBac() != null ? m.getCapBac().getDescription() : "Chưa xác định");
-
-            long activeJobs = workloadMap.getOrDefault(m.getId(), 0L);
-            info.put("soViecDangLam", activeJobs);
+            info.put("hoTen", m.getFullName());
+            info.put("chuyenMon", m.getSpecialty() != null ? m.getSpecialty().name() : null);
+            info.put("chuyenMonLabel", m.getSpecialty() != null ? m.getSpecialty().getDescription() : "Chưa xác định");
+            info.put("capBac", m.getLevel() != null ? m.getLevel().name() : null);
+            info.put("capBacLabel", m.getLevel() != null ? m.getLevel().getDescription() : "Chưa xác định");
+            info.put("soViecDangLam", workloadMap.getOrDefault(m.getId(), 0L));
             return info;
         }).toList();
     }
 
-    // Admin trực tiếp gán Thợ vào Hạng Mục (Drag & Drop)
-    @Transactional
-    public void adminAssignItem(Integer itemId, Integer mechanicId, Integer assignedById) {
-        OrderItem item = orderItemRepository.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy hạng mục"));
-                
-        User mechanic = userRepository.findById(mechanicId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy thợ."));
-                
-        User assigner = userRepository.findById(assignedById)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!assigner.isQuanLy() && !assigner.isAdmin()) {
-            throw new RuntimeException("Chỉ Quản đốc/Admin mới có quyền trực tiếp phân công hạng mục.");
-        }
-
-        RepairOrder order = item.getDonHangSuaChua();
-
-        // Guard: không cho sửa phân công khi đơn đã submit (đang sửa chữa)
-        if (order.getTrangThai() == OrderStatus.DANG_SUA) {
-            throw new RuntimeException("Đơn hàng đã được xác nhận phân công và đang sửa chữa. Không thể thay đổi phân công.");
-        }
-
-        // Kiểm tra tiền cọc
-        java.math.BigDecimal threshold = new java.math.BigDecimal("5000000");
-        java.math.BigDecimal minRate = new java.math.BigDecimal("0.3");
-        if (order.getTongCong() != null && order.getTongCong().compareTo(threshold) > 0) {
-            java.math.BigDecimal minDeposit = order.getTongCong().multiply(minRate);
-            if (order.getTienCoc() == null || order.getTienCoc().compareTo(minDeposit) < 0) {
-                throw new RuntimeException("Đơn hàng chưa đủ tiền cọc (Cần tối thiểu 30%). Vui lòng báo Sale thu tiền trước khi chia việc.");
-            }
-        }
-
-        // Kiểm tra xem thợ đã được gán vào Item này chưa, nếu có thì skip
-        boolean alreadyAssigned = item.getPhanCongTho() != null && item.getPhanCongTho().stream()
-                .anyMatch(ta -> ta.getTho().getId().equals(mechanicId));
-        if (alreadyAssigned) return;
-
-        TaskAssignment assignment = TaskAssignment.builder()
-                .chiTietDonHang(item)
-                .tho(mechanic)
-                .phanTramCong(new java.math.BigDecimal("100"))
-                .laThoChinh(true) // Cho phép là thợ chính của item này
-                .trangThai("APPROVED") 
-                .build();
-        taskAssignmentRepository.save(assignment);
-
-        // NOTE: Không tự chuyển status ở đây nữa. QĐ sẽ bấm "Xác nhận phân công" riêng.
-        // Cũng không notify riêng lẻ, submitAssignments sẽ batch notify.
-    }
-
-    // Admin trực tiếp gỡ Thợ khỏi Hạng Mục (Drag ra ngoài)
-    @Transactional
-    public void adminUnassignItem(Integer taskId, Integer assignedById) {
-        TaskAssignment assignment = taskAssignmentRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy phân công"));
-                
-        User assigner = userRepository.findById(assignedById)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!assigner.isQuanLy() && !assigner.isAdmin()) {
-            throw new RuntimeException("Chỉ Quản đốc/Admin mới có quyền gỡ phân công.");
-        }
-
-        // Guard: không cho gỡ phân công khi đơn đã submit (đang sửa chữa)
-        OrderItem item = assignment.getChiTietDonHang();
-        RepairOrder order = item.getDonHangSuaChua();
-        if (order.getTrangThai() == OrderStatus.DANG_SUA) {
-            throw new RuntimeException("Đơn hàng đã được xác nhận phân công và đang sửa chữa. Không thể thay đổi phân công.");
-        }
-
-        taskAssignmentRepository.delete(assignment);
-        
-        // Notify
-        asyncNotificationService.pushUniqueAsync(Notification.builder()
-                .userId(assignment.getTho().getId())
-                .role("THO_SUA_CHUA")
-                .title("Đã hủy một Hạng mục")
-                .content("Quản đốc đã rút bạn khỏi hạng mục: " + assignment.getChiTietDonHang().getHangHoa().getTenHang())
-                .type("WARNING")
-                .link("/mechanic/jobs")
-                .createdAt(java.time.LocalDateTime.now())
-                .isRead(false)
-                .build());
-    }
-
-    // 3. Unclaim Job (Secured)
-    @Transactional
-    public void unclaimJob(Integer orderId, Integer userId) {
-        RepairOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-
-        User user = userRepository.findById(userId).orElseThrow();
-
-        // Ownership Check: Only the assigned mechanic or Admin can unclaim
-        if (order.getThoPhanCong() != null && !order.getThoPhanCong().getId().equals(userId) && !user.isAdmin()) {
-            throw new RuntimeException("Bạn không có quyền hủy nhận việc trên đơn của người khác.");
-        }
-
-        OrderStatus oldStatus = order.getTrangThai();
-        order.setThoPhanCong(null);
-        order.setTrangThai(OrderStatus.DA_DUYET);
-        orderRepository.save(order);
-
-        // Bug 117 Fix: Add Audit Log
-        asyncAuditService.logAsync(AuditLog.builder()
-                .bang("DonHangSuaChua")
-                .banGhiId(orderId)
-                .hanhDong("UPDATE")
-                .duLieuCu(oldStatus.name())
-                .duLieuMoi(order.getTrangThai().name())
-                .lyDo("Thợ hủy nhận việc")
-                .nguoiThucHienId(userId)
-                .build());
-    }
-
-    // 4. Get Receptions for Inspection
-    @Transactional(readOnly = true)
-    public List<ReceptionInspectDTO> getReceptionsToInspect() {
-        // Optimized: Use dedicated query with JOIN FETCH instead of findAll().filter()
-        return orderRepository.findOrdersForInspection().stream()
-                .map(order -> {
-                    Reception r = order.getPhieuTiepNhan();
-                    return ReceptionInspectDTO.builder()
-                            .id(r.getId())
-                            .plate(r.getXe().getBienSo())
-                            .customerName(r.getXe().getKhachHang().getHoTen())
-                            .vehicleBrand(r.getXe().getNhanHieu())
-                            .vehicleModel(r.getXe().getModel())
-                            .request(r.getYeuCauSoBo())
-                            .imageUrl(r.getHinhAnh())
-                            .createdAt(r.getNgayGio())
-                            .proposedItemsCount(order.getChiTietDonHang().size())
-                            .orderId(order.getId())
-                            .build();
-                })
-                .toList();
-    }
-
-    // 4b. Get Repair History
-    @Transactional(readOnly = true)
-    public List<JobSummaryDTO> getRepairHistory(Integer userId) {
-        return orderRepository
-                .findRepairHistoryByMechanic(userId, org.springframework.data.domain.PageRequest.of(0, 50))
-                .stream()
-                .map(this::mapToJobSummary)
-                .toList();
-    }
-
-    // 5. Get Inspected History
-    @Transactional(readOnly = true)
-    public List<ReceptionInspectDTO> getInspectedHistory(Integer userId) {
-        // Use filtered query for Diagnostic Mechanic
-        return orderRepository
-                .findHistoryByDiagnosticMechanic(userId, org.springframework.data.domain.PageRequest.of(0, 50)).stream()
-                .map(order -> {
-                    Reception r = order.getPhieuTiepNhan();
-                    return ReceptionInspectDTO.builder()
-                            .id(r.getId())
-                            .plate(r.getXe().getBienSo())
-                            .customerName(r.getXe().getKhachHang().getHoTen())
-                            .vehicleBrand(r.getXe().getNhanHieu())
-                            .vehicleModel(r.getXe().getModel())
-                            .request(r.getYeuCauSoBo())
-                            .imageUrl(r.getHinhAnh())
-                            .createdAt(r.getNgayGio())
-                            .proposedItemsCount(order.getChiTietDonHang().size())
-                            .orderId(order.getId())
-                            .build();
-                })
-                .toList();
-    }
-
     @Transactional
     public void submitProposal(Integer receptionId, List<ProposalItemDTO> items, Integer userId) {
-        // Rule: Thợ có quyền gửi đề xuất trống để xác nhận xe không hỏng (Chẩn đoán
-        // xong)
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -440,323 +303,165 @@ public class MechanicService {
             throw new RuntimeException("Bạn không có quyền lập đề xuất sửa chữa.");
         }
 
-        RepairOrder order = orderRepository.findByPhieuTiepNhanId(receptionId)
+        RepairOrder order = repairOrderRepository.findByReceptionId(receptionId)
                 .orElseThrow(() -> new RuntimeException("Order not found for reception"));
 
-        // Bug 91 Guard: Only allow proposal in initial stages
-        if (!List.of(OrderStatus.TIEP_NHAN, OrderStatus.CHO_CHAN_DOAN).contains(order.getTrangThai())) {
+        if (!List.of(OrderStatus.RECEIVED, OrderStatus.WAITING_FOR_DIAGNOSIS).contains(order.getStatus())) {
             throw new RuntimeException("Đơn hàng đã qua giai đoạn lập đề xuất chẩn đoán.");
         }
 
-        // Assign/Verify Diagnostic Mechanic (Bug 10 Guard)
-        if (order.getThoChanDoan() != null && !order.getThoChanDoan().getId().equals(userId) && !user.isAdmin()) {
-            throw new RuntimeException("Xe này đã được tiếp nhận chẩn đoán bởi: " + order.getThoChanDoan().getHoTen());
+        if (order.getDiagnosticMechanic() != null && !order.getDiagnosticMechanic().getId().equals(userId) && !user.isAdmin()) {
+            throw new RuntimeException("Xe này đã được tiếp nhận chẩn đoán bởi: " + order.getDiagnosticMechanic().getFullName());
         }
-        order.setThoChanDoan(user);
+        order.setDiagnosticMechanic(user);
 
-        // Guard against duplicate items (e.g. Sale already added them)
-        List<Integer> existingProductIds = order.getChiTietDonHang().stream()
-                .filter(item -> !ItemStatus.KHACH_TU_CHOI.equals(item.getTrangThai()))
-                .map(item -> item.getHangHoa().getId())
+        List<Integer> existingProductIds = order.getOrderItems().stream()
+                .filter(item -> !ItemStatus.CUSTOMER_REJECTED.equals(item.getStatus()))
+                .map(item -> item.getProduct().getId())
                 .toList();
 
         for (ProposalItemDTO pItem : items) {
-            if (pItem.quantity() <= 0) {
+            if (pItem.getQuantity() == null || pItem.getQuantity() <= 0) {
                 throw new RuntimeException("Số lượng phải lớn hơn 0");
             }
             
-            if (existingProductIds.contains(pItem.productId())) {
-                throw new RuntimeException("Phụ tùng/Dịch vụ (ID: " + pItem.productId() + ") đã tồn tại trong đơn hàng. Vui lòng F5 trang hoặc kiểm tra lại để tránh đề xuất trùng lặp.");
+            if (existingProductIds.contains(pItem.getProductId())) {
+                throw new RuntimeException("Phụ tùng/Dịch vụ (ID: " + pItem.getProductId() + ") đã tồn tại. Vui lòng kiểm tra lại.");
             }
             
-            Product product = productRepository.findById(pItem.productId())
+            Product product = productRepository.findById(pItem.getProductId())
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
             OrderItem item = new OrderItem();
-            item.setDonHangSuaChua(order);
-            item.setHangHoa(product);
-            item.setSoLuong(pItem.quantity());
-            item.setDonGiaGoc(product.getGiaBanNiemYet());
-            item.setThanhTien(product.getGiaBanNiemYet().multiply(BigDecimal.valueOf(pItem.quantity())));
-            item.setTrangThai(ItemStatus.DE_XUAT);
-            item.setGiamGiaTien(BigDecimal.ZERO);
-            item.setGiamGiaPhanTram(BigDecimal.ZERO);
-            item.setNguoiDeXuat(user);
-            item.setGhiChu(pItem.note());
-            item.setLaPhatSinh(false);
-            item.setNgayDeXuat(java.time.LocalDateTime.now());
+            item.setRepairOrder(order);
+            item.setProduct(product);
+            item.setQuantity(pItem.getQuantity().intValue());
+            item.setUnitPrice(product.getRetailPrice());
+            item.setTotalAmount(product.getRetailPrice().multiply(BigDecimal.valueOf(pItem.getQuantity())));
+            item.setStatus(ItemStatus.PROPOSAL);
+            item.setSuggestedBy(user);
+            item.setNote(pItem.getNote());
+            item.setSuggestedAt(LocalDateTime.now());
 
             orderItemRepository.save(item);
         }
 
-        // Update order status to CHO_KH_DUYET
-        OrderStatus oldStatus = order.getTrangThai();
-        order.setTrangThai(OrderStatus.CHO_KH_DUYET);
-        orderRepository.save(order);
+        OrderStatus oldStatus = order.getStatus();
+        order.setStatus(OrderStatus.WAITING_FOR_CUSTOMER_APPROVAL);
+        repairOrderRepository.save(order);
 
-        // Bug 117 Fix: Audit status transition
         asyncAuditService.logAsync(AuditLog.builder()
-                .bang("DonHangSuaChua")
-                .banGhiId(order.getId())
-                .hanhDong("UPDATE")
-                .duLieuCu(oldStatus.name())
-                .duLieuMoi(order.getTrangThai().name())
-                .lyDo("Thợ hoàn tất chẩn đoán & gửi đề xuất")
-                .nguoiThucHienId(userId)
+                .tableName("RepairOrder")
+                .recordId(order.getId())
+                .action("UPDATE")
+                .oldData(oldStatus.name())
+                .newData(order.getStatus().name())
+                .reason("Thợ hoàn tất chẩn đoán & gửi đề xuất")
+                .userId(userId)
                 .build());
 
-        // Recalculate totals incrementally
-        BigDecimal deltaParts = items.stream()
-                .filter(p -> !productRepository.findById(p.productId()).orElseThrow().getLaDichVu())
-                .map(p -> productRepository.findById(p.productId()).orElseThrow().getGiaBanNiemYet().multiply(BigDecimal.valueOf(p.quantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        recalculateOrderTotals(order.getId(), items);
 
-        BigDecimal deltaLabor = items.stream()
-                .filter(p -> productRepository.findById(p.productId()).orElseThrow().getLaDichVu())
-                .map(p -> productRepository.findById(p.productId()).orElseThrow().getGiaBanNiemYet().multiply(BigDecimal.valueOf(p.quantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        if (deltaParts.compareTo(BigDecimal.ZERO) > 0) {
-            orderCalculationService.updateTotalsIncrementally(order.getId(), deltaParts, false);
-        }
-        if (deltaLabor.compareTo(BigDecimal.ZERO) > 0) {
-            orderCalculationService.updateTotalsIncrementally(order.getId(), deltaLabor, true);
-        }
-
-        // Notification
         asyncNotificationService.pushUniqueAsync(Notification.builder()
                 .role("SALE")
-                .title("Đề xuất mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
+                .title("Đề xuất mới: " + order.getReception().getVehicle().getLicensePlate())
                 .content("Thợ đã gửi đề xuất sửa chữa. Vui lòng báo giá cho khách.")
                 .type("INFO")
                 .link("/sale/orders/" + order.getId())
                 .createdAt(LocalDateTime.now())
                 .isRead(false)
                 .build());
+
+        timelineService.recordEvent(order.getReception().getId(), user, "MECHANIC_DIAGNOSIS",
+                "Kỹ thuật viên " + user.getFullName() + " đã hoàn thành chẩn đoán và đề xuất " + items.size() + " hạng mục sửa chữa.",
+                null, null, false);
     }
 
-    // 5b. Report Technical Issue (Mid-repair)
+    private void recalculateOrderTotals(Integer orderId, List<ProposalItemDTO> items) {
+        BigDecimal deltaParts = items.stream()
+                .map(p -> {
+                    Product pr = productRepository.findById(p.getProductId()).orElseThrow();
+                    return pr.getIsService() ? BigDecimal.ZERO : pr.getRetailPrice().multiply(BigDecimal.valueOf(p.getQuantity()));
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal deltaLabor = items.stream()
+                .map(p -> {
+                    Product pr = productRepository.findById(p.getProductId()).orElseThrow();
+                    return pr.getIsService() ? pr.getRetailPrice().multiply(BigDecimal.valueOf(p.getQuantity())) : BigDecimal.ZERO;
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (deltaParts.compareTo(BigDecimal.ZERO) > 0) {
+            orderCalculationService.updateTotalsIncrementally(orderId, deltaParts, false);
+        }
+        if (deltaLabor.compareTo(BigDecimal.ZERO) > 0) {
+            orderCalculationService.updateTotalsIncrementally(orderId, deltaLabor, true);
+        }
+    }
+
     @Transactional
     public void reportTechnicalIssue(Integer orderId, List<ProposalItemDTO> items, Integer userId) {
-        RepairOrder order = orderRepository.findById(orderId)
+        RepairOrder order = repairOrderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        // Bug 92 Guard: Only allow technical issues during active repair/diag
-        if (!List.of(OrderStatus.DANG_SUA, OrderStatus.DA_DUYET, OrderStatus.CHO_CHAN_DOAN).contains(order.getTrangThai())) {
+        if (!List.of(OrderStatus.IN_PROGRESS, OrderStatus.APPROVED, OrderStatus.WAITING_FOR_DIAGNOSIS).contains(order.getStatus())) {
             throw new RuntimeException("Không thể báo phát sinh kỹ thuật trong trạng thái hiện tại.");
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+        User user = userRepository.findById(userId).orElseThrow();
         if (!user.hasPermission("COMPLETE_REPAIR_JOB") && !user.isAdmin()) {
             throw new RuntimeException("Bạn không có quyền báo phát sinh kỹ thuật.");
         }
 
-        if (order.getThoPhanCong() != null && !order.getThoPhanCong().getId().equals(userId)
-                && !user.isAdmin()) {
-            throw new RuntimeException("Bạn không được gán cho lệnh này.");
-        }
-
-        List<Integer> existingProductIds = order.getChiTietDonHang().stream()
-                .filter(item -> !ItemStatus.KHACH_TU_CHOI.equals(item.getTrangThai()))
-                .map(item -> item.getHangHoa().getId())
-                .toList();
-
         for (ProposalItemDTO pItem : items) {
-            if (pItem.quantity() <= 0) {
-                throw new RuntimeException("Số lượng phải lớn hơn 0");
-            }
-
-            if (existingProductIds.contains(pItem.productId())) {
-                throw new RuntimeException("Phụ tùng/Dịch vụ (ID: " + pItem.productId() + ") đã tồn tại trong đơn hàng. Vui lòng kiểm tra lại để tránh báo phát sinh trùng lặp.");
-            }
-
-            Product product = productRepository.findById(pItem.productId())
-                    .orElseThrow(() -> new RuntimeException("Product not found"));
-
+            Product product = productRepository.findById(pItem.getProductId()).orElseThrow();
             OrderItem item = new OrderItem();
-            item.setDonHangSuaChua(order);
-            item.setHangHoa(product);
-            item.setSoLuong(pItem.quantity());
-            item.setDonGiaGoc(product.getGiaBanNiemYet());
-            item.setThanhTien(product.getGiaBanNiemYet().multiply(BigDecimal.valueOf(pItem.quantity())));
-            boolean isManager = user.isQuanLy() || user.isAdmin();
-            item.setTrangThai(isManager ? ItemStatus.DE_XUAT : ItemStatus.CHO_KY_THUAT_DUYET);
-            item.setGiamGiaTien(BigDecimal.ZERO);
-            item.setGiamGiaPhanTram(BigDecimal.ZERO);
-            item.setNguoiDeXuat(user);
-            item.setGhiChu(pItem.note());
-            item.setLaPhatSinh(true);
-            item.setNgayDeXuat(java.time.LocalDateTime.now());
-
+            item.setRepairOrder(order);
+            item.setProduct(product);
+            item.setQuantity(pItem.getQuantity().intValue());
+            item.setUnitPrice(product.getRetailPrice());
+            item.setTotalAmount(product.getRetailPrice().multiply(BigDecimal.valueOf(pItem.getQuantity())));
+            item.setStatus(user.isManager() || user.isAdmin() ? ItemStatus.PROPOSAL : ItemStatus.WAITING_FOR_MANAGER_APPROVAL);
+            item.setSuggestedBy(user);
+            item.setNote(pItem.getNote());
+            item.setSuggestedAt(LocalDateTime.now());
             orderItemRepository.save(item);
         }
 
-        // Recalculate totals incrementally
-        BigDecimal deltaParts = items.stream()
-                .filter(p -> !productRepository.findById(p.productId()).orElseThrow().getLaDichVu())
-                .map(p -> productRepository.findById(p.productId()).orElseThrow().getGiaBanNiemYet().multiply(BigDecimal.valueOf(p.quantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal deltaLabor = items.stream()
-                .filter(p -> productRepository.findById(p.productId()).orElseThrow().getLaDichVu())
-                .map(p -> productRepository.findById(p.productId()).orElseThrow().getGiaBanNiemYet().multiply(BigDecimal.valueOf(p.quantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // NOTE: Even CHO_KY_THUAT_DUYET items should be included in "potentials", 
-        // and if it's DE_XUAT it definitely affects subtotal calculation if frontend filters that way.
+        recalculateOrderTotals(orderId, items);
         
-        if (deltaParts.compareTo(BigDecimal.ZERO) > 0) {
-            orderCalculationService.updateTotalsIncrementally(order.getId(), deltaParts, false);
-        }
-        if (deltaLabor.compareTo(BigDecimal.ZERO) > 0) {
-            orderCalculationService.updateTotalsIncrementally(order.getId(), deltaLabor, true);
-        }
-        
-        orderRepository.save(order);
-
-        // Audit log
-        boolean isManager = user.isQuanLy() || user.isAdmin();
         asyncAuditService.logAsync(AuditLog.builder()
-                .bang("DonHangSuaChua")
-                .banGhiId(order.getId())
-                .hanhDong("UPDATE")
-                .duLieuCu(order.getTrangThai().name())
-                .duLieuMoi(order.getTrangThai().name())
-                .lyDo(isManager ? "Quản đốc đề xuất hạng mục mới" : "Thợ báo phát sinh kỹ thuật mới - Chờ Quản đốc duyệt")
-                .nguoiThucHienId(userId)
+                .tableName("RepairOrder")
+                .recordId(order.getId())
+                .action("UPDATE")
+                .reason(user.isManager() || user.isAdmin() ? "Quản đốc đề xuất mới" : "Thợ báo phát sinh kỹ thuật mới")
+                .userId(userId)
                 .build());
 
-        if (isManager) {
-            // Notify Sale immediately
-            asyncNotificationService.pushUniqueAsync(Notification.builder()
-                    .role("SALE")
-                    .title("Đề xuất mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
-                    .content("Quản đốc " + user.getHoTen() + " vừa bổ sung hạng mục mới. Vui lòng báo giá cho khách.")
-                    .type("INFO")
-                    .link("/sale/orders/" + order.getId())
-                    .createdAt(LocalDateTime.now())
-                    .isRead(false)
-                    .build());
-        } else {
-            // Notify Workshop Manager (Quản đốc)
-            asyncNotificationService.pushUniqueAsync(Notification.builder()
-                    .role("QUAN_LY_XUONG")
-                    .title("Phát sinh kỹ thuật mới: " + order.getPhieuTiepNhan().getXe().getBienSo())
-                    .content("Thợ " + user.getHoTen() + " báo phát sinh phụ tùng/dịch vụ mới. Vui lòng kiểm tra và duyệt kỹ thuật.")
-                    .type("WARNING")
-                    .link("/admin/technical-review")
-                    .createdAt(LocalDateTime.now())
-                    .isRead(false)
-                    .build());
-        }
+        String eventMsg = (user.isManager() || user.isAdmin()) 
+            ? "Quản đốc " + user.getFullName() + " đã trực tiếp đề xuất " + items.size() + " hạng mục sửa chữa bổ sung."
+            : "Kỹ thuật viên " + user.getFullName() + " đã báo phát sinh kỹ thuật với " + items.size() + " hạng mục mới.";
+
+        timelineService.recordEvent(order.getReception().getId(), user, "TECHNICAL_ISSUE",
+                eventMsg, null, null, false);
     }
 
-    // Manager confirms technical items to move them to Sale for pricing
-    @Transactional
-    public void confirmTechnicalIssue(Integer orderId, List<Integer> itemIds, Integer managerId) {
-        RepairOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-        User manager = userRepository.findById(managerId)
-                .orElseThrow(() -> new RuntimeException("Manager not found"));
-
-        if (!manager.isQuanLy() && !manager.isAdmin()) {
-            throw new RuntimeException("Chỉ Quản lý xưởng mới có quyền duyệt kỹ thuật.");
-        }
-
-        List<OrderItem> items = orderItemRepository.findAllById(itemIds);
-        for (OrderItem item : items) {
-            if (!item.getDonHangSuaChua().getId().equals(orderId)) {
-                throw new RuntimeException("Item " + item.getId() + " does not belong to order " + orderId);
-            }
-            if (ItemStatus.CHO_KY_THUAT_DUYET.equals(item.getTrangThai())) {
-                item.setTrangThai(ItemStatus.DE_XUAT);
-                orderItemRepository.save(item);
-            }
-        }
-
-        // Notify Sale about development
-        asyncNotificationService.pushUniqueAsync(Notification.builder()
-                .role("SALE")
-                .title("Đề xuất đã duyệt kỹ thuật: " + order.getPhieuTiepNhan().getXe().getBienSo())
-                .content("Quản đốc đã duyệt kỹ thuật các hạng mục phát sinh. Vui lòng báo giá cho khách.")
-                .type("INFO")
-                .link("/sale/orders/" + order.getId())
-                .createdAt(LocalDateTime.now())
-                .isRead(false)
-                .build());
-
-        asyncAuditService.logAsync(AuditLog.builder()
-                .bang("DonHangSuaChua")
-                .banGhiId(order.getId())
-                .hanhDong("UPDATE")
-                .lyDo("Quản lý xưởng duyệt kỹ thuật các hạng mục phát sinh")
-                .nguoiThucHienId(managerId)
-                .build());
-    }
-
-    // Fetch all orders that have items waiting for technical approval
-    @Transactional(readOnly = true)
-    public List<OrderDetailDTO> getOrdersForTechnicalReview() {
-        // Find all items in CHO_KY_THUAT_DUYET
-        List<OrderItem> waitingItems = orderItemRepository.findByTrangThai(ItemStatus.CHO_KY_THUAT_DUYET);
-        
-        // Group by order and map to Detail DTOs
-        return waitingItems.stream()
-                .map(OrderItem::getDonHangSuaChua)
-                .distinct()
-                .map(order -> {
-                    // Reuse existing mapping logic or a simplified version
-                    // For now, let's use a simplified version to avoid huge DTOs if not needed
-                    // but usually the review page needs enough info to decide
-                    return mapToOrderDetailDTO(order);
-                })
-                .toList();
-    }
-
-    private OrderDetailDTO mapToOrderDetailDTO(RepairOrder order) {
-        // Implementation of mapping (simplified for this context)
-        return OrderDetailDTO.builder()
-                .id(order.getId())
-                .status(order.getTrangThai().name())
-                .plateNumber(order.getPhieuTiepNhan().getXe().getBienSo())
-                .carBrand(order.getPhieuTiepNhan().getXe().getNhanHieu())
-                .carModel(order.getPhieuTiepNhan().getXe().getModel())
-                .createdAt(order.getNgayTao())
-                .customerName(order.getPhieuTiepNhan().getXe().getKhachHang().getHoTen())
-                .items(order.getChiTietDonHang().stream()
-                        .map(i -> OrderItemDTO.builder()
-                                .id(i.getId())
-                                .productName(i.getHangHoa().getTenHang())
-                                .quantity(i.getSoLuong())
-                                .itemStatus(i.getTrangThai().name())
-                                .proposedByName(i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getHoTen() : null)
-                                .build())
-                        .toList())
-                .build();
-    }
-
-    // 6. Complete Job -> Send to QC
     @Transactional
     public void completeJob(Integer orderId) {
-        RepairOrder order = orderRepository.findById(orderId)
+        RepairOrder order = repairOrderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
-
-        if (!OrderStatus.DANG_SUA.equals(order.getTrangThai())) {
-            throw new RuntimeException("Job must be in progress to complete.");
+        if (!OrderStatus.IN_PROGRESS.equals(order.getStatus())) {
+            throw new RuntimeException("Công việc phải ở trạng thái đang sửa mới có thể hoàn thành.");
         }
+        order.setStatus(OrderStatus.WAITING_FOR_QC);
+        repairOrderRepository.save(order);
 
-        // Transition to QC
-        order.setTrangThai(OrderStatus.CHO_KCS);
-        orderRepository.save(order);
-
-        // Notify Workshop Manager (Quản đốc)
-        if (order.getThoChanDoan() != null) {
+        if (order.getDiagnosticMechanic() != null) {
             asyncNotificationService.pushUniqueAsync(Notification.builder()
-                    .userId(order.getThoChanDoan().getId())
+                    .userId(order.getDiagnosticMechanic().getId())
                     .role("QUAN_LY_XUONG")
-                    .title("Yêu cầu nghiệm thu: " + order.getPhieuTiepNhan().getXe().getBienSo())
+                    .title("Yêu cầu nghiệm thu: " + order.getReception().getVehicle().getLicensePlate())
                     .content("Thợ sửa chữa đã hoàn thành. Vui lòng kiểm tra xe.")
                     .type("INFO")
                     .link("/mechanic/jobs/" + orderId)
@@ -766,525 +471,341 @@ public class MechanicService {
         }
     }
 
-    // 6b. QC Pass
     @Transactional
     public void qcPass(Integer orderId, Integer userId) {
-        RepairOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!OrderStatus.CHO_KCS.equals(order.getTrangThai())) {
-            throw new RuntimeException("Order is not waiting for QC.");
+        RepairOrder order = repairOrderRepository.findById(orderId).orElseThrow();
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        
+        if (!OrderStatus.WAITING_FOR_QC.equals(order.getStatus())) {
+            throw new RuntimeException("Đơn hàng không ở trạng thái chờ KCS.");
         }
+        order.setStatus(OrderStatus.WAITING_FOR_PAYMENT);
+        repairOrderRepository.save(order);
 
-        // Permission: User has APPROVE_QC and is assigned, or Admin
-        boolean hasPermission = user.hasPermission("APPROVE_QC");
-        boolean isOwner = order.getThoChanDoan() != null && order.getThoChanDoan().getId().equals(userId);
-        boolean isAdmin = user.isAdmin();
+        warehouseService.exportOrder(orderId, order.getAssignedMechanic() != null ? order.getAssignedMechanic().getId() : userId);
 
-        if ((!hasPermission || !isOwner) && !isAdmin) {
-            throw new RuntimeException("Chỉ kỹ thuật viên phụ trách nghiệm thu hoặc Admin mới được duyệt QC.");
-        }
-
-        order.setTrangThai(OrderStatus.CHO_THANH_TOAN);
-        orderRepository.save(order);
-
-        // Bug 93: Export all approved items to Warehouse
-        warehouseService.exportOrder(orderId,
-                order.getThoPhanCong() != null ? order.getThoPhanCong().getId() : userId);
-
-        // Notify Sale
         asyncNotificationService.pushUniqueAsync(Notification.builder()
                 .role("SALE")
-                .title("Sửa chữa hoàn tất: " + order.getPhieuTiepNhan().getXe().getBienSo())
-                .content("Xe đã qua kiểm tra chất lượng (QC). Vui lòng thu tiền.")
+                .title("Sửa chữa hoàn tất: " + order.getReception().getVehicle().getLicensePlate())
+                .content("Xe đã qua KCS và sẵn sàng thanh toán.")
                 .type("SUCCESS")
                 .link("/sale/orders/" + orderId)
                 .createdAt(LocalDateTime.now())
                 .isRead(false)
                 .build());
 
-        // Notify Customer
-        Customer customer = order.getPhieuTiepNhan().getXe().getKhachHang();
-        if (customer.getUserId() != null) {
-            asyncNotificationService.pushUniqueAsync(Notification.builder()
-                    .userId(customer.getUserId())
-                    .role("CUSTOMER")
-                    .title("Xe đã sửa xong: " + order.getPhieuTiepNhan().getXe().getBienSo())
-                    .content("Xe của bạn đã hoàn thành sửa chữa. Vui lòng đến nhận xe và thanh toán.")
-                    .type("SUCCESS")
-                    .link("/customer/orders/" + orderId)
-                    .createdAt(LocalDateTime.now())
-                    .isRead(false)
-                    .build());
-        }
+        timelineService.recordEvent(order.getReception().getId(), user, "QC_PASS",
+                "Nghiệm thu chất lượng (KCS) ĐẠT. Xe đã chuyển sang trạng thái chờ thanh toán.",
+                null, null, false);
     }
 
-    // 6c. QC Fail
     @Transactional
     public void qcFail(Integer orderId, Integer userId) {
-        RepairOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!OrderStatus.CHO_KCS.equals(order.getTrangThai())) {
-            throw new RuntimeException("Order is not waiting for QC.");
-        }
-
-        // Permission: User has REJECT_QC and is assigned, or Admin
-        boolean hasPermission = user.hasPermission("REJECT_QC");
-        boolean isOwner = order.getThoChanDoan() != null && order.getThoChanDoan().getId().equals(userId);
-        boolean isAdmin = user.isAdmin();
-
-        if ((!hasPermission || !isOwner) && !isAdmin) {
-            throw new RuntimeException("Chỉ kỹ thuật viên phụ trách nghiệm thu hoặc Admin mới được từ chối QC.");
-        }
-
-        order.setTrangThai(OrderStatus.DANG_SUA);
-        orderRepository.save(order);
-
-        // Notify Repair Lead
-        if (order.getThoPhanCong() != null) {
-            asyncNotificationService.pushUniqueAsync(Notification.builder()
-                    .userId(order.getThoPhanCong().getId())
-                    .role("THO_SUA_CHUA")
-                    .title("QC Từ chối: " + order.getPhieuTiepNhan().getXe().getBienSo())
-                    .content("Xe chưa đạt kiểm tra chất lượng. Vui lòng kiểm tra lại.")
-                    .type("WARNING")
-                    .link("/mechanic/jobs/" + orderId)
-                    .createdAt(LocalDateTime.now())
-                    .isRead(false)
-                    .build());
-        }
+        qcFail(orderId, userId, "KCS không đạt yêu cầu");
     }
 
-    private String getProposedByRole(User user) {
-        if (user == null) return "AI";
-        if (user.getRoles().stream().anyMatch(r -> "SALE".equals(r.getName()))) return "SALE";
-        if (user.getRoles().stream().anyMatch(r -> "QUAN_LY_XUONG".equals(r.getName()))) return "MANAGER";
-        if (user.getRoles().stream().anyMatch(r -> "THO_SUA_CHUA".equals(r.getName()))) return "TECHNICIAN";
-        if (user.isAdmin()) return "ADMIN";
-        return "UNKNOWN";
-    }
-
-    private JobSummaryDTO mapToJobSummary(RepairOrder o) {
-        long completed = o.getChiTietDonHang().stream()
-                .filter(i -> ItemStatus.HOAN_THANH.equals(i.getTrangThai()))
-                .count();
-        String fullPhone = "N/A";
-        try {
-            fullPhone = o.getPhieuTiepNhan().getXe().getKhachHang().getSoDienThoai();
-        } catch (Exception ignored) {
-        }
-        String phone = maskPhone(fullPhone);
-
-        return JobSummaryDTO.builder()
-                .id(o.getId())
-                .plate(o.getPhieuTiepNhan().getXe().getBienSo())
-                .customerName(o.getPhieuTiepNhan().getXe().getKhachHang().getHoTen())
-                .customerPhone(phone)
-                .vehicleBrand(o.getPhieuTiepNhan().getXe().getNhanHieu())
-                .vehicleModel(o.getPhieuTiepNhan().getXe().getModel())
-                .imageUrl(o.getPhieuTiepNhan().getHinhAnh())
-                .createdAt(o.getNgayTao())
-                .totalItems(o.getChiTietDonHang().size())
-                .completedItems((int) completed)
-                .status(o.getTrangThai() != null ? o.getTrangThai().name() : null)
-                .claimedById(o.getThoPhanCong() != null ? o.getThoPhanCong().getId() : null)
-                .claimedByName(o.getThoPhanCong() != null ? o.getThoPhanCong().getHoTen() : null)
-                .build();
-    }
-
-    // 7d. Update Task Distribution
     @Transactional
-    public void updateTaskDistribution(Integer itemId, Map<Integer, BigDecimal> distribution, Integer leadId) {
-        OrderItem item = orderItemRepository.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("Item not found"));
+    public void qcFail(Integer orderId, Integer userId, String notes) {
+        RepairOrder order = repairOrderRepository.findById(orderId).orElseThrow();
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        
+        order.setStatus(OrderStatus.IN_PROGRESS);
+        // Assuming repairOrder can store QC notes in the description or a new field.
+        // If the field doesn't exist, we skip or use a generic field.
+        repairOrderRepository.save(order);
+        
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
+                .userId(order.getAssignedMechanic() != null ? order.getAssignedMechanic().getId() : null)
+                .title("KCS thất bại: " + order.getReception().getVehicle().getLicensePlate())
+                .content("Xe không đạt nghiệm thu. Lý do: " + notes)
+                .type("WARNING")
+                .link("/mechanic/jobs/" + orderId)
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
+                .build());
 
-        // Permission check: Lead or Admin
-        RepairOrder order = item.getDonHangSuaChua();
-        User lead = order.getThoPhanCong();
-        if (lead == null || !lead.getId().equals(leadId)) {
-            User user = userRepository.findById(leadId).orElseThrow();
-            if (!user.isAdmin()) {
-                throw new RuntimeException("Only Order Lead or Admin can distribute tasks.");
-            }
-        }
-
-        List<TaskAssignment> assignments = taskAssignmentRepository.findByChiTietDonHangId(itemId);
-
-        // Apply updates in memory first
-        for (TaskAssignment ta : assignments) {
-            if (distribution.containsKey(ta.getTho().getId())) {
-                ta.setPhanTramCong(distribution.get(ta.getTho().getId()));
-            }
-        }
-
-        // Validate Total 100% of ALL assignments
-        BigDecimal total = assignments.stream()
-                .map(TaskAssignment::getPhanTramCong)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        if (total.compareTo(new BigDecimal("100")) != 0) {
-            throw new RuntimeException("Tổng phần trăm công việc phải là 100%. Hiện tại: " + total + "%");
-        }
-
-        // Save all
-        taskAssignmentRepository.saveAll(assignments);
+        timelineService.recordEvent(order.getReception().getId(), user, "QC_FAIL",
+                "Nghiệm thu chất lượng (KCS) KHÔNG ĐẠT. Lý do: " + notes + ". Xe được chuyển lại khu vực kỹ thuật.",
+                null, null, false);
     }
 
-    // 7a. Toggle Item Completion (Secured)
+    // New missing methods requested by Controller or logic
+    @Transactional(readOnly = true)
+    public List<JobSummaryDTO> getRepairHistory(Integer userId) {
+        return repairOrderRepository.findAllByAssignedMechanicIdAndStatusIn(userId, List.of(OrderStatus.COMPLETED, OrderStatus.CLOSED)).stream()
+                .map(this::mapToJobSummary)
+                .toList();
+    }
+
+    @Transactional
+    public void assignJob(Integer orderId, Integer mechanicId, Integer userId) {
+        RepairOrder order = repairOrderRepository.findById(orderId).orElseThrow();
+        User mechanic = userRepository.findById(mechanicId).orElseThrow();
+        order.setAssignedMechanic(mechanic);
+        repairOrderRepository.save(order);
+    }
+
+    @Transactional
+    public void adminAssignItem(Integer itemId, Integer mechanicId, Integer userId) {
+        OrderItem item = orderItemRepository.findById(itemId).orElseThrow();
+        User mechanic = userRepository.findById(mechanicId).orElseThrow();
+        
+        TaskAssignment assignment = TaskAssignment.builder()
+                .orderItem(item)
+                .mechanic(mechanic)
+                .laborPercentage(BigDecimal.valueOf(100))
+                .isMainMechanic(true)
+                .status("APPROVED")
+                .build();
+        taskAssignmentRepository.save(assignment);
+    }
+
+    @Transactional
+    public void adminUnassignItem(Integer itemId, Integer userId) {
+        taskAssignmentRepository.deleteByOrderItemId(itemId);
+    }
+
     @Transactional
     public void toggleItemCompletion(Integer itemId, Integer userId) {
-        OrderItem item = orderItemRepository.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("Item not found"));
-
-        // Security: Check Task Ownership
-        List<TaskAssignment> assignments = taskAssignmentRepository.findByChiTietDonHangId(itemId);
-        boolean isAssigned = assignments.stream()
-                .anyMatch(ta -> ta.getTho().getId().equals(userId) && "APPROVED".equals(ta.getTrangThai()));
-
-        // Fallback: Order Lead/Admin also allowed?
-        RepairOrder order = item.getDonHangSuaChua();
-        boolean isOrderLead = order.getThoPhanCong() != null && order.getThoPhanCong().getId().equals(userId);
-        User user = userRepository.findById(userId).orElseThrow();
-        boolean isAdmin = user.isAdmin();
-
-        if (!isAssigned && !isOrderLead && !isAdmin) {
-            throw new RuntimeException("You are not assigned to this task.");
-        }
-
-        if (ItemStatus.HOAN_THANH.equals(item.getTrangThai())) {
-            item.setTrangThai(ItemStatus.DANG_SUA);
-            item.setNguoiThucHien(null);
+        OrderItem item = orderItemRepository.findById(itemId).orElseThrow();
+        if (ItemStatus.COMPLETED.equals(item.getStatus())) {
+            item.setStatus(ItemStatus.IN_PROGRESS);
         } else {
-            // Only allow toggling if it's approved or in progress
-            if (ItemStatus.KHACH_DONG_Y.equals(item.getTrangThai())
-                    || ItemStatus.DANG_SUA.equals(item.getTrangThai())) {
-                item.setTrangThai(ItemStatus.HOAN_THANH);
-                User completedBy = userRepository.findById(userId)
-                        .orElseThrow(() -> new RuntimeException("User not found"));
-                item.setNguoiThucHien(completedBy);
-            }
+            item.setStatus(ItemStatus.COMPLETED);
         }
         orderItemRepository.save(item);
     }
 
-    // 7b. Request Join Task (Party Mode)
-    @Transactional
-    public void requestJoinTask(Integer itemId, Integer userId) {
-        OrderItem item = orderItemRepository.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("Item not found"));
-
-        User mechanic = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!ItemStatus.KHACH_DONG_Y.equals(item.getTrangThai()) && !ItemStatus.DANG_SUA.equals(item.getTrangThai())) {
-            throw new RuntimeException("Item is not available for work.");
-        }
-
-        List<TaskAssignment> currentAssignments = taskAssignmentRepository.findByChiTietDonHangId(itemId);
-        boolean alreadyAssigned = currentAssignments.stream()
-                .anyMatch(ta -> ta.getTho().getId().equals(userId));
-
-        if (alreadyAssigned) {
-            throw new RuntimeException("You are already assigned or have a pending request for this task.");
-        }
-
-        // Check slots (max mechanics set by lead)
-        int maxMechanics = item.getSoLuongThoToiDa() != null ? item.getSoLuongThoToiDa() : 4;
-        long activeCount = currentAssignments.stream().filter(ta -> "APPROVED".equals(ta.getTrangThai())).count();
-        if (activeCount >= maxMechanics) {
-            throw new RuntimeException("Task is full (Max " + maxMechanics + " active mechanics).");
-        }
-
-        // Anti-spam: Max 10 total requests per item
-        if (currentAssignments.size() >= 10) {
-            throw new RuntimeException("Too many pending requests.");
-        }
-
-        // Auto-approve if Lead or Admin
-        RepairOrder order = item.getDonHangSuaChua();
-        boolean isLead = order.getThoPhanCong() != null && userId.equals(order.getThoPhanCong().getId());
-        boolean isAdmin = mechanic.isAdmin();
-
-        String status = (isLead || isAdmin) ? "APPROVED" : "PENDING";
-
-        TaskAssignment assignment = TaskAssignment.builder()
-                .chiTietDonHang(item)
-                .tho(mechanic)
-                .trangThai(status)
-                .laThoChinh(isLead) // Lead is the main tech by default
-                .phanTramCong(isLead ? new java.math.BigDecimal(100) : new java.math.BigDecimal(0))
-                .build();
-        taskAssignmentRepository.save(assignment);
-
-        // Notify Lead if it's a PENDING request from someone else
-        if ("PENDING".equals(status)) {
-            User lead = order.getThoPhanCong();
-            if (lead != null && !lead.getId().equals(userId)) {
-                asyncNotificationService.pushUniqueAsync(Notification.builder()
-                        .userId(lead.getId())
-                        .role("THO_SUA_CHUA")
-                        .title("Yêu cầu tham gia: " + mechanic.getHoTen())
-                        .content(mechanic.getHoTen() + " muốn tham gia vào hạng mục: " + item.getHangHoa().getTenHang())
-                        .type("INFO")
-                        .link("/mechanic/jobs/" + item.getDonHangSuaChua().getId())
-                        .createdAt(LocalDateTime.now())
-                        .isRead(false)
-                        .build());
-            }
-        }
-    }
-
-    @Transactional
-    public void updateItemMaxMechanics(Integer itemId, Integer maxMechanics, Integer userId) {
-        OrderItem item = orderItemRepository.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("Item not found"));
-
-        RepairOrder order = item.getDonHangSuaChua();
-        User lead = order.getThoPhanCong();
-
-        boolean isLead = lead != null && lead.getId().equals(userId);
-        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
-        boolean isAdmin = user.isAdmin();
-
-        if (!isLead && !isAdmin) {
-            throw new RuntimeException("Only the Lead Mechanic or Admin can set the maximum number of mechanics.");
-        }
-
-        if (maxMechanics < 1)
-            maxMechanics = 1;
-        if (maxMechanics > 10)
-            maxMechanics = 10; // Cap at 10 to prevents abuse
-
-        item.setSoLuongThoToiDa(maxMechanics);
-        orderItemRepository.save(item);
-    }
-
-    // 7c. Approve Join Task
-    @Transactional
-    public void approveJoinTask(Integer assignmentId, Integer approverId) {
-        TaskAssignment assignment = taskAssignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new RuntimeException("Assignment request not found"));
-
-        User approver = userRepository.findById(approverId)
-                .orElseThrow(() -> new RuntimeException("Approver not found"));
-
-        // Check permission: Approver must be Order Lead or Admin
-        RepairOrder order = assignment.getChiTietDonHang().getDonHangSuaChua();
-        boolean isLead = order.getThoPhanCong() != null && order.getThoPhanCong().getId().equals(approverId);
-        boolean isAdmin = approver.isAdmin();
-
-        if (!isLead && !isAdmin) {
-            throw new RuntimeException("Only Order Lead or Admin can approve requests.");
-        }
-
-        if ("APPROVED".equals(assignment.getTrangThai())) {
-            throw new RuntimeException("Already approved.");
-        }
-
-        assignment.setTrangThai("APPROVED");
-        taskAssignmentRepository.save(assignment);
-    }
-
-    // 8. Get Dashboard Stats - Optimized with COUNT queries
     @Transactional(readOnly = true)
-    public java.util.Map<String, Object> getDashboardStats() {
-        // Use COUNT queries instead of fetching all records (O(1) vs O(n))
-        long inProgress = orderRepository.countByTrangThai(OrderStatus.DANG_SUA);
-        long completed = orderRepository.countByTrangThai(OrderStatus.CHO_THANH_TOAN);
-
-        return java.util.Map.of(
-                "inProgressJobs", inProgress,
-                "completedToday", completed);
+    public Map<String, Object> getDashboardStats() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("activeJobs", repairOrderRepository.countByStatusIn(List.of(OrderStatus.IN_PROGRESS, OrderStatus.WAITING_FOR_DIAGNOSIS)));
+        stats.put("waitingQC", repairOrderRepository.countByStatus(OrderStatus.WAITING_FOR_QC));
+        stats.put("completedToday", repairOrderRepository.countByStatusAndUpdatedAtAfter(OrderStatus.COMPLETED, LocalDateTime.now().withHour(0).withMinute(0)));
+        return stats;
     }
 
-    // 9. Get Job Details (For Worker View) - Optimized with batch loading
     @Transactional(readOnly = true)
-    public Map<String, Object> getJobDetails(Integer orderId) {
-        RepairOrder order = orderRepository.findByIdWithFullDetails(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+    public JobSummaryDTO getJobDetails(Integer orderId) {
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng."));
 
-        // Filter approved items first
-        List<OrderItem> filteredItems = order.getChiTietDonHang().stream()
-                .filter(i -> ItemStatus.KHACH_DONG_Y.equals(i.getTrangThai())
-                        || ItemStatus.DANG_SUA.equals(i.getTrangThai())
-                        || ItemStatus.HOAN_THANH.equals(i.getTrangThai()))
+        List<OrderItemDTO> items = order.getOrderItems().stream()
+                .map(this::mapToOrderItemDTO)
                 .toList();
 
-        // Batch load ALL task assignments in ONE query (O(1) instead of O(n))
-        List<Integer> itemIds = filteredItems.stream().map(OrderItem::getId).toList();
-        List<TaskAssignment> allAssignments = itemIds.isEmpty() ? new ArrayList<>()
-                : taskAssignmentRepository.findByChiTietDonHangIdIn(itemIds);
-
-        // Group assignments by item ID for O(1) lookup
-        Map<Integer, List<TaskAssignment>> assignmentsByItem = allAssignments.stream()
-                .collect(Collectors.groupingBy(ta -> ta.getChiTietDonHang().getId()));
-
-        // Map items with pre-loaded assignments
-        List<Map<String, Object>> items = filteredItems.stream()
-                .map(i -> {
-                    Map<String, Object> m = new java.util.HashMap<>();
-                    m.put("id", i.getId());
-                    m.put("productCode", i.getHangHoa().getMaHang());
-                    m.put("productName", i.getHangHoa().getTenHang());
-                    m.put("isService", i.getHangHoa().getLaDichVu());
-                    m.put("quantity", i.getSoLuong());
-                    m.put("isCompleted", ItemStatus.HOAN_THANH.equals(i.getTrangThai()));
-                    m.put("completedById", i.getNguoiThucHien() != null ? i.getNguoiThucHien().getId() : null);
-                    m.put("completedByName", i.getNguoiThucHien() != null ? i.getNguoiThucHien().getHoTen() : null);
-                    m.put("maxMechanics", i.getSoLuongThoToiDa() != null ? i.getSoLuongThoToiDa() : 4);
-                    m.put("proposedById", i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getId() : null);
-                    m.put("proposedByName", i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getHoTen() : "N/A");
-                    m.put("proposedByRole", getProposedByRole(i.getNguoiDeXuat()));
-                    m.put("isTechnicalAddition", i.getLaPhatSinh());
-                    m.put("proposedAt", i.getNgayDeXuat());
-
-                    // Use pre-loaded assignments (O(1) lookup)
-                    List<TaskAssignment> assignments = assignmentsByItem.getOrDefault(i.getId(), new ArrayList<>());
-                    List<Map<String, Object>> assignmentList = assignments.stream().map(ta -> {
-                        Map<String, Object> am = new java.util.HashMap<>();
-                        am.put("id", ta.getId());
-                        am.put("mechanicId", ta.getTho().getId());
-                        am.put("mechanicName", ta.getTho().getHoTen());
-                        am.put("percentage", ta.getPhanTramCong());
-                        am.put("isMain", ta.getLaThoChinh());
-                        am.put("status", ta.getTrangThai());
-                        return am;
-                    }).toList();
-                    m.put("assignments", assignmentList);
-
-                    return m;
-                }).toList();
-
-        Map<String, Object> result = new java.util.HashMap<>();
-        result.put("id", order.getId());
-        result.put("plate", order.getPhieuTiepNhan().getXe().getBienSo());
-        result.put("customerName", order.getPhieuTiepNhan().getXe().getKhachHang().getHoTen());
-        result.put("customerPhone", maskPhone(order.getPhieuTiepNhan().getXe().getKhachHang().getSoDienThoai()));
-        result.put("vehicleBrand", order.getPhieuTiepNhan().getXe().getNhanHieu());
-        result.put("vehicleModel", order.getPhieuTiepNhan().getXe().getModel());
-        result.put("imageUrl", order.getPhieuTiepNhan().getHinhAnh());
-        result.put("request", order.getPhieuTiepNhan().getYeuCauSoBo());
-        result.put("status", order.getTrangThai() != null ? order.getTrangThai().name() : null);
-        result.put("items", items);
-        result.put("totalItems", items.size());
-        result.put("completedItems", items.stream().filter(m -> (Boolean) m.get("isCompleted")).count());
-        result.put("claimedById", order.getThoPhanCong() != null ? order.getThoPhanCong().getId() : null);
-        result.put("claimedByName", order.getThoPhanCong() != null ? order.getThoPhanCong().getHoTen() : null);
-
-        // Deposit Info
-        result.put("tienCoc", order.getTienCoc());
-        result.put("tongCong", order.getTongCong());
-
-        return result;
+        return mapToJobSummary(order, items);
     }
 
-    // 10. Get Reception Detail (For Inspect View)
     @Transactional(readOnly = true)
-    public Map<String, Object> getReceptionDetail(Integer receptionId) {
-        Reception reception = receptionRepository.findById(receptionId)
-                .orElseThrow(() -> new RuntimeException("Reception not found"));
+    public List<ProductDTO> getTopProducts() {
+        return productRepository.findAll().stream().limit(10)
+                .map(p -> ProductDTO.builder().id(p.getId()).name(p.getName()).retailPrice(p.getRetailPrice()).sku(p.getSku()).isService(p.getIsService()).build())
+                .toList();
+    }
 
-        RepairOrder order = orderRepository.findByPhieuTiepNhanIdWithDetails(receptionId).orElse(null);
+    @Transactional(readOnly = true)
+    public List<ProductDTO> searchProducts(String query) {
+        return productRepository.findByNameContainingIgnoreCaseOrSkuContainingIgnoreCase(query, query).stream()
+                .map(p -> ProductDTO.builder().id(p.getId()).name(p.getName()).retailPrice(p.getRetailPrice()).sku(p.getSku()).isService(p.getIsService()).build())
+                .toList();
+    }
 
-        List<Map<String, Object>> existingItems = new ArrayList<>();
+    @Transactional
+    public void removeProposedItem(Integer itemId) {
+        OrderItem item = orderItemRepository.findById(itemId).orElseThrow();
+        if (List.of(ItemStatus.PROPOSAL, ItemStatus.WAITING_FOR_MANAGER_APPROVAL).contains(item.getStatus())) {
+            orderItemRepository.delete(item);
+        } else {
+            throw new RuntimeException("Chỉ có thể xóa hạng mục đang chờ duyệt hoặc đề xuất.");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public ReceptionInspectDTO getReceptionDetail(Integer receptionId) {
+        Reception r = receptionRepository.findById(receptionId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiếu tiếp nhận: " + receptionId));
+
+        RepairOrder order = r.getRepairOrder();
+        List<ProposalItemDTO> existingItems = List.of();
+        String status = "RECEIVED";
+        Integer orderId = null;
+
         if (order != null) {
-            existingItems = order.getChiTietDonHang().stream()
-                    .map(i -> {
-                        Map<String, Object> m = new java.util.HashMap<>();
-                        m.put("id", i.getId());
-                        m.put("productId", i.getHangHoa().getId());
-                        m.put("productCode", i.getHangHoa().getMaHang());
-                        m.put("productName", i.getHangHoa().getTenHang());
-                        m.put("quantity", i.getSoLuong());
-                        m.put("isService", i.getHangHoa().getLaDichVu());
-                        m.put("note", i.getGhiChu());
-                        m.put("status", i.getTrangThai() != null ? i.getTrangThai().name() : null);
-                        m.put("proposedById", i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getId() : null);
-                        m.put("proposedByName", i.getNguoiDeXuat() != null ? i.getNguoiDeXuat().getHoTen() : "N/A");
-                        m.put("proposedByRole", getProposedByRole(i.getNguoiDeXuat()));
-                        m.put("isTechnicalAddition", i.getLaPhatSinh());
-                        m.put("proposedAt", i.getNgayDeXuat());
-                        
-                        // Thêm danh sách thợ phân công cho hạng mục này
-                        if (i.getPhanCongTho() != null) {
-                            List<Map<String, Object>> assignments = i.getPhanCongTho().stream().map(ta -> {
-                                Map<String, Object> am = new java.util.HashMap<>();
-                                am.put("id", ta.getId());
-                                am.put("mechanicId", ta.getTho().getId());
-                                am.put("mechanicName", ta.getTho().getHoTen());
-                                am.put("isMain", ta.getLaThoChinh());
-                                return am;
-                            }).toList();
-                            m.put("assignments", assignments);
-                        } else {
-                            m.put("assignments", new ArrayList<>());
+            orderId = order.getId();
+            status = order.getStatus().name();
+            existingItems = order.getOrderItems().stream()
+                    .map(item -> {
+                        User proposer = item.getSuggestedBy();
+                        if (proposer == null && item.getSuggestedById() != null) {
+                            proposer = userRepository.findById(item.getSuggestedById()).orElse(null);
                         }
                         
-                        return m;
+                        // Smart Fallback cho đơn cũ: Nếu vẫn null, lấy người tiếp nhận hoặc quản đốc
+                        if (proposer == null) {
+                            if (r.getReceptionist() != null) {
+                                proposer = r.getReceptionist();
+                            } else if (order != null && order.getDiagnosticMechanic() != null) {
+                                proposer = order.getDiagnosticMechanic();
+                            }
+                        }
+
+                        String proposerName = proposer != null ? proposer.getFullName() : "Hệ thống";
+                        String proposerRole = proposer != null && proposer.getRoles() != null
+                                ? proposer.getRoles().stream().map(Role::getName).collect(Collectors.joining(", "))
+                                : "SALE";
+
+                        return ProposalItemDTO.builder()
+                                .id(item.getId())
+                                .productId(item.getProductId())
+                                .productCode(item.getProduct() != null ? item.getProduct().getSku() : "N/A")
+                                .productName(item.getProduct() != null ? item.getProduct().getName() : "Không rõ")
+                                .quantity(item.getQuantity().doubleValue())
+                                .unitPrice(item.getUnitPrice())
+                                .note(item.getNotes())
+                                .isService(item.getProduct() != null ? item.getProduct().getIsService() : false)
+                                .status(item.getStatus() != null ? item.getStatus().name() : "DE_XUAT")
+                                .isTechnicalAddition(item.getIsEmergency())
+                                .proposedByName(proposerName)
+                                .proposedByRole(proposerRole)
+                                .proposedAt(item.getSuggestedAt() != null ? item.getSuggestedAt().toString() : null)
+                                .build();
                     })
                     .toList();
         }
 
-        Map<String, Object> result = new java.util.HashMap<>();
-        result.put("id", reception.getId());
-        result.put("plate", reception.getXe().getBienSo());
-        result.put("customerName", reception.getXe().getKhachHang().getHoTen());
-        result.put("customerPhone", maskPhone(reception.getXe().getKhachHang().getSoDienThoai()));
-        result.put("vehicleBrand", reception.getXe().getNhanHieu());
-        result.put("vehicleModel", reception.getXe().getModel());
-        result.put("odo", reception.getXe().getOdoHienTai());
-        result.put("fuelLevel", reception.getMucXang());
-        result.put("bodyCondition", reception.getTinhTrangVoXe());
-        result.put("request", reception.getYeuCauSoBo());
-        result.put("imageUrl", reception.getHinhAnh());
-        result.put("hasOrder", order != null);
-        result.put("orderId", order != null ? order.getId() : null);
-        result.put("status", order != null && order.getTrangThai() != null ? order.getTrangThai().name() : null);
-        result.put("existingItems", existingItems);
+        Vehicle v = r.getVehicle();
+        String plate = v != null ? v.getLicensePlate() : "N/A";
+        String brand = v != null ? v.getBrand() : "N/A";
+        String model = v != null ? v.getModel() : "N/A";
+        String customerName = (v != null && v.getCustomer() != null) ? v.getCustomer().getFullName() : "N/A";
+        String customerPhone = (v != null && v.getCustomer() != null) ? v.getCustomer().getPhone() : "N/A";
 
-        return result;
+        return ReceptionInspectDTO.builder()
+                .id(r.getId())
+                .plate(plate)
+                .customerName(customerName)
+                .customerPhone(customerPhone)
+                .vehicleBrand(brand)
+                .vehicleModel(model)
+                .request(r.getPreliminaryRequest())
+                .odo(r.getOdo())
+                .fuelLevel(r.getFuelLevel() != null ? r.getFuelLevel().toString() : "—")
+                .bodyCondition(r.getShellStatus())
+                .createdAt(r.getReceptionDate())
+                .orderId(orderId)
+                .status(status)
+                .imageUrl(r.getImages())
+                .existingItems(existingItems)
+                .proposedItemsCount(existingItems.size())
+                .build();
     }
 
-    // 11. Remove Proposed Item
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getReceptionsToInspect() {
+        return repairOrderRepository.findByStatusIn(List.of(OrderStatus.RECEIVED, OrderStatus.WAITING_FOR_DIAGNOSIS)).stream()
+                .map(o -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", o.getReception().getId());
+                    map.put("orderId", o.getId());
+                    map.put("plate", o.getReception().getVehicle().getLicensePlate());
+                    map.put("request", o.getReception().getPreliminaryRequest());
+                    map.put("date", o.getReception().getReceptionDate());
+                    return map;
+                }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getInspectedHistory(Integer userId) {
+        return repairOrderRepository.findByDiagnosticMechanicIdAndStatusNotIn(userId, List.of(OrderStatus.RECEIVED, OrderStatus.WAITING_FOR_DIAGNOSIS)).stream()
+                .map(o -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", o.getReception().getId());
+                    map.put("plate", o.getReception().getVehicle().getLicensePlate());
+                    map.put("status", o.getStatus());
+                    map.put("date", o.getCreatedAt());
+                    return map;
+                }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<JobSummaryDTO> getOrdersForTechnicalReview() {
+        return repairOrderRepository.findOrdersByItemStatus(ItemStatus.WAITING_FOR_MANAGER_APPROVAL).stream()
+                .map(this::mapToJobSummary)
+                .toList();
+    }
+
     @Transactional
-    public void removeProposedItem(Integer itemId) {
-        OrderItem item = orderItemRepository.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("Item not found"));
-
-        if (!ItemStatus.DE_XUAT.equals(item.getTrangThai())) {
-            throw new RuntimeException("Chỉ có thể xóa hạng mục đề xuất");
+    public void confirmTechnicalIssue(Integer orderId, List<Integer> itemIds, Integer userId) {
+        RepairOrder order = repairOrderRepository.findById(orderId).orElseThrow();
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        
+        List<OrderItem> items = orderItemRepository.findAllById(itemIds);
+        int approvedCount = 0;
+        for (OrderItem item : items) {
+            if (ItemStatus.WAITING_FOR_MANAGER_APPROVAL.equals(item.getStatus())) {
+                item.setStatus(ItemStatus.PROPOSAL);
+                orderItemRepository.save(item);
+                approvedCount++;
+            }
         }
 
-        RepairOrder order = item.getDonHangSuaChua();
-
-        // Bug 87 Guard: Disable deletion if finalized
-        if (List.of(OrderStatus.HOAN_THANH, OrderStatus.DONG, OrderStatus.HUY, OrderStatus.CHO_THANH_TOAN)
-                .contains(order.getTrangThai())) {
-            throw new RuntimeException("Không thể xóa hạng mục khi đơn hàng đã chốt/hoàn thành.");
+        if (approvedCount > 0) {
+            timelineService.recordEvent(order.getReception().getId(), user, "TECHNICAL_ISSUE",
+                    "Quản đốc " + user.getFullName() + " đã duyệt " + approvedCount + " hạng mục phát sinh kỹ thuật từ Thợ.",
+                    null, null, false);
         }
-        String plate = order.getPhieuTiepNhan().getXe().getBienSo();
-        String productName = item.getHangHoa().getTenHang();
-
-        order.getChiTietDonHang().remove(item);
-        orderItemRepository.delete(item);
-
-        orderCalculationService.recalculateTotals(order);
-
-        // Notify Sale
-        asyncNotificationService.pushUniqueAsync(Notification.builder()
-                .role("SALE")
-                .title("Thợ xóa đề xuất: " + plate)
-                .content("Thợ đã xóa hạng mục '" + productName + "' khỏi xe " + plate)
-                .type("WARNING")
-                .link("/sale/orders/" + order.getId())
-                .createdAt(LocalDateTime.now())
-                .isRead(false)
-                .build());
     }
 
+    @Transactional
+    public void requestJoinTask(Integer itemId, Integer userId) {
+        OrderItem item = orderItemRepository.findById(itemId).orElseThrow();
+        User mechanic = userRepository.findById(userId).orElseThrow();
+        
+        TaskAssignment assignment = TaskAssignment.builder()
+                .orderItem(item)
+                .mechanic(mechanic)
+                .laborPercentage(BigDecimal.ZERO)
+                .isMainMechanic(false)
+                .status("PENDING")
+                .build();
+        taskAssignmentRepository.save(assignment);
+    }
+
+    @Transactional
+    public void approveJoinTask(Integer assignmentId, Integer userId) {
+        TaskAssignment ta = taskAssignmentRepository.findById(assignmentId).orElseThrow();
+        ta.setStatus("APPROVED");
+        taskAssignmentRepository.save(ta);
+    }
+
+    @Transactional
+    public void updateItemMaxMechanics(Integer itemId, Integer limit, Integer userId) {
+        OrderItem item = orderItemRepository.findById(itemId).orElseThrow();
+        item.setNote((item.getNote() != null ? item.getNote() : "") + " [Max mechanics: " + limit + "]");
+        orderItemRepository.save(item);
+    }
+
+    @Transactional
+    public void updateTaskDistribution(Integer itemId, Map<Integer, BigDecimal> distributions, Integer userId) {
+        taskAssignmentRepository.deleteByOrderItemId(itemId);
+        OrderItem item = orderItemRepository.findById(itemId).orElseThrow();
+        
+        distributions.forEach((mId, percent) -> {
+            User m = userRepository.findById(mId).orElseThrow();
+            TaskAssignment ta = TaskAssignment.builder()
+                    .orderItem(item)
+                    .mechanic(m)
+                    .laborPercentage(percent)
+                    .isMainMechanic(mId.equals(userId))
+                    .status("APPROVED")
+                    .build();
+            taskAssignmentRepository.save(ta);
+        });
+    }
+
+    public RepairOrder getOrderDetail(Integer id) {
+        return repairOrderRepository.findByIdWithFullDetails(id)
+                .orElseThrow(() -> new RuntimeException("Order not found: " + id));
+    }
 }

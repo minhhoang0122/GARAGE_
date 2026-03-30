@@ -1,23 +1,16 @@
 import { DashboardLayout } from '@/modules/common/components/layout';
 import Link from 'next/link';
 import { FileText, Search, ArrowRight } from 'lucide-react';
-import { auth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { getStatusBadge } from '@/lib/status';
 import { RealtimeRefresh } from '@/modules/common/components/layout/RealtimeRefresh';
-
 export default async function QuotesListPage() {
-    const session = await auth();
-    const token = (session?.user as any)?.accessToken;
-
     let quotes = [];
-    if (token) {
-        try {
-            // Fetch all active quote statuses: Received, Quoting, Re-Quoting, Waiting Approval
-            quotes = await api.get('/sale/orders?status=TIEP_NHAN,BAO_GIA,BAO_GIA_LAI,CHO_KH_DUYET', token);
-        } catch (e) {
-            console.error('Failed to fetch quotes', e);
-        }
+    try {
+        // Fetch all active quote statuses: Received, Quoting, Re-Quoting, Waiting Approval
+        quotes = await api.get('/sale/orders?status=TIEP_NHAN,BAO_GIA,BAO_GIA_LAI,CHO_KH_DUYET');
+    } catch (e) {
+        console.error('Failed to fetch quotes', e);
     }
 
     const formatCurrency = (val: number) =>
@@ -50,17 +43,17 @@ export default async function QuotesListPage() {
                         <p className="max-w-md mx-auto">Tất cả xe tiếp nhận đã được chốt báo giá hoặc chưa có phiếu tiếp nhận nào mới.</p>
                     </div>
                 ) : (
-                <div className="overflow-x-auto">
-                    <table className="data-table w-full text-left  ">
+                <div className="w-full">
+                    <table className="data-table w-full text-left table-fixed">
                         <thead>
                             <tr className="bg-stone-100 dark:bg-slate-900 border-b border-stone-200 dark:border-slate-800 text-[10px] font-black text-stone-500 dark:text-stone-400 uppercase tracking-widest transition-colors">
-                                <th className="w-[80px] px-4 py-4 !text-left">Mã</th>
-                                <th className="w-[160px] px-4 py-4 !text-left">Thời gian tạo</th>
-                                <th className="w-[120px] px-4 py-4 !text-left">Biển số</th>
-                                <th className="px-4 py-4 !text-left">Khách hàng</th>
-                                <th className="w-[150px] px-4 py-4 !text-left">Trạng thái</th>
-                                <th className="w-[150px] px-4 py-4 !text-right">Tổng dự toán</th>
-                                <th className="w-[100px] px-4 py-4 !text-right">Hành động</th>
+                                <th className="w-[60px] md:w-[80px] px-4 py-4 !text-left">Mã</th>
+                                <th className="w-[120px] md:w-[160px] px-4 py-4 !text-left">Thời gian tạo</th>
+                                <th className="w-[100px] md:w-[120px] px-4 py-4 !text-left">Biển số</th>
+                                <th className="w-auto px-4 py-4 !text-left">Khách hàng</th>
+                                <th className="w-[120px] md:w-[150px] px-4 py-4 !text-left">Trạng thái</th>
+                                <th className="w-[120px] md:w-[150px] px-4 py-4 !text-right">Tổng dự toán</th>
+                                <th className="w-[80px] md:w-[100px] px-4 py-4 !text-right"></th>
                             </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-transparent">
@@ -75,8 +68,8 @@ export default async function QuotesListPage() {
                                     <td className="px-4 py-4 font-black text-stone-800 dark:text-slate-100 border-b border-stone-100 dark:border-slate-800">
                                         {quote.plate}
                                     </td>
-                                    <td className="px-4 py-4 truncate text-stone-900 dark:text-slate-100 border-b border-stone-100 dark:border-slate-800 font-medium">
-                                        {quote.customerName}
+                                    <td className="px-4 py-4 border-b border-stone-100 dark:border-slate-800 font-medium">
+                                        <div className="truncate" title={quote.customerName}>{quote.customerName}</div>
                                     </td>
                                     <td className="px-4 py-4 border-b border-stone-100 dark:border-slate-800">
                                         {getStatusBadge(quote.status)}

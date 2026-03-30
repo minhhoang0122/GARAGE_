@@ -4,9 +4,11 @@ import java.math.BigDecimal;
 
 public record ProductDTO(
                 Integer id,
-                String code,
+                String sku,
+                String code, // Alias for sku to support other services
                 String name,
                 BigDecimal price,
+                BigDecimal retailPrice,
                 BigDecimal costPrice,
                 Integer stock,
                 Integer minStock,
@@ -20,9 +22,11 @@ public record ProductDTO(
 
         public static class ProductDTOBuilder {
                 private Integer id;
+                private String sku;
                 private String code;
                 private String name;
                 private BigDecimal price;
+                private BigDecimal retailPrice;
                 private BigDecimal costPrice;
                 private Integer stock;
                 private Integer minStock;
@@ -35,8 +39,15 @@ public record ProductDTO(
                         return this;
                 }
 
+                public ProductDTOBuilder sku(String sku) {
+                        this.sku = sku;
+                        this.code = sku; // Keep in sync
+                        return this;
+                }
+
                 public ProductDTOBuilder code(String code) {
                         this.code = code;
+                        this.sku = code; // Keep in sync
                         return this;
                 }
 
@@ -47,6 +58,11 @@ public record ProductDTO(
 
                 public ProductDTOBuilder price(BigDecimal price) {
                         this.price = price;
+                        return this;
+                }
+
+                public ProductDTOBuilder retailPrice(BigDecimal retailPrice) {
+                        this.retailPrice = retailPrice;
                         return this;
                 }
 
@@ -81,7 +97,7 @@ public record ProductDTO(
                 }
 
                 public ProductDTO build() {
-                        return new ProductDTO(id, code, name, price, costPrice, stock, minStock, isService, vatRate,
+                        return new ProductDTO(id, sku, code != null ? code : sku, name, price, retailPrice, costPrice, stock, minStock, isService, vatRate,
                                         allowWarranty);
                 }
         }

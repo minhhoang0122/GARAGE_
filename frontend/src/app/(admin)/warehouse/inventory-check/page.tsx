@@ -3,8 +3,6 @@
 import { Suspense, useState, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { api } from '@/lib/api';
-import { useSession } from 'next-auth/react';
 import { 
     Search, 
     RefreshCw, 
@@ -17,23 +15,16 @@ import {
     ArrowUpDown,
     Check
 } from 'lucide-react';
-import { adjustStock } from '@/modules/inventory/warehouse';
+import { useInventory, useInventoryCheck } from '@/modules/warehouse/hooks/useWarehouse';
+import { Product } from '@/modules/warehouse/services/warehouse';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/modules/shared/components/ui/button';
 import { Input } from '@/modules/shared/components/ui/input';
-import { toast } from 'sonner';
+import { useToast } from '@/modules/shared/components/ui/use-toast';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 
-type Product = {
-    id: number;
-    code: string;
-    name: string;
-    price: number;
-    stock: number;
-    minStock: number;
-};
+
 
 export default function InventoryCheckPage() {
     return (
@@ -46,24 +37,17 @@ export default function InventoryCheckPage() {
 }
 
 function InventoryCheckContent() {
-    const queryClient = useQueryClient();
-    const { data: session } = useSession();
-    // @ts-ignore
-    const token = session?.user?.accessToken;
-
     const [searchTerm, setSearchTerm] = useState('');
     const [actuals, setActuals] = useState<Record<number, number>>({});
     const [reasons, setReasons] = useState<Record<number, string>>({});
     const confirm = useConfirm();
+    const { toast } = useToast();
     const parentRef = useRef<HTMLDivElement>(null);
 
-    const { data: products = [], isLoading, refetch } = useQuery<Product[]>({
-        queryKey: ['inventory-check-products'],
-        queryFn: () => api.get('/inventory-check/products', token),
-        enabled: !!token
-    });
+    const { data: products = [], isLoading, refetch } = useInventory();
+    const adjustMutation = useInventoryCheck();
 
-    const filteredProducts = products.filter(p =>
+    const filteredProducts = products.filter((p: any) =>
         p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -75,43 +59,17 @@ function InventoryCheckContent() {
         overscan: 10,
     });
 
-    const adjustMutation = useMutation({
-        mutationFn: ({ id, actual, reason }: { id: number, actual: number, reason: string }) => 
-            adjustStock(id, actual, reason),
-        onSuccess: (res, variables) => {
-            if (res.success) {
-                toast.success('Đã cập nhật tồn kho thành công');
-                queryClient.invalidateQueries({ queryKey: ['inventory-check-products'] });
-                setActuals(prev => {
-                    const n = { ...prev };
-                    delete n[variables.id];
-                    return n;
-                });
-                setReasons(prev => {
-                    const n = { ...prev };
-                    delete n[variables.id];
-                    return n;
-                });
-            } else {
-                toast.error(res.error || 'Lỗi điều chỉnh');
-            }
-        },
-        onError: () => {
-            toast.error('Lỗi kết nối máy chủ');
-        }
-    });
-
-    const handleAdjust = async (p: Product) => {
+    const handleAdjust = async (p: any) => {
         const actual = actuals[p.id];
         const reason = reasons[p.id];
 
         if (actual === undefined || actual === p.stock) {
-            toast.error('Số lượng thực tế chưa thay đổi');
+            toast({ title: "Thông báo", description: 'Số lượng thực tế chưa thay đổi', variant: "destructive" });
             return;
         }
 
         if (!reason || reason.trim().length < 5) {
-            toast.error('Vui lòng nhập lý do điều chỉnh (tối thiểu 5 ký tự)');
+            toast({ title: "Lỗi", description: 'Vui lòng nhập lý do điều chỉnh (tối thiểu 5 ký tự)', variant: "destructive" });
             return;
         }
 
@@ -123,15 +81,31 @@ function InventoryCheckContent() {
         });
         if (!confirmed) return;
 
-        adjustMutation.mutate({ id: p.id, actual, reason });
+        adjustMutation.mutate({ productId: p.id, actualQuantity: actual, reason }, {
+            onSuccess: () => {
+                toast({ title: "Thành công", description: 'Đã cập nhật tồn kho thành công' });
+                setActuals(prev => {
+                    const n = { ...prev };
+                    delete n[p.id];
+                    return n;
+                });
+                setReasons(prev => {
+                    const n = { ...prev };
+                    delete n[p.id];
+                    return n;
+                });
+            },
+            onError: (err: any) => {
+                toast({ title: "Lỗi", description: err.message || 'Lỗi điều chỉnh', variant: "destructive" });
+            }
+        });
     };
 
     const hasChanges = Object.keys(actuals).length > 0;
-    const processingId = adjustMutation.isPending ? (adjustMutation.variables as any)?.id : null;
+    const processingId = adjustMutation.isPending ? (adjustMutation.variables as any)?.productId : null;
 
     return (
         <div className="max-w-7xl mx-auto space-y-6">
-            {/* Header / Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="md:col-span-3 bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-4 transition-colors">
                     <div className="relative flex-1">
@@ -161,7 +135,6 @@ function InventoryCheckContent() {
                 </div>
             </div>
 
-            {/* Main Table */}
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
                 <div className="border-b border-slate-100 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-center">
                     <h3 className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
@@ -301,7 +274,6 @@ function InventoryCheckContent() {
                 </div>
             </div>
 
-            {/* Quick Actions Float */}
             <div className="fixed bottom-6 right-6 flex gap-3 shadow-2xl rounded-full bg-white dark:bg-slate-900 p-2 border border-slate-200 dark:border-slate-800 z-50">
                 <Button variant="ghost" className="rounded-full w-12 h-12 p-0 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
                     <History className="w-5 h-5" />

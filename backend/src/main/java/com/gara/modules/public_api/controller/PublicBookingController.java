@@ -24,16 +24,16 @@ public class PublicBookingController {
     @GetMapping("/services")
     public List<PublicProductDTO> getPublicServices() {
         return productRepository.findAll().stream()
-                .filter(p -> p.getLaDichVu())
+                .filter(p -> p.getIsService())
                 .map(p -> new PublicProductDTO(
                         p.getId(),
-                        p.getMaHang(),
-                        p.getTenHang(),
-                        p.getGiaBanNiemYet(),
-                        p.getThueVAT(),
-                        p.getLaDichVu(),
-                        p.getBaoHanhSoThang(),
-                        p.getBaoHanhKm()))
+                        p.getSku(),
+                        p.getName(),
+                        p.getRetailPrice(),
+                        p.getVatRate(),
+                        p.getIsService(),
+                        p.getWarrantyMonths(),
+                        p.getWarrantyKm()))
                 .toList();
     }
 

@@ -3,12 +3,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Package, Wrench, Trash2, Send, Loader2, CheckCircle2, PlusCircle, Minus, Plus, AlertCircle, Clock, X, Users, ChevronRight } from 'lucide-react';
 import ProductSearchMechanic from './ProductSearchMechanic';
-import { submitProposal, removeItemFromProposal } from '@/modules/service/mechanic';
+import { mechanicService } from '@/modules/mechanic/services/mechanic';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/contexts/ToastContext';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
 
 type Product = {
     id: number;
@@ -61,9 +62,20 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
     const { showToast } = useToast();
     const confirm = useConfirm();
 
+    // Tự động làm mới dữ liệu khi có sự kiện từ Timeline (Real-time Sync)
+    useRealtimeUpdate(['reception', receptionId], {
+        filter: (data: any) => String(data.receptionId || data.data?.receptionId) === String(receptionId),
+        onUpdate: (payload: any) => {
+            // Lắng nghe sự kiện Timeline để đồng bộ hóa bảng hạng mục ngay lập tức
+            if (payload.sseType === 'EVENT_TIMELINE') {
+                queryClient.invalidateQueries({ queryKey: ['reception', receptionId.toString()] });
+            }
+        }
+    });
+
     // Mutations
     const removeMutation = useMutation({
-        mutationFn: (itemId: number) => removeItemFromProposal(itemId, receptionId),
+        mutationFn: (itemId: number) => mechanicService.removeItemFromProposal(itemId),
         onSuccess: (res) => {
             if (res.success) {
                 showToast('success', 'Đã xóa hạng mục thành công');
@@ -76,7 +88,7 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
     });
 
     const submitMutation = useMutation({
-        mutationFn: (proposalItems: any[]) => submitProposal(receptionId, proposalItems),
+        mutationFn: (proposalItems: any[]) => mechanicService.submitProposal(receptionId, proposalItems),
         onSuccess: (res) => {
             if (res.success) {
                 setItems([]);
@@ -89,45 +101,47 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
         onError: () => showToast('error', 'Lỗi hệ thống khi gửi đề xuất'),
     });
 
-    const isWorking = removeMutation.isPending || submitMutation.isPending;
-
     const isAssignmentReady = receptionStatus ? !['TIEP_NHAN', 'CHO_CHAN_DOAN', 'BAO_GIA', 'KHACH_TU_CHOI', 'HUY', 'DONG', 'HOAN_THANH'].includes(receptionStatus) : false;
 
-
-    // Mapping trạng thái sang tiếng Việt và màu sắc
+    // Mapping trạng thái sang tiếng Việt và màu sắc (Khớp với ItemStatus.java)
     const getStatusInfo = (status?: string) => {
         switch (status) {
-            case 'DE_XUAT':
+            case 'PROPOSAL':
+            case 'WAITING_FOR_MANAGER_APPROVAL':
                 return {
                     label: 'Chờ duyệt',
-                    color: 'bg-blue-100/80 text-blue-700 border-blue-200/50 shadow-sm',
+                    color: 'bg-blue-50 text-blue-700 border-blue-200/50 shadow-sm',
                     icon: <Clock className="w-3 h-3" />
                 };
-            case 'KHACH_DONG_Y':
+            case 'CUSTOMER_APPROVED':
                 return {
                     label: 'Đã duyệt',
                     color: 'bg-emerald-50 text-emerald-700 border-emerald-200/60 shadow-sm',
                     icon: <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2.5} />
                 };
-            case 'KHACH_TU_CHOI':
+            case 'CUSTOMER_REJECTED':
+            case 'CANCELLED':
                 return {
-                    label: 'Từ chối',
+                    label: 'Từ chối/Hủy',
                     color: 'bg-red-50 text-red-600 border-red-100',
                     icon: <X className="w-3 h-3" />
                 };
-            case 'DANG_SUA':
+            case 'IN_PROGRESS':
                 return {
                     label: 'Đang sửa',
                     color: 'bg-blue-100/80 text-blue-700 border-blue-200/50 shadow-sm',
                     icon: <Wrench className="w-3 h-3" />
                 };
-            case 'HOAN_THANH':
+            case 'COMPLETED':
+            case 'SETTLED':
+            case 'EXPORTED':
                 return {
-                    label: 'Xong',
+                    label: 'Hoàn tất',
                     color: 'bg-emerald-600 text-white border-transparent shadow-sm',
                     icon: <CheckCircle2 className="w-3.5 h-3.5" />
                 };
-            case 'CHO_KY_THUAT_DUYET':
+            case 'RECEIVED':
+            case 'WAITING_FOR_DIAGNOSIS':
                 return {
                     label: 'Tiếp nhận',
                     color: 'bg-purple-50 text-purple-600 border-purple-100',
@@ -135,33 +149,23 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
                 };
             default:
                 return {
-                    label: status || 'N/A',
+                    label: status || 'Chờ duyệt',
                     color: 'bg-slate-50 text-slate-500 border-slate-200',
                     icon: <AlertCircle className="w-3 h-3" />
                 };
         }
     };
 
-    // Sync state with props - though with React Query this is mostly for the drafting 'items'
-    useEffect(() => {
-        // We use initialItems directly in render logic
-    }, [initialItems]);
-
-    // ... (keep helper functions handleAddProduct, updateItemQuantity, handleRemoveItem, handleRemoveSavedItem, handleSubmit unchanged)
     const handleAddProduct = (product: Product) => {
         if (readOnly) return;
-        // Kiểm tra đã có trong danh sách mới chưa
         if (items.some(i => i.product.id === product.id)) {
             showToast('error', "Hạng mục này đã có trong danh sách đề xuất mới");
             return;
         }
-
-        // Kiểm tra đã có trong đơn hàng chưa
         if (initialItems.some(i => i.productId === product.id)) {
             showToast('error', "Hạng mục này đã tồn tại trong đơn hàng");
             return;
         }
-
         setItems([...items, { product, quantity: 1, note: '' }]);
     };
 
@@ -190,7 +194,6 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
             confirmText: 'Xóa'
         });
         if (!confirmed) return;
-
         removeMutation.mutate(itemId);
     };
 
@@ -200,7 +203,6 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
             showToast('warning', 'Vui lòng thêm ít nhất 1 hạng mục đề xuất');
             return;
         }
-
         submitMutation.mutate(items.map(i => ({
             productId: i.product.id,
             quantity: i.quantity,
@@ -208,96 +210,165 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
         })));
     };
 
-    // Calculate all product IDs already in project (saved + drafting)
     const existingProductIds = useMemo(() => {
         const savedIds = initialItems.map(i => i.productId);
         const draftingIds = items.map(i => i.product.id);
         return [...savedIds, ...draftingIds];
     }, [initialItems, items]);
 
-    // Helper to render a row (DRY)
-    const renderRow = (item: SavedItem) => {
-        const statusInfo = getStatusInfo(item.status);
-        return (
-            <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                        <div className={`p-1.5 rounded-lg ${item.isService ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                            {item.isService ? <Wrench className="w-3.5 h-3.5" /> : <Package className="w-3.5 h-3.5" />}
-                        </div>
-                        <div>
-                            <p className="font-bold text-slate-800">{item.productName}</p>
-                            <p className="text-[10px] text-slate-500 font-mono italic uppercase tracking-tighter">{item.productCode}</p>
-                        </div>
-                    </div>
-                </td>
-                <td className="px-6 py-4 text-center font-black text-slate-600 text-base">
-                    × {item.quantity}
-                </td>
-                <td className="px-6 py-4">
-                    <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black border uppercase tracking-widest ${statusInfo.color}`}>
-                                {statusInfo.label}
-                            </span>
-                            {item.isTechnicalAddition && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-50 text-purple-600 border border-purple-100 uppercase tracking-widest">
-                                    Phát sinh
-                                </span>
-                            )}
-                            {item.proposedByName && (
-                                <span className="text-[10px] text-slate-400 font-medium">
-                                    bởi <span className="text-slate-600 font-bold">{item.proposedByName}</span>
-                                </span>
-                            )}
-                        </div>
+    // Data categorization logic
+    const sectionsData = useMemo(() => {
+        const diagnosticItems = initialItems.filter(i => !i.isTechnicalAddition && i.proposedByRole !== 'SALE');
+        const additionItems = initialItems.filter(i => (i.isTechnicalAddition && i.status !== 'KHACH_DONG_Y') || i.proposedByRole === 'SALE');
+        const incidentalApprovedItems = initialItems.filter(i => i.isTechnicalAddition && i.status === 'KHACH_DONG_Y');
 
-                        {/* Danh sách thợ */}
-                        {item.assignments && item.assignments.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                                {item.assignments.map(a => (
-                                    <span key={a.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 text-slate-500 rounded text-[9px] font-bold border border-slate-100">
-                                        {a.isMain && <div className="w-1 h-1 bg-blue-500 rounded-full" />}
-                                        {a.mechanicName}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
+        const allAssignmentsMap = new Map<number, {
+            mechanicId: number;
+            mechanicName: string;
+            tasks: string[];
+            isMain: boolean;
+        }>();
+
+        initialItems.forEach(item => {
+            item.assignments?.forEach(a => {
+                if (!allAssignmentsMap.has(a.mechanicId)) {
+                    allAssignmentsMap.set(a.mechanicId, {
+                        mechanicId: a.mechanicId,
+                        mechanicName: a.mechanicName,
+                        tasks: [item.productName],
+                        isMain: a.isMain
+                    });
+                } else {
+                    const record = allAssignmentsMap.get(a.mechanicId)!;
+                    if (!record.tasks.includes(item.productName)) record.tasks.push(item.productName);
+                    if (a.isMain) record.isMain = true;
+                }
+            });
+        });
+
+        return {
+            diagnosticItems,
+            additionItems,
+            incidentalApprovedItems,
+            mechanicList: Array.from(allAssignmentsMap.values())
+        };
+    }, [initialItems]);
+
+    const renderTable = (items: SavedItem[], title: string, icon: React.ReactNode, bgColor: string, borderLColor: string, iconBg: string, iconColor: string, description: string) => (
+        <div className="bg-white border border-slate-200/60 rounded-3xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className={`px-8 py-6 border-b border-slate-100 border-l-[6px] ${borderLColor} ${bgColor} flex items-center justify-between`}>
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-4">
+                        <div className={`p-2.5 rounded-xl ${iconBg} shadow-sm border border-white/50 backdrop-blur-sm`}>
+                            {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement, { className: `w-5 h-5 ${iconColor}` }) : icon}
+                        </div>
+                        <h3 className="font-bold text-slate-900 text-base tracking-tight">
+                            {title} <span className="ml-1 text-slate-400 font-normal">({items.length})</span>
+                        </h3>
                     </div>
-                </td>
-                <td className="px-6 py-4">
-                    <p className="text-xs text-slate-500 leading-relaxed max-w-[200px]">
-                        {item.note || <span className="text-slate-300 italic">Không có ghi chú</span>}
-                    </p>
-                    {item.proposedAt && (
-                        <p className="text-[9px] text-slate-300 mt-1 italic">
-                            Lúc: {new Date(item.proposedAt).toLocaleString('vi-VN')}
-                        </p>
-                    )}
-                </td>
-                {!readOnly && (
-                    <td className="px-6 py-4 text-right w-20">
-                        <button
-                            onClick={() => handleRemoveSavedItem(item.id)}
-                            disabled={removeMutation.isPending}
-                            className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                            title="Xóa"
-                        >
-                            {(removeMutation.variables === item.id && removeMutation.isPending) ? (
-                                <Loader2 className="w-4 h-4 animate-spin text-red-500" />
-                            ) : (
-                                <Trash2 className="w-4 h-4" />
-                            )}
-                        </button>
-                    </td>
+                    <p className="text-[12px] text-slate-500 font-medium ml-14">{description}</p>
+                </div>
+            </div>
+            <div className="overflow-x-auto">
+                {items.length > 0 ? (
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="bg-slate-50/30 border-b border-slate-100">
+                                <th className="px-6 py-3.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-left w-[35%]">Hạng mục</th>
+                                <th className="px-6 py-3.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center w-[12%]">Số lượng</th>
+                                <th className="px-6 py-3.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-left w-[25%]">Người đề xuất & Trạng thái</th>
+                                <th className="px-6 py-3.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-left">Ghi chú kỹ thuật</th>
+                                {!readOnly && <th className="px-6 py-3.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right w-20"></th>}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {items.map(item => {
+                                const statusInfo = getStatusInfo(item.status);
+                                return (
+                                    <tr key={item.id} className="bg-white/80 hover:bg-white border-b border-slate-100/80 last:border-0 transition-all group">
+                                        <td className="px-6 py-5">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`p-2.5 rounded-2xl ${item.isService ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'} border border-transparent group-hover:border-current/10 transition-all duration-300`}>
+                                                    {item.isService ? <Wrench className="w-4 h-4" strokeWidth={2.5} /> : <Package className="w-4 h-4" strokeWidth={2.5} />}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-slate-900 text-[15px] leading-tight group-hover:text-blue-600 transition-colors">{item.productName}</p>
+                                                    <p className="text-[12px] text-slate-500 font-semibold mt-1 tracking-widest uppercase">{item.productCode}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-center font-black text-slate-600 text-base">
+                                            × {item.quantity}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold border uppercase tracking-widest transition-all ${statusInfo.color}`}>
+                                                        {statusInfo.icon}
+                                                        {statusInfo.label}
+                                                    </span>
+                                                    {item.isTechnicalAddition && (
+                                                        <span className="inline-flex items-center px-2 py-1 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-600 border border-amber-100 uppercase tracking-widest">
+                                                            Phát sinh
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {item.proposedByName && (
+                                                    <p className="text-[11px] text-slate-500">
+                                                        Đề xuất: <span className="text-slate-700 font-semibold">{item.proposedByName}</span>
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <p className="text-[13px] text-slate-600 leading-relaxed font-normal">
+                                                {item.note || <span className="text-slate-400/60 italic">Không có ghi chú</span>}
+                                            </p>
+                                            {item.proposedAt && (
+                                                <p className="text-[11px] text-slate-400 mt-1.5 font-medium tabular-nums">
+                                                    {new Date(item.proposedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                                                </p>
+                                            )}
+                                        </td>
+                                        {!readOnly && (
+                                            <td className="px-6 py-4 text-right w-20">
+                                                {(currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER' || currentUser?.id === item.proposedById) ? (
+                                                    <button
+                                                        onClick={() => handleRemoveSavedItem(item.id)}
+                                                        disabled={removeMutation.isPending}
+                                                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                                        title="Xóa"
+                                                    >
+                                                        {(removeMutation.variables === item.id && removeMutation.isPending) ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+                                                        ) : (
+                                                            <Trash2 className="w-4 h-4" />
+                                                        )}
+                                                    </button>
+                                                ) : (
+                                                    <div className="w-8 h-8 flex items-center justify-center text-slate-200" title="Bạn không có quyền xóa hạng mục này">
+                                                        <Trash2 className="w-4 h-4 opacity-20" />
+                                                    </div>
+                                                )}
+                                            </td>
+                                        )}
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                ) : (
+                    <div className="py-12 flex flex-col items-center justify-center text-slate-400 bg-slate-50/30 italic text-xs">
+                        Chưa có hạng mục nào trong danh sách này
+                    </div>
                 )}
-            </tr>
-        );
-    };
+            </div>
+        </div>
+    );
 
     return (
         <div className="space-y-6">
-            {/* 1. Thanh tìm kiếm và header - CHỈ HIỆN KHI KHÔNG PHẢI READONLY */}
+            {/* 1. Thanh tìm kiếm và header */}
             {!readOnly && (
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row md:items-center gap-6">
                     <div className="flex-1">
@@ -314,281 +385,117 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
             )}
 
             {/* 2. Danh sách đã đề xuất (Đã lưu) */}
-            {initialItems.length > 0 && (
-                <div className="space-y-6">
-                    {(() => {
-                        // Phân loại hạng mục
-                        const diagnosticItems = initialItems.filter(i =>
-                            !i.isTechnicalAddition &&
-                            i.proposedByRole !== 'SALE'
-                        );
-                        const additionItems = initialItems.filter(i =>
-                            (i.isTechnicalAddition && i.status !== 'KHACH_DONG_Y') ||
-                            i.proposedByRole === 'SALE'
-                        );
-                        const incidentalApprovedItems = initialItems.filter(i =>
-                            i.isTechnicalAddition &&
-                            i.status === 'KHACH_DONG_Y'
-                        );
+            <div className="space-y-8">
+                {renderTable(
+                    sectionsData.diagnosticItems,
+                    "1. Chẩn đoán chuyên môn",
+                    <CheckCircle2 strokeWidth={2.5} />,
+                    "bg-emerald-500/[0.08]",
+                    "border-l-emerald-500",
+                    "bg-emerald-50",
+                    "text-emerald-600",
+                    "Các hạng mục do Quản đốc, Kỹ thuật viên hoặc AI đề xuất dựa trên tình trạng xe"
+                )}
 
-                        // Tổng hợp danh sách thợ tham gia từ tất cả hạng mục
-                        const allAssignmentsMap = new Map<number, {
-                            mechanicId: number;
-                            mechanicName: string;
-                            tasks: string[];
-                            isMain: boolean;
-                        }>();
+                {renderTable(
+                    sectionsData.additionItems,
+                    "2. Yêu cầu của Khách hàng & Sale",
+                    <PlusCircle strokeWidth={2.5} />,
+                    "bg-blue-500/[0.08]",
+                    "border-l-blue-500",
+                    "bg-blue-50",
+                    "text-blue-600",
+                    "Các hạng mục do khách hàng yêu cầu thêm hoặc thợ báo phát sinh trong quá trình sửa chữa"
+                )}
 
-                        initialItems.forEach(item => {
-                            item.assignments?.forEach(a => {
-                                if (!allAssignmentsMap.has(a.mechanicId)) {
-                                    allAssignmentsMap.set(a.mechanicId, {
-                                        mechanicId: a.mechanicId,
-                                        mechanicName: a.mechanicName,
-                                        tasks: [item.productName],
-                                        isMain: a.isMain
-                                    });
-                                } else {
-                                    const record = allAssignmentsMap.get(a.mechanicId)!;
-                                    if (!record.tasks.includes(item.productName)) {
-                                        record.tasks.push(item.productName);
-                                    }
-                                    if (a.isMain) record.isMain = true;
-                                }
-                            });
-                        });
+                {renderTable(
+                    sectionsData.incidentalApprovedItems,
+                    "3. Hạng mục Phát sinh",
+                    <AlertCircle strokeWidth={2.5} />,
+                    "bg-amber-500/[0.08]",
+                    "border-l-amber-500",
+                    "bg-amber-50",
+                    "text-amber-600",
+                    "Các hạng mục do thợ báo phát sinh trong quá trình sửa chữa và đã được khách hàng duyệt"
+                )}
 
-                        const mechanicList = Array.from(allAssignmentsMap.values());
-
-                        const renderTable = (items: SavedItem[], title: string, icon: React.ReactNode, bgColor: string, borderLColor: string, iconBg: string, iconColor: string, description: string) => (
-                            <div className="bg-white border border-slate-200/60 rounded-3xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                <div className={`px-8 py-6 border-b border-slate-100 border-l-[6px] ${borderLColor} ${bgColor} flex items-center justify-between`}>
-                                    <div className="flex flex-col gap-1">
-                                        <div className="flex items-center gap-4">
-                                            <div className={`p-2.5 rounded-xl ${iconBg} shadow-sm border border-white/50 backdrop-blur-sm`}>
-                                                {React.cloneElement(icon as React.ReactElement, { className: `w-5 h-5 ${iconColor}` })}
-                                            </div>
-                                            <h3 className="font-bold text-slate-900 text-base tracking-tight">
-                                                {title} <span className="ml-1 text-slate-400 font-normal">({items.length})</span>
-                                            </h3>
-                                        </div>
-                                        <p className="text-[12px] text-slate-500 font-medium ml-14">{description}</p>
+                {/* 4. Nhân sự thực hiện */}
+                {(sectionsData.mechanicList.length > 0 || (isAssignmentReady && currentUser?.roles?.includes('QUAN_LY_XUONG'))) && (
+                    <div className="bg-white border border-slate-200/60 rounded-3xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-700">
+                        <div className="px-4 md:px-8 py-5 md:py-6 border-b border-slate-100 border-l-[6px] border-l-slate-400 bg-slate-500/[0.05] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-2.5 rounded-xl bg-white shadow-sm border border-slate-100">
+                                        <Users className="w-5 h-5 text-slate-500" strokeWidth={2.5} />
                                     </div>
+                                    <h3 className="font-bold text-slate-900 text-base tracking-tight">
+                                        4. Nhân sự thực hiện <span className="ml-1 text-slate-400 font-normal">({sectionsData.mechanicList.length})</span>
+                                    </h3>
                                 </div>
-                                <div className="overflow-x-auto">
-                                    {items.length > 0 ? (
-                                        <table className="w-full text-sm">
-                                            <thead>
-                                                <tr className="bg-slate-50/30 border-b border-slate-100">
-                                                    <th className="px-6 py-3.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-left w-[35%]">Hạng mục</th>
-                                                    <th className="px-6 py-3.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center w-[12%]">Số lượng</th>
-                                                    <th className="px-6 py-3.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-left w-[25%]">Người đề xuất & Trạng thái</th>
-                                                    <th className="px-6 py-3.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-left">Ghi chú kỹ thuật</th>
-                                                    {!readOnly && <th className="px-6 py-3.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right w-20"></th>}
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {items.map(item => (
-                                                    <tr key={item.id} className="bg-white/80 hover:bg-white border-b border-slate-100/80 last:border-0 transition-all group">
-                                                        <td className="px-6 py-5">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className={`p-2.5 rounded-2xl ${item.isService ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'} border border-transparent group-hover:border-current/10 transition-all duration-300`}>
-                                                                    {item.isService ? <Wrench className="w-4 h-4" strokeWidth={2.5} /> : <Package className="w-4 h-4" strokeWidth={2.5} />}
-                                                                </div>
-                                                                <div>
-                                                                    <p className="font-bold text-slate-900 text-[15px] leading-tight group-hover:text-blue-600 transition-colors">{item.productName}</p>
-                                                                    <p className="text-[12px] text-slate-500 font-semibold mt-1 tracking-widest uppercase">{item.productCode}</p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center font-black text-slate-600 text-base">
-                                                            × {item.quantity}
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex flex-col gap-1.5">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold border uppercase tracking-widest transition-all ${getStatusInfo(item.status).color}`}>
-                                                                        {getStatusInfo(item.status).icon}
-                                                                        {getStatusInfo(item.status).label}
-                                                                    </span>
-                                                                    {item.isTechnicalAddition && (
-                                                                        <span className="inline-flex items-center px-2 py-1 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-600 border border-amber-100 uppercase tracking-widest">
-                                                                            Phát sinh
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                {item.proposedByName && (
-                                                                    <p className="text-[11px] text-slate-500">
-                                                                        Đề xuất: <span className="text-slate-700 font-semibold">{item.proposedByName}</span>
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <p className="text-[13px] text-slate-600 leading-relaxed font-normal">
-                                                                {item.note || <span className="text-slate-400/60 italic">Không có ghi chú</span>}
-                                                            </p>
-                                                            {item.proposedAt && (
-                                                                <p className="text-[11px] text-slate-400 mt-1.5 font-medium tabular-nums">
-                                                                    {new Date(item.proposedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
-                                                                </p>
-                                                            )}
-                                                        </td>
-                                                        {!readOnly && (
-                                                            <td className="px-6 py-4 text-right w-20">
-                                                                {(currentUser?.role === 'ADMIN' ||
-                                                                    currentUser?.role === 'MANAGER' ||
-                                                                    currentUser?.id === item.proposedById) ? (
-                                                                    <button
-                                                                        onClick={() => handleRemoveSavedItem(item.id)}
-                                                                        disabled={removeMutation.isPending}
-                                                                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                                                                        title="Xóa"
-                                                                    >
-                                                                        {(removeMutation.variables === item.id && removeMutation.isPending) ? (
-                                                                            <Loader2 className="w-4 h-4 animate-spin text-red-500" />
-                                                                        ) : (
-                                                                            <Trash2 className="w-4 h-4" />
-                                                                        )}
-                                                                    </button>
-                                                                ) : (
-                                                                    <div className="w-8 h-8 flex items-center justify-center text-slate-200" title="Bạn không có quyền xóa hạng mục này">
-                                                                        <Trash2 className="w-4 h-4 opacity-20" />
-                                                                    </div>
-                                                                )}
-                                                            </td>
-                                                        )}
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    ) : (
-                                        <div className="py-12 flex flex-col items-center justify-center text-slate-400 bg-slate-50/30 italic text-xs">
-                                            Chưa có hạng mục nào trong danh sách này
-                                        </div>
-                                    )}
-                                </div>
+                                <p className="text-[12px] text-slate-500 font-medium ml-14">Danh sách nhân viên được phân công thực hiện các hạng mục trên</p>
                             </div>
-                        );
-
-                        return (
-                            <>
-                                <div className="space-y-8">
-                                    {diagnosticItems.length > 0 && renderTable(
-                                        diagnosticItems,
-                                        "1. Chẩn đoán chuyên môn",
-                                        <CheckCircle2 strokeWidth={2.5} />,
-                                        "bg-emerald-500/[0.08]",
-                                        "border-l-emerald-500",
-                                        "bg-emerald-50",
-                                        "text-emerald-600",
-                                        "Các hạng mục do Quản đốc, Kỹ thuật viên hoặc AI đề xuất dựa trên tình trạng xe"
-                                    )}
-
-                                    {additionItems.length > 0 && renderTable(
-                                        additionItems,
-                                        "2. Yêu cầu của Khách hàng & Sale",
-                                        <PlusCircle strokeWidth={2.5} />,
-                                        "bg-blue-500/[0.08]",
-                                        "border-l-blue-500",
-                                        "bg-blue-50",
-                                        "text-blue-600",
-                                        "Các hạng mục do khách hàng yêu cầu thêm hoặc thợ báo phát sinh trong quá trình sửa chữa"
-                                    )}
-
-                                    {incidentalApprovedItems.length > 0 && renderTable(
-                                        incidentalApprovedItems,
-                                        "3. Hạng mục Phát sinh",
-                                        <AlertCircle strokeWidth={2.5} />,
-                                        "bg-amber-500/[0.08]",
-                                        "border-l-amber-500",
-                                        "bg-amber-50",
-                                        "text-amber-600",
-                                        "Các hạng mục do thợ báo phát sinh trong quá trình sửa chữa và đã được khách hàng duyệt"
-                                    )}
-
-                                    {(mechanicList.length > 0 || currentUser?.roles?.includes('QUAN_LY_XUONG')) && (
-                                        <div className="bg-white border border-slate-200/60 rounded-3xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-700">
-                                            <div className="px-8 py-6 border-b border-slate-100 border-l-[6px] border-l-slate-400 bg-slate-500/[0.05] flex items-center justify-between">
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="p-2.5 rounded-xl bg-slate-100 shadow-sm border border-white/50 backdrop-blur-sm">
-                                                            <Users className="w-5 h-5 text-slate-500" strokeWidth={2.5} />
+                            {isAssignmentReady && currentUser?.roles?.includes('QUAN_LY_XUONG') && (
+                                <Link
+                                    href={`/mechanic/assign/${receptionId}`}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                                >
+                                    <Wrench className="w-4 h-4" />
+                                    Vào Chia việc
+                                </Link>
+                            )}
+                        </div>
+                        {sectionsData.mechanicList.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="bg-slate-50/30 border-b border-slate-100">
+                                            <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left w-[35%]">Nhân viên</th>
+                                            <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Hạng mục đảm nhận</th>
+                                            <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-32">Vai trò</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {sectionsData.mechanicList.map(m => (
+                                            <tr key={m.mechanicId} className="hover:bg-slate-50/30 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs border border-slate-200">
+                                                            {m.mechanicName.charAt(0)}
                                                         </div>
-                                                        <h3 className="font-bold text-slate-900 text-base tracking-tight">
-                                                            4. Nhân sự thực hiện <span className="ml-1 text-slate-400 font-normal">({mechanicList.length})</span>
-                                                        </h3>
+                                                        <span className="font-bold text-slate-700">{m.mechanicName}</span>
                                                     </div>
-                                                    <p className="text-[12px] text-slate-500 font-medium ml-14">Danh sách nhân viên được phân công thực hiện các hạng mục trên</p>
-                                                </div>
-                                                {/* Chỉ Quản đốc mới được chia việc & Chỉ khi đã duyệt */}
-                                                {isAssignmentReady && currentUser?.roles?.includes('QUAN_LY_XUONG') && (
-                                                    <Link
-                                                        href={`/mechanic/assign/${receptionId}`}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                                                    >
-                                                        <Wrench className="w-4 h-4" />
-                                                        Vào Chia việc
-                                                    </Link>
-                                                )}
-                                            </div>
-                                            {mechanicList.length > 0 ? (
-                                                <div className="overflow-x-auto">
-                                                    <table className="w-full text-sm">
-                                                        <thead>
-                                                            <tr className="bg-slate-50/30 border-b border-slate-100">
-                                                                <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left w-[35%]">Nhân viên</th>
-                                                                <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Hạng mục đảm nhận</th>
-                                                                <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-32">Vai trò</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-slate-100">
-                                                            {mechanicList.map(m => (
-                                                                <tr key={m.mechanicId} className="hover:bg-slate-50/30 transition-colors">
-                                                                    <td className="px-6 py-4">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs border border-slate-200">
-                                                                                {m.mechanicName.charAt(0)}
-                                                                            </div>
-                                                                            <span className="font-bold text-slate-700">{m.mechanicName}</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="px-6 py-4">
-                                                                        <div className="flex flex-wrap gap-1.5">
-                                                                            {m.tasks.map((t, idx) => (
-                                                                                <span key={idx} className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-bold border border-blue-100/50">
-                                                                                    {t}
-                                                                                </span>
-                                                                            ))}
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="px-6 py-4 text-center">
-                                                                        <span className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border ${m.isMain ? 'bg-blue-600 text-white border-blue-700' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                                                                            {m.isMain ? 'Thợ chính' : 'Hỗ trợ'}
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            ) : (
-                                                <div className="py-10 text-center">
-                                                    <p className="text-slate-400 italic text-sm">Chưa có nhân viên nào được phân công cho các hạng mục này.</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </>
-                        );
-                    })()}
-                </div>
-            )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {m.tasks.map((t, idx) => (
+                                                            <span key={idx} className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-bold border border-blue-100/50">
+                                                                {t}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border ${m.isMain ? 'bg-blue-600 text-white border-blue-700' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                                        {m.isMain ? 'Thợ chính' : 'Hỗ trợ'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="py-10 text-center">
+                                <p className="text-slate-400 italic text-sm">Chưa có nhân viên nào được phân công cho các hạng mục này.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
 
-            {/* 3. Danh sách đang soạn - CHỈ HIỆN KHI KHÔNG PHẢI READONLY */}
+            {/* 5. Danh sách đang soạn */}
             {!readOnly && (
-                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <PlusCircle className="w-5 h-5 text-blue-600" />

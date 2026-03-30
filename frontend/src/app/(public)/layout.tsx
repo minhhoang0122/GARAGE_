@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ConfirmProvider } from '@/modules/shared/components/ui/ConfirmModal';
 import { Inter } from 'next/font/google';
 import QueryProvider from '@/providers/QueryProvider';
+import { Toaster } from 'sonner';
 import { SSEProvider } from '@/modules/common/contexts/SSEContext';
 
 const font = Inter({ subsets: ['latin'] });
@@ -29,6 +30,7 @@ export default function PublicLayout({
                             <ThemeProvider>
                                 <ConfirmProvider>
                                     <SSEProvider>
+                                        <Toaster position="top-right" richColors closeButton />
                                         {children}
                                     </SSEProvider>
                                 </ConfirmProvider>

@@ -5,32 +5,26 @@ import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { ArrowLeft, CheckCircle2, ShieldCheck, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { getOrder, createWarranty, OrderDetailItem } from '@/modules/service/order';
 import { formatCurrency } from '@/lib/utils';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
+import { useOrderDetail, useCreateWarranty } from '@/modules/sale/hooks/useSale';
+import { OrderDetailItem } from '@/modules/sale/services/sale';
 
 export default function CreateWarrantyPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const router = useRouter();
     const orderId = parseInt(id);
-    const [order, setOrder] = useState<any>(null);
+    const { data: order, isLoading } = useOrderDetail(orderId);
+    const createWarrantyMutation = useCreateWarranty();
     const [selectedItems, setSelectedItems] = useState<number[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentOdo, setCurrentOdo] = useState<number>(0);
     const confirm = useConfirm();
 
     useEffect(() => {
-        const load = async () => {
-            const res = await getOrder(orderId);
-            if (res) {
-                setOrder(res);
-                setCurrentOdo(res.odo || 0);
-            }
-            setIsLoading(false);
-        };
-        load();
-    }, [orderId]);
+        if (order) {
+            setCurrentOdo(order.odo || 0);
+        }
+    }, [order]);
 
     const toggleItem = (itemId: number) => {
         if (selectedItems.includes(itemId)) {
@@ -54,16 +48,21 @@ export default function CreateWarrantyPage({ params }: { params: Promise<{ id: s
         });
         if (!confirmed) return;
 
-        setIsSubmitting(true);
-        const res = await createWarranty(orderId, selectedItems, currentOdo);
-        if (res.success) {
-            await confirm({ title: 'Thành công', message: 'Tạo đơn bảo hành thành công!', type: 'info', confirmText: 'OK', cancelText: '' });
-            router.replace(`/sale/orders/${res.warrantyOrderId}`);
-        } else {
-            await confirm({ title: 'Lỗi', message: res.error, type: 'danger', confirmText: 'Đóng', cancelText: '' });
-            setIsSubmitting(false);
-        }
+        createWarrantyMutation.mutate(
+            { orderId, itemIds: selectedItems, odo: currentOdo },
+            {
+                onSuccess: (res: any) => {
+                    confirm({ title: 'Thành công', message: 'Tạo đơn bảo hành thành công!', type: 'info', confirmText: 'OK', cancelText: '' });
+                    router.replace(`/sale/orders/${res.warrantyOrderId}`);
+                },
+                onError: (err: any) => {
+                    confirm({ title: 'Lỗi', message: err.message, type: 'danger', confirmText: 'Đóng', cancelText: '' });
+                }
+            }
+        );
     };
+
+    const isSubmitting = createWarrantyMutation.isPending;
 
     if (isLoading) return <div className="p-8 text-center">Đang tải...</div>;
     if (!order) return <div className="p-8 text-center text-red-500">Không tìm thấy đơn hàng</div>;

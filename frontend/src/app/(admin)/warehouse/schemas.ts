@@ -11,7 +11,8 @@ export const importItemSchema = z.object({
 });
 
 export const importSchema = z.object({
-    supplierName: z.string().min(1, 'Vui lòng nhập tên nhà cung cấp'),
+    supplierId: z.number().optional(),
+    supplierName: z.string().min(1, 'Vui lòng chọn hoặc nhập tên nhà cung cấp'),
     note: z.string().optional(),
     items: z.array(importItemSchema).min(1, 'Vui lòng thêm ít nhất 1 sản phẩm'),
 });

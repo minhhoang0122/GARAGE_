@@ -50,22 +50,10 @@ const menuItems = [
 ];
 
 export default function CustomerHomePage() {
-    const { data: session, status } = useSession();
+    const { data: session } = useSession();
     const router = useRouter();
 
-    useEffect(() => {
-        if (status === 'unauthenticated') {
-            router.push('/customer/login');
-        }
-    }, [status, router]);
 
-    if (status === 'loading') {
-        return (
-            <div className="min-h-screen bg-stone-950 flex items-center justify-center">
-                <div className="animate-pulse text-stone-500">Đang tải...</div>
-            </div>
-        );
-    }
 
     const userName = session?.user?.name || 'Quý khách';
 
@@ -95,7 +83,10 @@ export default function CustomerHomePage() {
 
             {/* Menu Grid */}
             <main className="max-w-2xl mx-auto px-4 py-8">
-                <h2 className="text-lg font-bold text-white mb-6">Mục lục chức năng</h2>
+                <h2 className="text-lg font-bold text-stone-200 mb-6 flex items-center gap-2">
+                    <span className="w-1.5 h-6 bg-orange-500 rounded-full"></span>
+                    Mục lục chức năng
+                </h2>
                 <div className="grid grid-cols-2 gap-4">
                     {menuItems.map((item) => {
                         const Icon = item.icon;

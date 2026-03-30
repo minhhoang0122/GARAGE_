@@ -4,46 +4,45 @@ import com.gara.entity.Reception;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.time.LocalDateTime;
 import java.util.List;
-// Added for the new projection
 
 public interface ReceptionRepository extends JpaRepository<Reception, Integer> {
 
         // Optimized: Eager fetch to avoid N+1 in SaleService.getStats()
         @org.springframework.data.jpa.repository.Query("SELECT r FROM Reception r " +
-                        "LEFT JOIN FETCH r.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "WHERE r.donHangSuaChua IS NULL AND r.ngayGio > :date " +
-                        "ORDER BY r.ngayGio DESC")
-        List<Reception> findByDonHangSuaChuaIsNullAndNgayGioAfterOrderByNgayGioDesc(
+                        "LEFT JOIN FETCH r.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "WHERE r.repairOrder IS NULL AND r.receptionDate > :date " +
+                        "ORDER BY r.receptionDate DESC")
+        List<Reception> findByRepairOrderIsNullAndReceptionDateAfterOrderByReceptionDateDesc(
                         @org.springframework.data.repository.query.Param("date") LocalDateTime date);
 
-        long countByDonHangSuaChuaIsNullAndNgayGioAfter(LocalDateTime date);
+        long countByRepairOrderIsNullAndReceptionDateAfter(LocalDateTime date);
 
-        List<Reception> findByXeBienSoOrderByNgayGioDesc(String bienSo);
+        List<Reception> findByVehicleLicensePlateOrderByReceptionDateDesc(String licensePlate);
 
         @org.springframework.data.jpa.repository.Query("SELECT " +
-                        "r.id, r.ngayGio, x.bienSo, kh.hoTen, kh.soDienThoai, x.nhanHieu, x.model, o.id, o.trangThai, r.hinhAnh "
+                        "r.id, r.receptionDate, v.licensePlate, c.fullName, c.phone, v.brand, v.model, o.id, o.status, r.images "
                         +
                         "FROM Reception r " +
-                        "JOIN r.xe x " +
-                        "JOIN x.khachHang kh " +
-                        "LEFT JOIN r.donHangSuaChua o " +
-                        "ORDER BY r.ngayGio DESC")
+                        "JOIN r.vehicle v " +
+                        "JOIN v.customer c " +
+                        "LEFT JOIN r.repairOrder o " +
+                        "ORDER BY r.receptionDate DESC")
         List<Object[]> findAllReceptionsRaw(org.springframework.data.domain.Pageable pageable);
 
         @org.springframework.data.jpa.repository.Query("SELECT r FROM Reception r " +
-                        "LEFT JOIN FETCH r.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "LEFT JOIN FETCH r.donHangSuaChua o " +
+                        "LEFT JOIN FETCH r.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "LEFT JOIN FETCH r.repairOrder o " +
                         "WHERE r.id = :id")
         java.util.Optional<Reception> findByIdWithDetails(
                         @org.springframework.data.repository.query.Param("id") Integer id);
 
         @org.springframework.data.jpa.repository.Query("SELECT r FROM Reception r " +
-                        "LEFT JOIN FETCH r.xe x " +
-                        "LEFT JOIN FETCH x.khachHang kh " +
-                        "LEFT JOIN FETCH r.donHangSuaChua o " +
-                        "WHERE r.yeuCauSoBo LIKE '%ĐẶT LỊCH ONLINE%' " +
-                        "ORDER BY r.ngayGio DESC")
+                        "LEFT JOIN FETCH r.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "LEFT JOIN FETCH r.repairOrder o " +
+                        "WHERE r.preliminaryRequest LIKE '%BOOKING ONLINE%' " +
+                        "ORDER BY r.receptionDate DESC")
         List<Reception> findAllBookings();
 }

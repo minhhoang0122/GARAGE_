@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import NotificationBell from './NotificationBell';
 import ThemeToggle from './ThemeToggle';
+import UserAvatar from './UserAvatar';
 
 interface TopbarProps {
     title?: string;
@@ -64,7 +65,7 @@ export default function Topbar({ title, subtitle, onMenuClick }: TopbarProps) {
     };
 
     return (
-        <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 transition-all duration-200">
+        <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 transition-all duration-300">
             <div className="flex h-14 md:h-16 items-center justify-between px-4 lg:px-8 gap-4">
                 {/* Left Section: Mobile Menu & Breadcrumbs/Title */}
                 <div className="flex items-center gap-3 flex-1 min-w-0 transition-opacity duration-300">
@@ -105,11 +106,7 @@ export default function Topbar({ title, subtitle, onMenuClick }: TopbarProps) {
                     <ThemeToggle />
                     <NotificationBell />
 
-                    <div className="pl-1">
-                        <div className="h-8 w-8 md:h-9 md:w-9 rounded-full bg-gradient-to-tr from-slate-700 to-slate-900 flex items-center justify-center text-white text-sm font-bold shadow-md shadow-slate-500/10 cursor-pointer hover:shadow-lg hover:shadow-slate-500/30 transition-all active:scale-95 border-2 border-white dark:border-slate-900 select-none">
-                            {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                    </div>
+                    <UserAvatar />
                 </div>
             </div>
         </header>
