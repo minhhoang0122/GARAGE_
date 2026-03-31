@@ -78,7 +78,7 @@ export default function LandingPage() {
     const announcements = announcementsData.slice(0, 3);
 
     const roles = (session?.user as any)?.roles || [];
-    const isStaff = roles.some((r: string) => ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA', 'KE_TOAN'].includes(r));
+    const isStaff = roles.some((r: string) => ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA'].includes(r));
     const isAdmin = roles.includes('ADMIN');
 
     const handleTrack = async (e: React.FormEvent) => {

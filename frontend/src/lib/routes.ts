@@ -5,7 +5,6 @@ export const VaiTro = {
     KHO: 'KHO',
     QUAN_LY_XUONG: 'QUAN_LY_XUONG',
     THO_SUA_CHUA: 'THO_SUA_CHUA',
-    THU_NGAN: 'KE_TOAN',
     KHACH_HANG: 'KHACH_HANG',
     CUVAN: 'CUVAN',
     THO: 'THO',
@@ -20,14 +19,13 @@ export const ROLE_ROUTES: Record<string, string> = {
     KHO: '/warehouse',
     QUAN_LY_XUONG: '/mechanic',
     THO_SUA_CHUA: '/mechanic',
-    THU_NGAN: '/sale',
     KHACH_HANG: '/customer/home',
 };
 
 // Quyền truy cập cho từng tiền tố route
 export const ROUTE_PERMISSIONS: Record<string, string[]> = {
     '/admin': ['ADMIN'],
-    '/sale': ['ADMIN', 'SALE', 'KE_TOAN'],
+    '/sale': ['ADMIN', 'SALE'],
     '/warehouse': ['ADMIN', 'KHO'],
     '/mechanic': ['QUAN_LY_XUONG', 'THO_SUA_CHUA'],
     '/customer': ['KHACH_HANG'],
