@@ -52,11 +52,11 @@ export default function BlogSection({
                                     <h4 className="text-xl font-bold !text-stone-900 mb-4 group-hover:text-orange-600 transition-colors line-clamp-2 leading-snug">
                                         <Link href={`/blog/${post.slug}`}>{post.title}</Link>
                                     </h4>
-                                    <p className="text-stone-700 text-sm line-clamp-3 mb-6 leading-relaxed flex-1 font-medium italic">
+                                    <p className="!text-stone-700 text-sm line-clamp-3 mb-6 leading-relaxed flex-1 font-medium italic">
                                         {post.excerpt}
                                     </p>
-                                    <Link href={`/blog/${post.slug}`} className="text-stone-900 font-black text-xs uppercase tracking-widest flex items-center gap-2 group/btn">
-                                        Đọc tiếp <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform text-orange-600" />
+                                    <Link href={`/blog/${post.slug}`} className="!text-stone-900 font-black text-xs uppercase tracking-widest flex items-center gap-2 group/btn">
+                                        Đọc tiếp <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform !text-orange-600" />
                                     </Link>
                                 </div>
                             </motion.article>

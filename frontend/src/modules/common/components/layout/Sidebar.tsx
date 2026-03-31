@@ -284,7 +284,7 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
                     </div>
                 </div>
 
-                <div className="space-y-4 flex-1 overflow-y-auto pr-1 scrollbar-hidden hover:scrollbar-visible custom-scrollbar">
+                <div className="space-y-4 flex-1 overflow-y-auto pr-1 pb-4 scrollbar-hidden hover:scrollbar-visible custom-scrollbar">
                     {/* --- ONLINE SECTION --- */}
                     {groupedStaff.online.length > 0 && (
                         <div className="space-y-2">

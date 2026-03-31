@@ -62,7 +62,7 @@ export default function StatsSection({
                             <span className="text-orange-500 font-black uppercase text-xs tracking-widest mb-4 block">
                                 Niềm tin & Chất lượng
                             </span>
-                            <h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight tracking-tight text-white">
+                            <h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight tracking-tight !text-white">
                                 {displayTitle}
                             </h2>
                             <p className="text-lg !text-stone-200 leading-relaxed mb-10 font-medium">
@@ -89,7 +89,7 @@ export default function StatsSection({
                                 <div className="bg-orange-600/10 w-14 h-14 rounded-xl flex items-center justify-center border border-orange-500/20 mb-6 group-hover:bg-orange-600 group-hover:text-white transition-all duration-300">
                                     <stat.icon className="text-orange-500 group-hover:text-white" size={28} />
                                 </div>
-                                <div className="text-5xl font-bold text-white mb-2 tracking-tight group-hover:text-orange-400 transition-colors">
+                                <div className="text-5xl font-bold !text-white mb-2 tracking-tight group-hover:!text-orange-400 transition-colors">
                                     {stat.number}
                                 </div>
                                 <div className="font-bold text-sm text-orange-500/80 mb-3 group-hover:text-orange-400">

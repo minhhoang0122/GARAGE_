@@ -24,13 +24,25 @@ export default function WarehouseHistoryPage() {
     const [activeTab, setActiveTab] = useState<'import' | 'export'>('import');
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
-    const [printData, setPrintData] = useState<any>(null);
+    const [printId, setPrintId] = useState<number | null>(null);
     const parentRef = useRef<HTMLDivElement>(null);
 
     const { data: historyData = [], isLoading, refetch } = useQuery<any[]>({
         queryKey: ['warehouse', 'history', activeTab],
         queryFn: () => api.get(`/warehouse/history/${activeTab}`)
     });
+
+    // Query lấy dữ liệu chi tiết để in
+    const { 
+        data: printData, 
+        isFetching: isFetchingPrint 
+    } = useQuery({
+        queryKey: ['warehouse', 'import', printId],
+        queryFn: () => api.get(`/warehouse/import/${printId}`),
+        enabled: !!printId,
+    });
+    
+    const isPrinting = isFetchingPrint;
 
     const filteredData = historyData.filter(item => {
         const searchStr = searchTerm.toLowerCase();
@@ -67,21 +79,15 @@ export default function WarehouseHistoryPage() {
         });
     };
 
-    const handlePrint = async (e: React.MouseEvent, id: number) => {
+    const handlePrint = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
-        try {
-            const detail = await api.get(`/warehouse/import/${id}`);
-            setPrintData(detail);
-        } catch (error) {
-            console.error('Failed to fetch note for printing', error);
-            toast.error("Không thể tải phiếu nhập. Vui lòng thử lại.");
-        }
+        setPrintId(id);
     };
 
     return (
         <DashboardLayout title="Lịch sử Kho" subtitle="Theo dõi chi tiết nhập xuất hàng hóa">
             {printData && (
-                <PrintImportNote data={printData} onClose={() => setPrintData(null)} />
+                <PrintImportNote data={printData} onClose={() => setPrintId(null)} />
             )}
 
             <div className="max-w-7xl mx-auto space-y-6">
@@ -120,8 +126,8 @@ export default function WarehouseHistoryPage() {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isLoading} className="h-10 w-10">
-                            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isLoading || isPrinting} className="h-10 w-10">
+                            <RefreshCw className={`w-4 h-4 ${isLoading || isPrinting ? 'animate-spin' : ''}`} />
                         </Button>
                     </div>
                 </div>

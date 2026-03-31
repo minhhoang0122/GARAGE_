@@ -24,9 +24,6 @@ export function SSEGlobalListener() {
             queryClient.invalidateQueries({ queryKey: ['order', data.orderId] });
             
             showToast('info', `Nhân viên ${data.claimedBy} đã tiếp nhận đơn hàng #${data.orderId}`);
-            
-            // Refresh Server Component state
-            router.refresh();
         };
 
         // 2. Khi có cập nhật trạng thái đơn hàng chung
@@ -35,7 +32,6 @@ export function SSEGlobalListener() {
             queryClient.invalidateQueries({ queryKey: ['orders'] });
             queryClient.invalidateQueries({ queryKey: ['reception'] });
             queryClient.invalidateQueries({ queryKey: ['checkout'] });
-            router.refresh(); // Refresh Server Component lists (Dashboard, Quotes, Jobs)
         };
 
         // 3. Khi có thay đổi trạng thái hạng mục (duyệt/bỏ duyệt)
@@ -43,7 +39,6 @@ export function SSEGlobalListener() {
             console.log('[SSE] Item Status Changed:', data);
             queryClient.invalidateQueries({ queryKey: ['order', data.orderId] });
             queryClient.invalidateQueries({ queryKey: ['sale'] });
-            router.refresh();
         };
 
         // 4. Khi có tiếp nhận xe mới
@@ -51,7 +46,6 @@ export function SSEGlobalListener() {
             console.log('[SSE] New Reception:', data);
             queryClient.invalidateQueries({ queryKey: ['reception'] });
             showToast('info', `Có xe mới vừa vào xưởng: ${data.plate || 'Chưa rõ biển số'}`);
-            router.refresh();
         };
 
         // 5. Khi có thay đổi tồn kho
@@ -62,9 +56,6 @@ export function SSEGlobalListener() {
             queryClient.invalidateQueries({ queryKey: ['warehouse'] });
             queryClient.invalidateQueries({ queryKey: ['warehouses'] });
             queryClient.invalidateQueries({ queryKey: ['sale'] });
-            // Cập nhật Server Component (Dashboard)
-            router.refresh();
-            // Không cần toast vì tần suất thay đổi kho có thể cao
         };
 
         // 6. Khi thợ cập nhật tiến độ hạng mục
@@ -73,7 +64,6 @@ export function SSEGlobalListener() {
             if (data.orderId) {
                 queryClient.invalidateQueries({ queryKey: ['order', data.orderId] });
             }
-            router.refresh();
         };
 
         // 7. Khi Quản đốc duyệt KCS (QC Pass/Fail)
@@ -84,7 +74,6 @@ export function SSEGlobalListener() {
                 queryClient.invalidateQueries({ queryKey: ['order', data.orderId] });
             }
             showToast('success', `Đơn hàng #${data.orderId} đã vượt qua kiểm tra KCS!`);
-            router.refresh();
         };
 
         const handleQCFailed = (data: any) => {
@@ -94,7 +83,6 @@ export function SSEGlobalListener() {
                 queryClient.invalidateQueries({ queryKey: ['order', data.orderId] });
             }
             showToast('error', `Đơn hàng #${data.orderId} KHÔNG vượt qua kiểm tra KCS. Cần xử lý lại.`);
-            router.refresh();
         };
 
         // 8. Bảo mật: Khi trạng thái tài khoản thay đổi (Khóa/Mở)
@@ -160,7 +148,6 @@ export function SSEGlobalListener() {
             
             // Hiển thị thông báo Toast nổi bật
             showToast('info', data.message || 'Hệ thống vừa cập nhật bảng giá/thuế mới.');
-            router.refresh();
         };
 
         addListener('order_claimed', handleOrderClaimed);

@@ -7,27 +7,28 @@ import { ArrowLeft, QrCode, CreditCard, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useMyOrders } from '@/modules/customer/hooks/useCustomer';
 
+import { useQuery } from '@tanstack/react-query';
+
 export default function CustomerPaymentPage() {
     const router = useRouter();
-    const [selectedOrder, setSelectedOrder] = useState<any>(null);
-    const [qrData, setQrData] = useState<any>(null);
-    const [qrLoading, setQrLoading] = useState(false);
+    const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
     const { data: allOrders = [], isLoading } = useMyOrders();
     const orders = allOrders.filter((o: any) => (o.debt || o.ConNo) > 0);
 
-    const loadQR = async (orderId: number) => {
-        setQrLoading(true);
-        try {
-            const data = await api.get(`/customer/qr-payment/${orderId}`);
-            setQrData(data);
-            setSelectedOrder(orderId);
-        } catch {
-            // Error handled silently
-        } finally {
-            setQrLoading(false);
-        }
-    };
+    // Sử dụng useQuery để lấy thông tin QR
+    const { 
+        data: qrData, 
+        isLoading: qrLoading,
+        error: qrError 
+    } = useQuery({
+        queryKey: ['qrPayment', selectedOrderId],
+        queryFn: async () => {
+            if (!selectedOrderId) return null;
+            return await api.get(`/customer/qr-payment/${selectedOrderId}`);
+        },
+        enabled: !!selectedOrderId,
+    });
 
     if (isLoading) {
         return <div className="min-h-screen bg-stone-950 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={32} /></div>;
@@ -53,7 +54,7 @@ export default function CustomerPaymentPage() {
                         {!qrData && orders.map((order: any) => (
                             <button
                                 key={order.id}
-                                onClick={() => loadQR(order.id)}
+                                onClick={() => setSelectedOrderId(order.id)}
                                 disabled={qrLoading}
                                 className="w-full bg-stone-900 border border-stone-800 rounded-xl p-4 text-left hover:border-orange-700 transition-colors"
                             >
@@ -86,7 +87,7 @@ export default function CustomerPaymentPage() {
                                     <p className="text-stone-400">Nội dung: <span className="text-white font-mono">{qrData.content}</span></p>
                                 </div>
                                 <button
-                                    onClick={() => { setQrData(null); setSelectedOrder(null); }}
+                                    onClick={() => setSelectedOrderId(null)}
                                     className="mt-4 text-stone-500 hover:text-white transition-colors text-sm"
                                 >
                                     ← Quay lại danh sách

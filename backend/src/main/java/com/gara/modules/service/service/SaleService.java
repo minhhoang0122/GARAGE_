@@ -277,6 +277,10 @@ public class SaleService {
                 .deposit(deposit)
                 .thoChanDoanId(order.getDiagnosticMechanic() != null ? order.getDiagnosticMechanic().getId() : null)
                 .receptionId(order.getReception() != null ? order.getReception().getId() : null)
+                .advisorName(order.getServiceAdvisor() != null ? (order.getServiceAdvisor().getFullName() != null ? order.getServiceAdvisor().getFullName() : order.getServiceAdvisor().getUsername()) : "N/A")
+                .advisorAvatar(order.getServiceAdvisor() != null ? order.getServiceAdvisor().getAvatar() : null)
+                .foremanName(order.getDiagnosticMechanic() != null ? (order.getDiagnosticMechanic().getFullName() != null ? order.getDiagnosticMechanic().getFullName() : order.getDiagnosticMechanic().getUsername()) : "N/A")
+                .foremanAvatar(order.getDiagnosticMechanic() != null ? order.getDiagnosticMechanic().getAvatar() : null)
                 .build();
     }
 

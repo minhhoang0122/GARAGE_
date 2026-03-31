@@ -10,22 +10,22 @@ import { isAssignPending, isAssignApproved, isAssignCompleted } from '@/lib/stat
 interface AssignmentListProps {
     itemId: number;
     assignments: Assignment[];
-    maxLimit: number;
     isLead: boolean;
     currentUserId: number | null;
     isItemCompleted?: boolean;
 }
 
-export default function AssignmentList({ itemId, assignments, maxLimit, isLead, currentUserId, isItemCompleted }: AssignmentListProps) {
+export default function AssignmentList({ itemId, assignments, isLead, currentUserId, isItemCompleted }: AssignmentListProps) {
     const { toast } = useToast();
-    const { mutate: approveMatch, isPending: isWorking } = useApproveJoinTask();
 
     // Filter out pending assignments if item is completed
     const visibleAssignments = (assignments || []).filter(a => !(isItemCompleted && isAssignPending(a.status)));
-    const activeCount = (assignments || []).filter(a => isAssignApproved(a.status) || isAssignCompleted(a.status)).length;
 
     return (
         <div className="flex flex-wrap items-center gap-2 mt-2">
+            {visibleAssignments.length === 0 && (
+                <span className="text-[10px] text-slate-400 italic">Chưa có nhân sự gán cho hạng mục này.</span>
+            )}
             {visibleAssignments.map((assign) => (
                 <div key={assign.id}
                     className={`flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border text-xs font-medium transition-colors
@@ -53,34 +53,6 @@ export default function AssignmentList({ itemId, assignments, maxLimit, isLead, 
                             )}
                         </span>
                     </div>
-
-                    {/* Approve Button for Lead */}
-                    {isLead && isAssignPending(assign.status) && (
-                        <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 rounded-full hover:bg-emerald-200 hover:text-emerald-800 -mr-1"
-                            onClick={() => approveMatch(assign.id, {
-                                onSuccess: () => {
-                                    toast({
-                                        title: "Đã phê duyệt",
-                                        className: "bg-emerald-50 border-emerald-200 text-emerald-800"
-                                    });
-                                },
-                                onError: (error: any) => {
-                                    toast({
-                                        title: "Lỗi",
-                                        description: error.message || "Không thể phê duyệt.",
-                                        variant: "destructive"
-                                    });
-                                }
-                            })}
-                            disabled={isWorking}
-                            title="Phê duyệt"
-                        >
-                            <Check className="w-4 h-4" />
-                        </Button>
-                    )}
                 </div>
             ))}
         </div>

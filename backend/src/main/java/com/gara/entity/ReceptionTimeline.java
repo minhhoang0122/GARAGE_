@@ -23,6 +23,9 @@ public class ReceptionTimeline {
     @Column(name = "actor_role", length = 50)
     private String actorRole;
 
+    @Column(name = "actor_avatar")
+    private String actorAvatar;
+
     @Column(name = "action_type", length = 50, nullable = false)
     private String actionType; // ADD_ITEM, DELETE_ITEM, UPDATE_ITEM, STATUS_CHANGE, NOTE, MAN_WORK
 
@@ -67,6 +70,9 @@ public class ReceptionTimeline {
     public String getActorRole() { return actorRole; }
     public void setActorRole(String actorRole) { this.actorRole = actorRole; }
 
+    public String getActorAvatar() { return actorAvatar; }
+    public void setActorAvatar(String actorAvatar) { this.actorAvatar = actorAvatar; }
+
     public String getActionType() { return actionType; }
     public void setActionType(String actionType) { this.actionType = actionType; }
 
@@ -94,6 +100,7 @@ public class ReceptionTimeline {
         private Integer actorId;
         private String actorName;
         private String actorRole;
+        private String actorAvatar;
         private String actionType;
         private String content;
         private String oldValue;
@@ -104,6 +111,7 @@ public class ReceptionTimeline {
         public ReceptionTimelineBuilder actorId(Integer actorId) { this.actorId = actorId; return this; }
         public ReceptionTimelineBuilder actorName(String actorName) { this.actorName = actorName; return this; }
         public ReceptionTimelineBuilder actorRole(String actorRole) { this.actorRole = actorRole; return this; }
+        public ReceptionTimelineBuilder actorAvatar(String actorAvatar) { this.actorAvatar = actorAvatar; return this; }
         public ReceptionTimelineBuilder actionType(String actionType) { this.actionType = actionType; return this; }
         public ReceptionTimelineBuilder content(String content) { this.content = content; return this; }
         public ReceptionTimelineBuilder oldValue(String oldValue) { this.oldValue = oldValue; return this; }
@@ -116,6 +124,7 @@ public class ReceptionTimeline {
             timeline.setActorId(actorId);
             timeline.setActorName(actorName);
             timeline.setActorRole(actorRole);
+            timeline.setActorAvatar(actorAvatar);
             timeline.setActionType(actionType);
             timeline.setContent(content);
             timeline.setOldValue(oldValue);

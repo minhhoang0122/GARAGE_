@@ -25,6 +25,10 @@ public record ReceptionDetailDTO(
         String diaChiKhach,
         String emailKhach,
         
+        // Personnel Info
+        String receptionistName,
+        String receptionistAvatar,
+        
         // Order Info
         Integer orderId,
         String orderStatus
@@ -50,6 +54,8 @@ public record ReceptionDetailDTO(
         private String sdtKhach;
         private String diaChiKhach;
         private String emailKhach;
+        private String receptionistName;
+        private String receptionistAvatar;
         private Integer orderId;
         private String orderStatus;
 
@@ -69,13 +75,15 @@ public record ReceptionDetailDTO(
         public ReceptionDetailDTOBuilder sdtKhach(String sdtKhach) { this.sdtKhach = sdtKhach; return this; }
         public ReceptionDetailDTOBuilder diaChiKhach(String diaChiKhach) { this.diaChiKhach = diaChiKhach; return this; }
         public ReceptionDetailDTOBuilder emailKhach(String emailKhach) { this.emailKhach = emailKhach; return this; }
+        public ReceptionDetailDTOBuilder receptionistName(String receptionistName) { this.receptionistName = receptionistName; return this; }
+        public ReceptionDetailDTOBuilder receptionistAvatar(String receptionistAvatar) { this.receptionistAvatar = receptionistAvatar; return this; }
         public ReceptionDetailDTOBuilder orderId(Integer orderId) { this.orderId = orderId; return this; }
         public ReceptionDetailDTOBuilder orderStatus(String orderStatus) { this.orderStatus = orderStatus; return this; }
 
         public ReceptionDetailDTO build() {
             return new ReceptionDetailDTO(id, ngayGio, mucXang, tinhTrangVoXe, yeuCauSoBo, hinhAnh, odo,
                     bienSo, nhanHieu, model, soKhung, soMay, tenKhach, sdtKhach, diaChiKhach, emailKhach,
-                    orderId, orderStatus);
+                    receptionistName, receptionistAvatar, orderId, orderStatus);
         }
     }
 }

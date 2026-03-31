@@ -7,6 +7,7 @@ import { MapPin, PhoneCall, Clock, Wrench, Settings, Search, Menu, User, CarFron
 import { BlogPost, LandingSection, Announcement } from '@/modules/landing/types/cms';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getHomeRoute } from '@/lib/routes';
 import SectionRegistry from '@/modules/landing/components/SectionRegistry';
 import EditableWrapper from '@/modules/landing/components/EditableWrapper';
@@ -14,59 +15,67 @@ import Footer from '@/modules/landing/components/Footer';
 
 export default function LandingPage() {
     const { data: session, status } = useSession();
-    const [sections, setSections] = useState<LandingSection[]>([]);
+    const queryClient = useQueryClient();
     const [isEditMode, setIsEditMode] = useState(false);
     
     // States for Hero/Tracking (kept in parent for coordination)
     const [trackingPlate, setTrackingPlate] = useState('');
-    const [trackingResult, setTrackingResult] = useState<any>(null);
-    const [isTracking, setIsTracking] = useState(false);
-    const [trackError, setTrackError] = useState('');
     
-    const [hotServices, setHotServices] = useState<any[]>([]);
-    const [recentPosts, setRecentPosts] = useState<BlogPost[]>([]);
-    const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    // 1. Fetch CMS Sections
+    const { data: landingData, isLoading: isLoadingSections } = useQuery<LandingSection[]>({
+        queryKey: ['public', 'cms', 'landing'],
+        queryFn: () => api.get('/public/cms/landing')
+    });
+
+    const [sections, setSections] = useState<LandingSection[]>([]);
+    
+    useEffect(() => {
+        if (landingData && landingData.length > 0) {
+            setSections(landingData);
+        } else if (landingData) {
+            setSections([
+                { sectionId: 'hero', title: '', content: '', imageUrl: '', orderIndex: 0, isActive: true },
+                { sectionId: 'intro', title: '', content: '', imageUrl: '', orderIndex: 1, isActive: true },
+                { sectionId: 'process', title: '', content: '', imageUrl: '', orderIndex: 2, isActive: true },
+                { sectionId: 'facilities', title: '', content: '', imageUrl: '', orderIndex: 3, isActive: true },
+                { sectionId: 'blog', title: '', content: '', imageUrl: '', orderIndex: 4, isActive: true },
+                { sectionId: 'social_proof', title: '', content: '', imageUrl: '', orderIndex: 5, isActive: true },
+                { sectionId: 'cta', title: '', content: '', imageUrl: '', orderIndex: 6, isActive: true }
+            ]);
+        }
+    }, [landingData]);
+
+    // 2. Fetch Other Home Data
+    const { data: servicesData = [], isLoading: isLoadingServices } = useQuery<any[]>({
+        queryKey: ['public', 'services'],
+        queryFn: () => api.getCached('/public/services')
+    });
+
+    const { data: blogData = [], isLoading: isLoadingBlog } = useQuery<BlogPost[]>({
+        queryKey: ['public', 'cms', 'blog'],
+        queryFn: () => api.getCached('/public/cms/blog')
+    });
+
+    const { data: announcementsData = [], isLoading: isLoadingAnnouncements } = useQuery<Announcement[]>({
+        queryKey: ['public', 'cms', 'announcements'],
+        queryFn: () => api.getCached('/public/cms/announcements')
+    });
+
+    // 3. Tracking Query
+    const { data: trackingResult, isLoading: isTracking, error: trackingFetchError, refetch: executeTrack } = useQuery({
+        queryKey: ['public', 'tracking', trackingPlate],
+        queryFn: () => api.getCached(`/public/tracking?bienSo=${trackingPlate.replace(/[-. ]/g, '').toUpperCase()}`),
+        enabled: false, // Only manual refetch
+    });
+
+    const isLoading = isLoadingSections || isLoadingServices || isLoadingBlog || isLoadingAnnouncements;
+
+    const [trackError, setTrackError] = useState('');
     const [isLoginOpen, setIsLoginOpen] = useState(false);
 
-    useEffect(() => {
-        const fetchHomeData = async () => {
-            setIsLoading(true);
-            try {
-                const [servicesData, blogData, sectionsData, announcementsData] = await Promise.all([
-                    api.getCached('/public/services'),
-                    api.getCached('/public/cms/blog'),
-                    api.get('/public/cms/landing'),
-                    api.getCached('/public/cms/announcements')
-                ]);
-
-                if (Array.isArray(servicesData)) setHotServices(servicesData.slice(0, 6));
-                if (Array.isArray(blogData)) setRecentPosts(blogData.slice(0, 3));
-                if (Array.isArray(announcementsData)) setAnnouncements(announcementsData.slice(0, 3));
-                
-                if (Array.isArray(sectionsData) && sectionsData.length > 0) {
-                    setSections(sectionsData);
-                } else {
-                    // Fallback default structure if DB is empty
-                    setSections([
-                        { sectionId: 'hero', title: '', content: '', imageUrl: '', orderIndex: 0, isActive: true },
-                        { sectionId: 'intro', title: '', content: '', imageUrl: '', orderIndex: 1, isActive: true },
-                        { sectionId: 'process', title: '', content: '', imageUrl: '', orderIndex: 2, isActive: true },
-                        { sectionId: 'facilities', title: '', content: '', imageUrl: '', orderIndex: 3, isActive: true },
-                        { sectionId: 'blog', title: '', content: '', imageUrl: '', orderIndex: 4, isActive: true },
-                        { sectionId: 'social_proof', title: '', content: '', imageUrl: '', orderIndex: 5, isActive: true },
-                        { sectionId: 'cta', title: '', content: '', imageUrl: '', orderIndex: 6, isActive: true }
-                    ]);
-                }
-            } catch (err) {
-                console.error('Error fetching home data:', err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchHomeData();
-    }, []);
+    const hotServices = servicesData.slice(0, 6);
+    const recentPosts = blogData.slice(0, 3);
+    const announcements = announcementsData.slice(0, 3);
 
     const roles = (session?.user as any)?.roles || [];
     const isStaff = roles.some((r: string) => ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA', 'KE_TOAN'].includes(r));
@@ -85,21 +94,8 @@ export default function LandingPage() {
             return;
         }
 
-        setIsTracking(true);
         setTrackError('');
-        try {
-            const data = await api.getCached(`/public/tracking?bienSo=${cleanPlate}`, undefined);
-            if (data && data.success) {
-                setTrackingResult(data);
-            } else {
-                setTrackError((data as any)?.message || 'Không tìm thấy dữ liệu.');
-                setTrackingResult(null);
-            }
-        } catch (error) {
-            setTrackError('Lỗi kết nối hoặc mất mạng.');
-        } finally {
-            setIsTracking(false);
-        }
+        executeTrack();
     };
 
     // Actions for Builder
@@ -125,14 +121,10 @@ export default function LandingPage() {
         setIsSaving(true);
         setSaveStatus('saving');
         try {
-            // Update each section's order and active status
             await Promise.all(sections.map(section => {
                 if (section.id) {
-                    return api.put(`/admin/cms/landing/${section.id}`, {
-                        ...section
-                    });
+                    return api.put(`/admin/cms/landing/${section.id}`, section);
                 } else {
-                    // If it's a "virtual" section without ID, we might need to POST it first
                     return api.post('/admin/cms/landing', section);
                 }
             }));
@@ -140,6 +132,7 @@ export default function LandingPage() {
             setSaveStatus('success');
             setTimeout(() => setSaveStatus('idle'), 3000);
             setIsEditMode(false);
+            queryClient.invalidateQueries({ queryKey: ['public', 'cms', 'landing'] });
             alert('Đã lưu tất cả thay đổi thành công!');
         } catch (err) {
             console.error('Failed to save landing layout:', err);

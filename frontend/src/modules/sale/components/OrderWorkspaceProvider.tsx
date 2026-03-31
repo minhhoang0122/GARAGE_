@@ -1,6 +1,8 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useEffect, useTransition } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-keys';
 import { OrderDetailItem } from '@/modules/sale/services/sale';
 import { useRouter } from 'next/navigation';
 
@@ -19,15 +21,16 @@ export function useOrderWorkspaceOptional() {
 }
 
 export function OrderWorkspaceProvider({
+    orderId,
     initialItems,
     children
 }: {
+    orderId: number;
     initialItems: OrderDetailItem[];
     children: ReactNode;
 }) {
-    const router = useRouter();
+    const queryClient = useQueryClient();
     const [items, setItems] = useState<OrderDetailItem[]>(initialItems);
-    const [isPending, startTransition] = useTransition();
     const [isApiLoading, setIsApiLoading] = useState(false);
 
     // Khi dữ liệu server thục sự thay đổi qua router.refresh, cập nhật lại ds
@@ -46,10 +49,8 @@ export function OrderWorkspaceProvider({
         setIsApiLoading(true);
         try {
             await apiCall();
-            // Server xử lý xong, yêu cầu refresh RSC
-            startTransition(() => {
-                router.refresh();
-            });
+            // Server xử lý xong, yêu cầu invalidate để re-fetch detail
+            queryClient.invalidateQueries({ queryKey: queryKeys.order.detail(orderId) });
         } finally {
             setIsApiLoading(false);
         }
@@ -59,7 +60,7 @@ export function OrderWorkspaceProvider({
         <OrderWorkspaceContext.Provider value={{
             items, 
             updateItemStatusLocal,
-            isCalculating: isPending || isApiLoading,
+            isCalculating: isApiLoading,
             startCalculation
         }}>
             {children}

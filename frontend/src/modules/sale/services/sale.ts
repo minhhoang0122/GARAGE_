@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { normalizePersonnel, formatFullName } from '@/lib/utils';
 import { mapReception, Reception } from '../../reception/services/reception';
 
 export interface OrderDetailItem {
@@ -54,6 +55,9 @@ export interface OrderDetail {
     vatPercent: number;
     imageUrl: string[];
     thoChanDoanId?: number;
+    thoChanDoanName?: string;
+    saleAvatar?: string;
+    foremanAvatar?: string;
     nguoiPhuTrachId?: number;
     receptionId?: number;
 }
@@ -72,6 +76,28 @@ export const mapOrder = (raw: any): OrderDetail => {
     const discount = Number(raw.discount || raw.chietKhauTong || 0);
     const final = total - discount;
 
+    // Chuẩn hóa nhân sự - Tìm kiếm linh hoạt trong nhiều trường tiềm năng
+    const sale = normalizePersonnel(
+        raw.nguoiPhuTrach || 
+        raw.Sale || 
+        raw.sale || 
+        raw.NguoiPhuTrach || 
+        raw.NhanVien || 
+        raw.staff || 
+        raw.User
+    );
+    
+    const foreman = normalizePersonnel(
+        raw.thoChanDoan || 
+        raw.ThoChanDoan || 
+        raw.Foreman || 
+        raw.foreman || 
+        raw.KyThuat || 
+        raw.phieuTiepNhan?.thoChanDoan
+    );
+
+    const customerRawName = raw.customerName || raw.phieuTiepNhan?.xe?.khachHang?.fullName || raw.KhachHang?.fullName || raw.phieuTiepNhan?.xe?.khachHang?.hoTen || raw.KhachHang?.HoTen || '';
+
     return {
         id: raw.id || raw.ID || 0,
         MaDonHang: raw.id ? `DH${String(raw.id).padStart(5, '0')}` : (raw.MaDonHang || ''), 
@@ -80,9 +106,9 @@ export const mapOrder = (raw: any): OrderDetail => {
         plateNumber: raw.plateNumber || raw.plate || raw.phieuTiepNhan?.xeBienSo || raw.Xe?.BienSo || '',
         vehicleBrand: raw.vehicleBrand || raw.carBrand || raw.phieuTiepNhan?.xe?.nhanHieu || raw.Xe?.NhanHieu || '',
         vehicleModel: raw.vehicleModel || raw.carModel || raw.phieuTiepNhan?.xe?.model || raw.Xe?.Model || '',
-        customerName: raw.customerName || raw.phieuTiepNhan?.xe?.khachHang?.fullName || raw.KhachHang?.fullName || raw.phieuTiepNhan?.xe?.khachHang?.hoTen || raw.KhachHang?.HoTen || '',
+        customerName: formatFullName(customerRawName),
         customerPhone: raw.customerPhone || raw.phieuTiepNhan?.xe?.khachHang?.phone || raw.KhachHang?.phone || raw.phieuTiepNhan?.xe?.khachHang?.soDienThoai || raw.KhachHang?.SoDienThoai || '',
-        saleName: raw.saleName || raw.nguoiPhuTrach?.fullName || raw.Sale?.fullName || raw.nguoiPhuTrach?.hoTen || raw.Sale?.HoTen || 'Chưa phân phối',
+        saleName: raw.advisorName || sale.name || raw.saleName || 'Chưa phân phối',
         status: raw.status || raw.trangThai || raw.TrangThai || 'TIEP_NHAN',
         paymentStatus: raw.paymentStatus || raw.TrangThaiThanhToan || (Number(raw.soTienDaTra || 0) >= total ? 'PAID' : 'UNPAID'),
         grandTotal: total,
@@ -122,8 +148,11 @@ export const mapOrder = (raw: any): OrderDetail => {
         vat: Number(raw.vat || raw.thueVAT || raw.TienThue || 0),
         vatPercent: Number(raw.vatPercent || raw.vatPhanTram || raw.PhanTramThue || 0),
         imageUrl: raw.imageUrl || raw.hinhAnh || raw.HinhAnh || [],
-        thoChanDoanId: raw.thoChanDoanId || raw.ThoChanDoanID,
-        nguoiPhuTrachId: raw.nguoiPhuTrachId || raw.NguoiPhuTrachID,
+        thoChanDoanId: raw.foremanId || foreman.id || raw.thoChanDoanId || raw.ThoChanDoanID,
+        thoChanDoanName: raw.foremanName || foreman.name || raw.thoChanDoanName || '',
+        saleAvatar: raw.advisorAvatar || sale.avatar,
+        foremanAvatar: raw.foremanAvatar || foreman.avatar,
+        nguoiPhuTrachId: raw.advisorId || sale.id || raw.nguoiPhuTrachId || raw.NguoiPhuTrachID,
         receptionId: raw.receptionId || raw.phieuTiepNhan?.id
     };
 };

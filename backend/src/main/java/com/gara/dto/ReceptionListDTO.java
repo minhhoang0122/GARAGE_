@@ -12,5 +12,7 @@ public record ReceptionListDTO(
         String xeModel,
         Integer orderId,
         String trangThai,
-        String hinhAnh) {
+        String hinhAnh,
+        String receptionistName,
+        String receptionistAvatar) {
 }

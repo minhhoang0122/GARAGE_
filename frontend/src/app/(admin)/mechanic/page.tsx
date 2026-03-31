@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useInspectJobs, useRepairJobs, useMechanicStats } from '@/modules/mechanic/hooks/useMechanic';
 import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
 import { queryKeys } from '@/lib/query-keys';
+import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 
 export default function MechanicDashboard() {
     const { hasPermission, isAdmin, roles } = usePermission();
@@ -31,7 +32,7 @@ export default function MechanicDashboard() {
 
     return (
         <DashboardLayout
-            title={isDiagnose ? "Thợ Chẩn Đoán" : "Thợ Sửa Chữa"}
+            title={isDiagnose ? ROLE_DISPLAY_NAMES.QUAN_LY_XUONG : ROLE_DISPLAY_NAMES.THO_SUA_CHUA}
             subtitle={isDiagnose ? "Tiếp nhận và lập đề xuất sửa chữa" : "Quản lý công việc được phân công"}
         >
             <div className="max-w-7xl mx-auto space-y-6">

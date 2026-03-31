@@ -23,6 +23,7 @@ import { identityService } from '@/modules/identity/services/identityService';
 import { getStatusBadge } from '@/lib/status';
 import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 import { Button } from '@/modules/shared/components/ui/button';
+import { AdvancedDataTable } from '@/modules/shared/components/ui/AdvancedDataTable';
 import { toast } from 'sonner';
 import { Input } from '@/modules/shared/components/ui/input';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
@@ -140,131 +141,127 @@ export default function UsersPage() {
         }
     };
 
+    const columns = [
+        {
+            header: 'Nhân viên',
+            accessorKey: 'fullName',
+            render: (value: any, user: any) => (
+                <div className="flex items-center gap-4">
+                    <BaseAvatar 
+                        src={user.avatar} 
+                        name={user.fullName} 
+                        size="md"
+                        showStatus={false}
+                        showBorder={false}
+                        className="shadow-sm"
+                    />
+                    <div>
+                        <p className="font-bold text-slate-800 dark:text-slate-100">{user.fullName}</p>
+                        <p className="text-[10px] font-medium text-slate-400">ID: #{user.id}</p>
+                    </div>
+                </div>
+            )
+        },
+        {
+            header: 'Tài khoản',
+            accessorKey: 'username',
+            className: 'hidden md:table-cell',
+            render: (value: any) => (
+                <div className="flex items-center gap-2">
+                    <Key className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="font-mono text-xs font-bold text-slate-600 dark:text-slate-300">{value}</span>
+                </div>
+            )
+        },
+        {
+            header: 'Liên hệ',
+            accessorKey: 'phone',
+            className: 'hidden lg:table-cell',
+            render: (value: any) => (
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>{value || 'N/A'}</span>
+                </div>
+            )
+        },
+        {
+            header: 'Vai trò',
+            accessorKey: 'roles',
+            className: 'hidden md:table-cell',
+            render: (roles: any) => (
+                <div className="flex flex-wrap gap-1.5">
+                    {roles?.map((role: any) => (
+                        <span key={role.name} className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            role.name === 'ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' :
+                            role.name === 'KHO' ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' :
+                            'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
+                        }`}>
+                            {ROLE_DISPLAY_NAMES[role.name] || role.name}
+                        </span>
+                    ))}
+                </div>
+            )
+        },
+        {
+            header: 'Trạng thái',
+            accessorKey: 'isActive',
+            className: 'text-center',
+            render: (isActive: boolean) => isActive ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50">
+                    <CheckCircle2 className="w-3 h-3" /> <span className="hidden sm:inline">Hoạt động</span>
+                </span>
+            ) : (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50">
+                    <XCircle className="w-3 h-3" /> <span className="hidden sm:inline">Đã khóa</span>
+                </span>
+            )
+        },
+        {
+            header: 'Thao tác',
+            accessorKey: 'id',
+            className: 'text-right',
+            render: (value: any, user: any) => (
+                <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEdit(user); }} className="h-9 w-9 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                        <Edit className="w-4 h-4" />
+                    </Button>
+                    {!(user.roles?.some((r: any) => r.name === 'ADMIN')) && (
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => { e.stopPropagation(); handleToggle(user); }} 
+                            className={`h-9 w-9 ${user.isActive ? 'text-slate-400 hover:text-red-500 hover:bg-red-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`}
+                        >
+                            {user.isActive ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                        </Button>
+                    )}
+                </div>
+            )
+        }
+    ];
+
     return (
         <DashboardLayout title="Quản lý nhân sự" subtitle="Kế hoạch và phân quyền tài khoản gara">
             <div className="max-w-7xl mx-auto space-y-6">
-                {/* Search & Actions */}
-                <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
-                    <div className="relative flex-1 w-full md:max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <Input
-                            placeholder="Tìm nhân viên theo tên hoặc tài khoản..."
-                            className="pl-10 h-11 border-none bg-slate-50 dark:bg-slate-800/50 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-xl"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    
-                    <div className="flex items-center gap-3 w-full md:w-auto">
-                        <Button variant="outline" size="icon" onClick={() => refetch()} className="h-11 w-11 rounded-xl">
-                            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                        </Button>
+                <AdvancedDataTable
+                    data={filteredUsers}
+                    columns={columns}
+                    isLoading={isLoading}
+                    searchPlaceholder="Tìm nhân viên theo tên hoặc tài khoản..."
+                    onSearch={setSearchTerm}
+                    emptyState={{
+                        title: 'Không tìm thấy nhân viên',
+                        description: 'Không tìm thấy nhân viên nào phù hợp với từ khóa tìm kiếm.'
+                    }}
+                    actionButton={
                         <Button 
                             onClick={() => { setEditingUser(null); form.reset(); setIsModalOpen(true); }} 
                             className="h-11 px-6 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:scale-[1.02] transition-transform gap-2 font-bold shadow-lg"
                         >
-                            <UserPlus className="w-5 h-5" /> Thêm nhân viên
+                            <Plus className="w-5 h-5" /> Thêm nhân viên
                         </Button>
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="bg-slate-50 dark:bg-slate-950/50 text-[11px] font-bold text-slate-500 border-b border-slate-100 dark:border-slate-800">
-                                    <th className="text-left px-8 py-4">Nhân viên</th>
-                                    <th className="text-left px-8 py-4 hidden md:table-cell">Tài khoản</th>
-                                    <th className="text-left px-8 py-4 hidden lg:table-cell">Liên hệ</th>
-                                    <th className="text-left px-8 py-4 hidden md:table-cell">Vai trò</th>
-                                    <th className="text-center px-4 md:px-8 py-4">Trạng thái</th>
-                                    <th className="text-right px-8 py-4">Thao tác</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                                {isLoading ? (
-                                    <tr>
-                                        <td colSpan={6} className="py-20 text-center text-slate-400 font-medium animate-pulse">Đang tải danh sách...</td>
-                                    </tr>
-                                ) : filteredUsers.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={6} className="py-20 text-center text-slate-400">Không tìm thấy nhân viên phù hợp</td>
-                                    </tr>
-                                ) : (
-                                    filteredUsers.map((user: any) => (
-                                        <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
-                                            <td className="px-8 py-5">
-                                                <div className="flex items-center gap-4">
-                                                    <BaseAvatar 
-                                                        src={user.avatar} 
-                                                        name={user.fullName} 
-                                                        size="md"
-                                                        className="shadow-sm border border-slate-100 dark:border-slate-800"
-                                                    />
-                                                    <div>
-                                                        <p className="font-bold text-slate-800 dark:text-slate-100">{user.fullName}</p>
-                                                        <p className="text-[10px] font-medium text-slate-400">ID: #{user.id}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-8 py-5 hidden md:table-cell">
-                                                <div className="flex items-center gap-2">
-                                                    <Key className="w-3.5 h-3.5 text-slate-400" />
-                                                    <span className="font-mono text-xs font-bold text-slate-600 dark:text-slate-300">{user.username}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-8 py-5 hidden lg:table-cell">
-                                               <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                                                   <Phone className="w-3.5 h-3.5" />
-                                                   <span>{user.phone || 'N/A'}</span>
-                                               </div>
-                                            </td>
-                                            <td className="px-8 py-5 hidden md:table-cell">
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {user.roles?.map((role: any) => (
-                                                        <span key={role.name} className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                                            role.name === 'ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' :
-                                                            role.name === 'KHO' ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' :
-                                                            'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
-                                                        }`}>
-                                                            {ROLE_DISPLAY_NAMES[role.name] || role.name}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 md:px-8 py-5 text-center">
-                                                {user.isActive ? (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50">
-                                                        <CheckCircle2 className="w-3 h-3" /> <span className="hidden sm:inline">Hoạt động</span>
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50">
-                                                        <XCircle className="w-3 h-3" /> <span className="hidden sm:inline">Đã khóa</span>
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-8 py-5 text-right">
-                                                <div className="flex justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                    <Button variant="ghost" size="icon" onClick={() => handleEdit(user)} className="h-9 w-9 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">
-                                                        <Edit className="w-4 h-4" />
-                                                    </Button>
-                                                    {!(user.roles?.some((r: any) => r.name === 'ADMIN')) && (
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            onClick={() => handleToggle(user)} 
-                                                            className={`h-9 w-9 ${user.isActive ? 'text-slate-400 hover:text-red-500 hover:bg-red-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`}
-                                                        >
-                                                            {user.isActive ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                </div>
+                    }
+                />
             </div>
 
             {/* Modal - Modern Design */}
@@ -345,11 +342,11 @@ export default function UsersPage() {
                                     <FormLabel className="text-xs font-bold text-slate-500 mb-3 block text-center">Vai trò & Phân quyền</FormLabel>
                                     <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                                         {[
-                                            { value: 'SALE', label: 'Sale (Cố vấn)' },
-                                            { value: 'QUAN_LY_XUONG', label: 'Quản đốc' },
-                                            { value: 'THO_SUA_CHUA', label: 'Kỹ thuật viên' },
-                                            { value: 'KHO', label: 'Thủ kho' },
-                                            { value: 'ADMIN', label: 'Toàn quyền' }
+                                            { value: 'SALE', label: ROLE_DISPLAY_NAMES.SALE },
+                                            { value: 'QUAN_LY_XUONG', label: ROLE_DISPLAY_NAMES.QUAN_LY_XUONG },
+                                            { value: 'THO_SUA_CHUA', label: ROLE_DISPLAY_NAMES.THO_SUA_CHUA },
+                                            { value: 'KHO', label: ROLE_DISPLAY_NAMES.KHO },
+                                            { value: 'ADMIN', label: ROLE_DISPLAY_NAMES.ADMIN }
                                         ].map(role => (
                                             <label key={role.value} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
                                                 <input

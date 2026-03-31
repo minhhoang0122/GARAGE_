@@ -168,25 +168,27 @@ export default function HeroSection({
                                     >
                                         <div className="flex justify-between items-start mb-5">
                                             <div>
-                                                <span className="text-stone-200 text-xs font-black block mb-1 uppercase tracking-wider">Cần kiểm tra</span>
-                                                <span className="text-white font-mono font-bold text-xl">{trackingResult.plateNumber || trackingResult.plate || trackingResult.bienSo}</span>
+                                                <span className="!text-stone-200 text-xs font-black block mb-1 uppercase tracking-wider">Cần kiểm tra</span>
+                                                <span className="!text-white font-mono font-bold text-xl">{trackingResult.plateNumber || trackingResult.plate || trackingResult.bienSo}</span>
                                             </div>
                                             <div className="text-right">
-                                                <span className="text-stone-200 text-xs font-black block mb-1 uppercase tracking-wider">Dòng xe</span>
-                                                <span className="text-white font-medium">{trackingResult.vehicleModel || trackingResult.modelXe || trackingResult.model}</span>
+                                                <span className="!text-stone-200 text-xs font-black block mb-1 uppercase tracking-wider">Dòng xe</span>
+                                                <span className="!text-white font-medium">{trackingResult.vehicleModel || trackingResult.modelXe || trackingResult.model}</span>
                                             </div>
                                         </div>
                                         <div className="bg-orange-900/30 border border-orange-500/30 p-4 mb-5 rounded shadow-inner">
                                             <span className="text-orange-500 text-[10px] sm:text-xs font-bold block mb-2">Trạng thái công việc</span>
                                             <span className="text-orange-100 font-bold sm:text-lg flex items-center gap-3">
                                                 <div className="w-3 h-3 rounded-full bg-orange-500 animate-pulse ring-4 ring-orange-500/30"></div>
-                                                {trackingResult.statusLabel || trackingResult.trangThaiLabel || trackingResult.status}
+                                                <span className="!text-orange-100 font-bold sm:text-lg">
+                                                    {trackingResult.statusLabel || trackingResult.trangThaiLabel || trackingResult.status}
+                                                </span>
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-end bg-black/40 p-4 rounded border border-white/5">
                                             <div>
-                                                <span className="text-stone-200 text-xs font-black block mb-1 uppercase tracking-wider">Đã thanh toán</span>
-                                                <span className="text-stone-100 font-bold font-mono text-sm">
+                                                <span className="!text-stone-200 text-xs font-black block mb-1 uppercase tracking-wider">Đã thanh toán</span>
+                                                <span className="!text-stone-100 font-bold font-mono text-sm">
                                                     {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(trackingResult.paidAmount ?? trackingResult.daThanhToan ?? 0)}
                                                 </span>
                                             </div>

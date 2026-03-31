@@ -116,7 +116,17 @@ public class UserService {
         }
 
         User savedUser = userRepository.save(user);
+        
+        // Phát sự kiện bảo mật (để logout/refresh token nếu cần)
         sseService.send(savedUser.getId(), "user_security_updated", java.util.Map.of("userId", savedUser.getId()));
+        
+        // Phát sự kiện cập nhật thông tin (để đồng bộ UI: avatar, tên)
+        sseService.send(savedUser.getId(), "user_updated", java.util.Map.of(
+            "userId", savedUser.getId(),
+            "avatar", savedUser.getAvatar() != null ? savedUser.getAvatar() : "",
+            "fullName", savedUser.getFullName()
+        ));
+        
         return savedUser;
     }
 
@@ -127,6 +137,13 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         user.setAvatar(avatarUrl);
         userRepository.save(user);
+        
+        // Gửi sự kiện SSE để đồng bộ hóa giao diện trên toàn hệ thống
+        sseService.send(id, "user_updated", java.util.Map.of(
+            "userId", id,
+            "avatar", avatarUrl,
+            "fullName", user.getFullName()
+        ));
     }
 
     @Transactional

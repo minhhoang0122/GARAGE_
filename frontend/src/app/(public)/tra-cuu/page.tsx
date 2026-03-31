@@ -7,33 +7,35 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import { useSSEContext } from '@/modules/common/contexts/SSEContext';
 
+import { useQuery } from '@tanstack/react-query';
+
 export default function TraCuuPage() {
     const { addListener, removeListener } = useSSEContext();
     const [trackingPlate, setTrackingPlate] = useState('');
-    const [trackingResult, setTrackingResult] = useState<any>(null);
-    const [isTracking, setIsTracking] = useState(false);
-    const [trackError, setTrackError] = useState('');
+    
+    // Sử dụng useQuery thay vì fetch thủ công
+    const { 
+        data: trackingResultData, 
+        isLoading: isTracking, 
+        error: queryError,
+        refetch: refetchTrack 
+    } = useQuery({
+        queryKey: ['publicTracking', trackingPlate],
+        queryFn: async () => {
+            if (!trackingPlate.trim()) return null;
+            return await api.get(`/public/tracking?bienSo=${trackingPlate}`);
+        },
+        enabled: false, // Chỉ chạy khi người dùng bấm nút
+        retry: false,
+    });
 
-    const handleTrack = useCallback(async (plateToTrack?: string) => {
-        const plate = plateToTrack || trackingPlate;
-        if (!plate.trim()) return;
-        
-        setIsTracking(true);
-        setTrackError('');
-        try {
-            const data = await api.get(`/public/tracking?bienSo=${plate}`);
-            if (data && data.success) {
-                setTrackingResult(data);
-            } else {
-                setTrackError(data?.message || 'Không tìm thấy dữ liệu.');
-                setTrackingResult(null);
-            }
-        } catch (error) {
-            setTrackError('Lỗi kết nối mạng. Vui lòng thử lại sau.');
-        } finally {
-            setIsTracking(false);
-        }
-    }, [trackingPlate]);
+    const trackingResult = trackingResultData?.success ? trackingResultData : null;
+    const trackError = (queryError as any)?.message || (trackingResultData && !trackingResultData.success ? trackingResultData.message : '');
+
+    const handleTrack = useCallback(async () => {
+        if (!trackingPlate.trim()) return;
+        refetchTrack();
+    }, [trackingPlate, refetchTrack]);
 
     // SSE Listener cho cập nhật tiến độ
     useEffect(() => {
@@ -41,7 +43,7 @@ export default function TraCuuPage() {
             console.log('[Public SSE] Order Update received:', data);
             // Nếu biển số khớp với xe đang tra cứu, cập nhật lại dữ liệu
             if (trackingResult && (data.plate === trackingResult.bienSo || data.orderId === trackingResult.id)) {
-                handleTrack(trackingResult.bienSo);
+                refetchTrack();
             }
         };
 

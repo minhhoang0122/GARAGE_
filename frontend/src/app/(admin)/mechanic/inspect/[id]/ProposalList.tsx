@@ -10,6 +10,8 @@ import { useToast } from '@/contexts/ToastContext';
 import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
+import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
+import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 
 type Product = {
     id: number;
@@ -313,11 +315,25 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
                                                         </span>
                                                     )}
                                                 </div>
-                                                {item.proposedByName && (
-                                                    <p className="text-[11px] text-slate-500">
-                                                        Đề xuất: <span className="text-slate-700 font-semibold">{item.proposedByName}</span>
-                                                    </p>
-                                                )}
+                                                 {item.proposedByName && (
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <BaseAvatar 
+                                                            name={item.proposedByName}
+                                                            size="xs"
+                                                            showStatus={false}
+                                                            showBorder={false}
+                                                            className="scale-90 opacity-80"
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <p className="text-[10px] text-slate-500 leading-none">
+                                                                <span className="text-slate-700 font-bold">{item.proposedByName}</span>
+                                                            </p>
+                                                            <span className="text-[7.5px] font-bold text-slate-300 uppercase tracking-tighter ml-1">
+                                                                {ROLE_DISPLAY_NAMES[String(item.proposedByRole || '').toUpperCase()] || item.proposedByRole}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                 )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
@@ -459,9 +475,12 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
                                             <tr key={m.mechanicId} className="hover:bg-slate-50/30 transition-colors">
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs border border-slate-200">
-                                                            {m.mechanicName.charAt(0)}
-                                                        </div>
+                                                        <BaseAvatar 
+                                                            name={m.mechanicName}
+                                                            size="xs"
+                                                            showStatus={false}
+                                                            showBorder={false}
+                                                        />
                                                         <span className="font-bold text-slate-700">{m.mechanicName}</span>
                                                     </div>
                                                 </td>

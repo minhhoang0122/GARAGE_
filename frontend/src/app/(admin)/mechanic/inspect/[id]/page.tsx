@@ -14,6 +14,7 @@ import { mechanicService } from '@/modules/mechanic/services/mechanic';
 import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
 import Timeline from '@/modules/shared/components/common/Timeline';
 import { getStatusBadge, isReceived, isWaitingDiagnosis } from '@/lib/status';
+import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 
 interface ReceptionDetail {
     id: number;
@@ -196,7 +197,7 @@ export default function InspectPage() {
                         {representsReadOnly && (
                             <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 text-sm flex gap-3 items-center">
                                 <AlertCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                                <p className="font-medium italic">Hồ sơ này đã được gửi báo cáo chẩn đoán. Mọi thay đổi sẽ cần sự phê duyệt của Quản lý dịch vụ.</p>
+                                <p className="font-medium italic">Hồ sơ này đã được gửi báo cáo chẩn đoán. Mọi thay đổi sẽ cần sự phê duyệt của {ROLE_DISPLAY_NAMES.QUAN_LY_XUONG}.</p>
                             </div>
                         )}
                     </div>

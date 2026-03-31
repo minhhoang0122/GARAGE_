@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { CreditCard, Banknote, Wallet, CheckCircle } from 'lucide-react';
-import { financeService, type PaymentMethod } from '@/modules/finance/services/finance';
+import { type PaymentMethod } from '@/modules/finance/services/finance';
+import { useProcessPayment } from '@/modules/finance/hooks/useFinance';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import CurrencyInput from '@/modules/shared/components/ui/CurrencyInput';
@@ -23,6 +24,7 @@ export default function PaymentForm({ orderId, grandTotal, amountPaid, debt }: P
     const [isSubmitting, setIsSubmitting] = useState(false);
     const router = useRouter();
     const { showToast } = useToast();
+    const { mutateAsync: processPayment } = useProcessPayment();
 
     const formatCurrency = (val: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
@@ -42,20 +44,15 @@ export default function PaymentForm({ orderId, grandTotal, amountPaid, debt }: P
 
         setIsSubmitting(true);
         try {
-            const result = await financeService.processPayment(orderId, { amount, method });
+            // Note: mapping local method keys if needed, but financeService handles it
+            const result = await processPayment({ 
+                orderId, 
+                data: { amount, method, type: 'PAYMENT' } 
+            });
 
-            if (result.success) {
-                if (result.isCompleted) {
-                    showToast('success', 'Thanh toán hoàn tất! Đơn hàng đã hoàn thành.');
-                } else {
-                    showToast('success', `Đã ghi nhận ${formatCurrency(amount)}. Còn nợ: ${formatCurrency(result.debt || 0)}`);
-                }
-                router.refresh();
-            } else {
-                showToast('error', result.error || 'Lỗi thanh toán');
-            }
+            showToast('success', 'Thanh toán thành công!');
         } catch (error: any) {
-            showToast('error', 'Lỗi hệ thống');
+            showToast('error', error.message || 'Lỗi hệ thống');
         } finally {
             setIsSubmitting(false);
         }

@@ -5,31 +5,18 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Calendar, Tag, ChevronRight, Bell, Search, Filter, ArrowLeft } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 import { Announcement } from '@/modules/landing/types/cms';
 import Footer from '@/modules/landing/components/Footer';
 
 export default function AnnouncementsPage() {
-    const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedType, setSelectedType] = useState<string>('ALL');
 
-    useEffect(() => {
-        const fetchAnnouncements = async () => {
-            try {
-                const data = await api.get('/public/cms/announcements');
-                if (Array.isArray(data)) {
-                    setAnnouncements(data);
-                }
-            } catch (error) {
-                console.error('Failed to fetch announcements:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchAnnouncements();
-    }, []);
+    const { data: announcements = [], isLoading } = useQuery<Announcement[]>({
+        queryKey: ['public', 'cms', 'announcements'],
+        queryFn: () => api.get('/public/cms/announcements')
+    });
 
     const filteredAnnouncements = announcements.filter(item => {
         const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 

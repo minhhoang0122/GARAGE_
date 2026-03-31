@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Portal from '../ui/Portal';
 import { usePresence } from '@/hooks/usePresence';
 import { ApiClient } from '@/api/ApiClient';
@@ -19,29 +20,27 @@ interface ProfileDrawerProps {
 }
 
 export default function ProfileDrawer({ isOpen, onClose, onEditAvatar, user }: ProfileDrawerProps) {
-    const [fullUser, setFullUser] = useState<any>(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const userId = user?.id ? Number(user.id) : null;
+    const isValidId = userId !== null && !isNaN(userId);
+
+    const { data: fullUser, isLoading, error } = useQuery({
+        queryKey: ['user', userId],
+        queryFn: async () => {
+            if (!isValidId) throw new Error('Invalid User ID');
+            return await ApiClient.user.getUserById({ id: userId as number });
+        },
+        enabled: isOpen && isValidId,
+        staleTime: 5 * 60 * 1000,
+    });
 
     useEffect(() => {
-        if (isOpen && user?.id) {
-            fetchFullUser();
+        if (error) {
+            const apiError = error as any;
+            const message = apiError.message || 'Lỗi không xác định';
+            const serverData = apiError.response?.data || apiError;
+            console.error('Error fetching full user profile:', message, serverData);
         }
-    }, [isOpen, user?.id]);
-
-    const fetchFullUser = async () => {
-        if (!user?.id) return;
-        setIsLoading(true);
-        try {
-            const data = await ApiClient.user.getUserById(user.id);
-            if (data) {
-                setFullUser(data);
-            }
-        } catch (error) {
-            console.error('Error fetching full user profile:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    }, [error]);
 
     const { isOnline } = usePresence();
 

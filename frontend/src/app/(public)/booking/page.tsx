@@ -6,6 +6,7 @@ import { useToast } from '@/contexts/ToastContext';
 import Link from 'next/link';
 import { ApiClient } from '@/api/ApiClient';
 import { useSession } from 'next-auth/react';
+import { useQuery } from '@tanstack/react-query';
 
 export default function BookingPage() {
     const { data: session, status } = useSession();
@@ -30,11 +31,17 @@ export default function BookingPage() {
         selectedServiceIds: [] as number[]
     });
 
+    const { data: servicesData = [], isLoading: isServicesLoading } = useQuery({
+        queryKey: ['public-services'],
+        queryFn: () => ApiClient.publicBooking.getPublicServices(),
+        staleTime: 1000 * 60 * 5, // 5 mins
+    });
+
     useEffect(() => {
-        ApiClient.publicBooking.getPublicServices()
-            .then(data => setServices((data as any) as any[]))
-            .catch(err => console.error('Error fetching services:', err));
-        
+        if (servicesData) {
+            setServices(servicesData as any[]);
+        }
+
         // Auto fill for customer
         if (session?.user) {
             setFormData(prev => ({
@@ -44,7 +51,7 @@ export default function BookingPage() {
                 email: session.user?.email || prev.email,
             }));
         }
-    }, [session]);
+    }, [session, servicesData]);
 
     if (status === 'loading') {
         return (

@@ -15,6 +15,7 @@ import { useJobDetails } from '@/modules/mechanic/hooks/useMechanic';
 import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
 import { use } from 'react';
 import Timeline from '@/modules/shared/components/common/Timeline';
+import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
 import { 
     isApproved, 
     isInProgress, 
@@ -24,6 +25,7 @@ import {
     isCancelled,
     isWaitingPayment
 } from '@/lib/status';
+import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 
 export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -77,7 +79,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                         <ArrowLeft className="w-4 h-4" /> {backText}
                     </Link>
                     <div className="flex items-center gap-3">
-                        {/* Chỉ Quản đốc mới thấy nút phân công */}
+                        {/* Chỉ {ROLE_DISPLAY_NAMES.QUAN_LY_XUONG} mới thấy nút phân công */}
                         {session?.user?.roles?.includes('QUAN_LY_XUONG') && (
                             <Link
                                 href={`/mechanic/assign/${job.id}`}
@@ -247,7 +249,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                                     {item.proposedByName && (
                                                         <>
                                                             <span>•</span>
-                                                            <span className="italic text-[11px]">Đề xuất: <span className="font-bold text-slate-600 dark:text-slate-300">{item.proposedByRole === 'AI' ? 'AI Chẩn đoán' : item.proposedByName}</span></span>
+                                                             <div className="flex items-center gap-1.5 mt-0.5">
+                                                                <span className="italic text-[11px] text-slate-500 whitespace-nowrap">Đề xuất:</span>
+                                                                <BaseAvatar 
+                                                                    name={item.proposedByName}
+                                                                    size="xs"
+                                                                    showStatus={false}
+                                                                    showBorder={false}
+                                                                    className="scale-75 origin-left"
+                                                                />
+                                                                <span className="font-bold text-slate-700 dark:text-slate-200 text-[10px]">{item.proposedByName === 'AI' ? 'AI Chẩn đoán' : item.proposedByName}</span>
+                                                                <span className="text-[7.5px] font-bold text-slate-300 uppercase tracking-tighter ml-1">
+                                                                    {ROLE_DISPLAY_NAMES[String(item.proposedByRole || '').toUpperCase()] || item.proposedByRole}
+                                                                </span>
+                                                            </div>
                                                         </>
                                                     )}
                                                 </div>
@@ -293,7 +308,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                     "1. Chẩn đoán chuyên môn", 
                                     <Package className="w-4 h-4" />, 
                                     "blue",
-                                    "Các hạng mục do Quản đốc hoặc AI đề xuất ban đầu"
+                                    `Các hạng mục do ${ROLE_DISPLAY_NAMES.QUAN_LY_XUONG} hoặc AI đề xuất ban đầu`
                                 )}
                                 {additionItems.length > 0 && renderSection(
                                     additionItems, 
@@ -321,8 +336,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                                 </Link>
                                             )}
                                         </div>
-                                        <div className="w-full">
-                                            <table className="w-full text-sm table-fixed">
+                                        <div className="w-full overflow-x-auto">
+                                            <table className="w-full text-sm min-w-[500px]">
                                                 <thead>
                                                     <tr className="bg-slate-50/30 border-b border-slate-100 dark:border-slate-800">
                                                         <th className="px-6 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left w-[150px] md:w-[200px]">Nhân viên</th>
@@ -335,9 +350,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                                         <tr key={m.mechanicId}>
                                                             <td className="px-6 py-4">
                                                                 <div className="flex items-center gap-3">
-                                                                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 font-bold text-xs border border-slate-200 dark:border-slate-700">
-                                                                        {m.mechanicName.charAt(0)}
-                                                                    </div>
+                                                                     <BaseAvatar 
+                                                                        name={m.mechanicName}
+                                                                        size="xs"
+                                                                        showStatus={false}
+                                                                        showBorder={false}
+                                                                    />
                                                                     <span className={`font-bold ${m.mechanicId === currentUserId ? 'text-blue-600 dark:text-blue-400 underline decoration-2' : 'text-slate-700 dark:text-slate-300'}`}>
                                                                         {m.mechanicId === currentUserId ? 'BẠN' : m.mechanicName}
                                                                     </span>

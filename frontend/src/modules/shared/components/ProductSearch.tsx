@@ -99,7 +99,6 @@ export default function ProductSearch({ orderId, readOnly = false, onProductSele
                 setSearchTerm('');
                 setIsOpen(false);
                 showToast('success', 'Đã thêm vào báo giá');
-                router.refresh();
             },
             onError: (error: any) => {
                 showToast('error', error.message || 'Lỗi thêm sản phẩm');

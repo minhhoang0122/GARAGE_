@@ -1,7 +1,6 @@
 import { Wrench, CheckCircle2, Users, ClipboardList } from "lucide-react";
 import AssignmentList from "./AssignmentList";
-import MechanicLimitSelector from "./MechanicLimitSelector";
-import { isAssignPending, isAssignApproved, isAssignCompleted } from "@/lib/status";
+import { isAssignApproved, isAssignCompleted } from "@/lib/status";
 
 interface ParticipationSummaryProps {
     items: any[];
@@ -32,7 +31,7 @@ export default function ParticipationSummary({ items, jobLead, isLead, currentUs
 
     return (
         <div className="space-y-6 mb-6">
-            {/* Team Management Section (Only for Lead) */}
+            {/* Team Management Section (Only for Lead/Management roles) */}
             {isLead && (
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
                     <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
@@ -40,15 +39,12 @@ export default function ParticipationSummary({ items, jobLead, isLead, currentUs
                             <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                             Quản lý & Phân công đội ngũ
                         </h3>
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Dành cho Thợ chính</span>
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Dành cho Quản lý</span>
                     </div>
 
                     <div className="p-6">
                         <div className="space-y-6">
                             {(items || []).map(item => {
-                                const hasAssignments = item.assignments && item.assignments.length > 0;
-                                const pendingCount = (item.assignments || []).filter((a: any) => isAssignPending(a.status)).length || 0;
-
                                 return (
                                     <div key={item.id} className="group relative">
                                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
@@ -59,28 +55,13 @@ export default function ParticipationSummary({ items, jobLead, isLead, currentUs
                                                     <p className="text-[10px] text-slate-500 uppercase tracking-tight">{item.productCode} • SL: {item.quantity}</p>
                                                 </div>
                                             </div>
-
-                                            <div className="flex items-center gap-3">
-                                                {pendingCount > 0 && (
-                                                    <span className="animate-pulse flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold border border-amber-200">
-                                                        {pendingCount} Yêu cầu mới
-                                                    </span>
-                                                )}
-                                                <MechanicLimitSelector
-                                                    itemId={item.id}
-                                                    currentCount={(item.assignments || []).filter((a: any) => isAssignApproved(a.status) || isAssignCompleted(a.status)).length || 0}
-                                                    maxLimit={item.maxMechanics || 4}
-                                                    isLead={true}
-                                                />
-                                            </div>
                                         </div>
 
-                                        {/* Nested Assignment List for Approval */}
+                                        {/* Nested Assignment List for Management */}
                                         <div className="pl-6">
                                             <AssignmentList
                                                 itemId={item.id}
                                                 assignments={item.assignments || []}
-                                                maxLimit={item.maxMechanics || 4}
                                                 isLead={true}
                                                 currentUserId={currentUserId}
                                                 isItemCompleted={item.isCompleted}
@@ -96,6 +77,7 @@ export default function ParticipationSummary({ items, jobLead, isLead, currentUs
                     </div>
                 </div>
             )}
+
 
             {/* Approved Work Summary View (Combined for all users) */}
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">

@@ -35,6 +35,7 @@ public class TimelineService {
                     .actorName(actor != null ? actor.getFullName() : "Hệ thống")
                     .actorRole(actor != null && actor.getRoles() != null && !actor.getRoles().isEmpty() 
                                ? actor.getRoles().iterator().next().getName() : "SYSTEM")
+                    .actorAvatar(actor != null ? actor.getAvatar() : null)
                     .actionType(actionType)
                     .content(content)
                     .oldValue(oldValue)

@@ -2,15 +2,23 @@ import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 
 import { getSession, signOut } from 'next-auth/react';
 
 const baseEnvUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081/api';
-export const API_URL = baseEnvUrl.endsWith('/api') ? baseEnvUrl : (baseEnvUrl.endsWith('/') ? `${baseEnvUrl}api` : `${baseEnvUrl}/api`);
+
+// Đảm bảo BASE_URL không có /api ở cuối
+export const BASE_URL = baseEnvUrl.endsWith('/api') 
+    ? baseEnvUrl.substring(0, baseEnvUrl.length - 4) 
+    : (baseEnvUrl.endsWith('/') ? baseEnvUrl.slice(0, -1) : baseEnvUrl);
+
+// API_URL có /api để dùng cho các lời gọi hàm thủ công
+export const API_URL = `${BASE_URL}/api`;
 
 // Cache for public data or speed (Alternative to TanStack Query where needed)
 const memoryCache = new Map<string, { data: any; expiry: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Create Axios Instance
+// Dùng BASE_URL để phối hợp mượt mà với generated APIs (vốn đã có sẵn /api)
 export const axiosInstance: AxiosInstance = axios.create({
-    baseURL: API_URL,
+    baseURL: BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -122,6 +130,15 @@ axiosInstance.interceptors.response.use(
 
 export const api = {
     /**
+     * Helper to ensure path always starts with /api if not already there
+     */
+    _p(path: string) {
+        if (path.startsWith('http')) return path;
+        const cleanPath = path.startsWith('/') ? path : `/${path}`;
+        return cleanPath.startsWith('/api') ? cleanPath : `/api${cleanPath}`;
+    },
+
+    /**
      * GET method with optional manual token override
      */
     async get(path: string, token?: string, signal?: AbortSignal): Promise<any> {
@@ -129,7 +146,7 @@ export const api = {
         if (token) {
             config.headers = { Authorization: `Bearer ${token}` };
         }
-        return axiosInstance.get(path, config) as any;
+        return axiosInstance.get(this._p(path), config) as any;
     },
 
     async post(path: string, data?: any, token?: string): Promise<any> {
@@ -137,7 +154,7 @@ export const api = {
         if (token) {
             config.headers = { Authorization: `Bearer ${token}` };
         }
-        return axiosInstance.post(path, data, config) as any;
+        return axiosInstance.post(this._p(path), data, config) as any;
     },
 
     async put(path: string, data?: any, token?: string): Promise<any> {
@@ -145,7 +162,7 @@ export const api = {
         if (token) {
             config.headers = { Authorization: `Bearer ${token}` };
         }
-        return axiosInstance.put(path, data, config) as any;
+        return axiosInstance.put(this._p(path), data, config) as any;
     },
 
     async patch(path: string, data?: any, token?: string): Promise<any> {
@@ -153,7 +170,7 @@ export const api = {
         if (token) {
             config.headers = { Authorization: `Bearer ${token}` };
         }
-        return axiosInstance.patch(path, data, config) as any;
+        return axiosInstance.patch(this._p(path), data, config) as any;
     },
 
     async delete(path: string, token?: string): Promise<any> {
@@ -161,7 +178,7 @@ export const api = {
         if (token) {
             config.headers = { Authorization: `Bearer ${token}` };
         }
-        return axiosInstance.delete(path, config) as any;
+        return axiosInstance.delete(this._p(path), config) as any;
     },
 
     /**
@@ -228,14 +245,14 @@ export const api = {
 
     // Auth helpers
     async login(username: string, password: string): Promise<any> {
-        return axiosInstance.post('/auth/login', { username, password }) as any;
+        return axiosInstance.post(this._p('/auth/login'), { username, password }) as any;
     },
 
     /**
      * Upload helper for FormData (images, etc)
      */
     async upload(path: string, formData: FormData): Promise<any> {
-        return axiosInstance.post(path, formData, {
+        return axiosInstance.post(this._p(path), formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },

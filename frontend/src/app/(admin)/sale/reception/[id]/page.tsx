@@ -9,6 +9,9 @@ import { useReceptionDetail } from '@/modules/reception/hooks/useReception';
 import { Printer, Car, User, Clock, MapPin, Phone, Fuel, ShieldCheck, Clipboard, ArrowLeft, AlertTriangle, RefreshCw } from 'lucide-react';
 import ImageGallery from '@/modules/shared/components/common/ImageGallery';
 import Link from 'next/link';
+import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
+import { formatFullName } from '@/lib/utils';
+import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 
 export default function ReceptionDetailPage() {
     const { id } = useParams();
@@ -71,7 +74,7 @@ export default function ReceptionDetailPage() {
 
     return (
         <DashboardLayout title="Hồ sơ Tiếp nhận xe" subtitle={`Mã phiếu #${reception.id}`}>
-            <div className="mb-6 flex items-center justify-between no-print">
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
                 <Link
                     href="/sale/reception"
                     className="flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
@@ -178,8 +181,54 @@ export default function ReceptionDetailPage() {
                     </div>
 
                     <div className="space-y-6">
-                        <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors h-full">
-                            <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200">Hình ảnh hiện trạng</h3>
+                        <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors mb-6">
+                            <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200 uppercase tracking-tight flex items-center gap-2">
+                                <User className="w-5 h-5 text-indigo-500" /> Nhân sự phụ trách
+                            </h3>
+                            <div className="space-y-4">
+                                {/* Service Advisor */}
+                                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 shadow-sm">
+                                    <BaseAvatar 
+                                        name={reception.advisorName} 
+                                        id={reception.advisorId} 
+                                        src={reception.advisorAvatar}
+                                        size="sm"
+                                        showStatus={false}
+                                        showBorder={false}
+                                        className="shadow-sm"
+                                    />
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{ROLE_DISPLAY_NAMES.SALE}</span>
+                                        <span className="font-bold text-slate-900 dark:text-slate-100">{reception.advisorName || 'N/A'}</span>
+                                    </div>
+                                </div>
+
+                                {/* Foreman */}
+                                <div className={`flex items-center gap-3 p-3 rounded-lg border shadow-sm transition-all ${!reception.thoChanDoanName ? 'bg-slate-50/50 dark:bg-slate-800/20 border-dashed border-slate-200 dark:border-slate-800' : 'bg-emerald-50/30 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30'}`}>
+                                    <BaseAvatar 
+                                        name={reception.thoChanDoanName || 'Chưa chỉ định'} 
+                                        id={reception.thoChanDoanId}
+                                        src={reception.foremanAvatar}
+                                        isUnassigned={!reception.thoChanDoanName}
+                                        size="sm"
+                                        showStatus={false}
+                                        showBorder={false}
+                                        className="shadow-sm"
+                                    />
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{ROLE_DISPLAY_NAMES.QUAN_LY_XUONG}</span>
+                                        <span className={`font-bold ${!reception.thoChanDoanName ? 'text-slate-400 italic' : 'text-slate-900 dark:text-slate-100'}`}>
+                                            {reception.thoChanDoanName || 'Chưa chỉ định'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+                            <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200 uppercase tracking-tight flex items-center gap-2">
+                                <Car className="w-5 h-5 text-blue-500" /> Hình ảnh hiện trạng
+                            </h3>
                             {reception.hinhAnh ? (
                                 <div className="no-print">
                                     <ImageGallery images={reception.hinhAnh} />

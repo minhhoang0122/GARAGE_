@@ -21,6 +21,10 @@ public record OrderDetailDTO(
         BigDecimal paidAmount,
         BigDecimal deposit,
         Integer thoChanDoanId,
+        String advisorName,
+        String advisorAvatar,
+        String foremanName,
+        String foremanAvatar,
         Integer receptionId,
         List<OrderItemDTO> items) {
 
@@ -45,6 +49,10 @@ public record OrderDetailDTO(
         private BigDecimal paidAmount;
         private BigDecimal deposit;
         private Integer thoChanDoanId;
+        private String advisorName;
+        private String advisorAvatar;
+        private String foremanName;
+        private String foremanAvatar;
         private Integer receptionId;
         private List<OrderItemDTO> items;
 
@@ -128,6 +136,26 @@ public record OrderDetailDTO(
             return this;
         }
 
+        public OrderDetailDTOBuilder advisorName(String advisorName) {
+            this.advisorName = advisorName;
+            return this;
+        }
+
+        public OrderDetailDTOBuilder advisorAvatar(String advisorAvatar) {
+            this.advisorAvatar = advisorAvatar;
+            return this;
+        }
+
+        public OrderDetailDTOBuilder foremanName(String foremanName) {
+            this.foremanName = foremanName;
+            return this;
+        }
+
+        public OrderDetailDTOBuilder foremanAvatar(String foremanAvatar) {
+            this.foremanAvatar = foremanAvatar;
+            return this;
+        }
+
         public OrderDetailDTOBuilder receptionId(Integer receptionId) {
             this.receptionId = receptionId;
             return this;
@@ -140,7 +168,8 @@ public record OrderDetailDTO(
 
         public OrderDetailDTO build() {
             return new OrderDetailDTO(id, status, createdAt, customerName, customerPhone, plateNumber, carBrand,
-                    carModel, totalAmount, discount, tax, vatPercent, finalAmount, paidAmount, deposit, thoChanDoanId, receptionId, items);
+                    carModel, totalAmount, discount, tax, vatPercent, finalAmount, paidAmount, deposit, thoChanDoanId, 
+                    advisorName, advisorAvatar, foremanName, foremanAvatar, receptionId, items);
         }
     }
 }

@@ -174,7 +174,6 @@ export default function PaymentModal({ orderId, grandTotal, isOpen, onClose, rem
             });
 
             onClose();
-            router.refresh();
         } catch (error: any) {
             console.error("PaymentModal ERROR:", error);
             showToast({

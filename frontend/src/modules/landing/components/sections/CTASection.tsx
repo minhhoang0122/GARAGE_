@@ -43,7 +43,7 @@ export default function CTASection({
                 viewport={{ once: true, amount: 0.5 }}
                 className="container mx-auto px-6 relative z-10 text-center"
             >
-                <h2 className="text-4xl md:text-5xl font-extrabold mb-8 transition-all hover:scale-[1.01] text-white">
+                <h2 className="text-4xl md:text-5xl font-extrabold mb-8 transition-all hover:scale-[1.01] !text-white">
                     {displayTitle}
                 </h2>
                 <p className="text-xl mb-12 max-w-2xl mx-auto !text-stone-100 leading-relaxed font-bold italic">

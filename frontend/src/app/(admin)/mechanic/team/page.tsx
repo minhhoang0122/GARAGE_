@@ -2,11 +2,14 @@
 
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { mechanicService } from '@/modules/mechanic/services/mechanic';
-import { Users, Wrench, Award, Briefcase, Loader2 } from 'lucide-react';
+import { Users, Wrench, Award, Briefcase, Loader2, RefreshCw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
+import { AdvancedDataTable } from '@/modules/shared/components/ui/AdvancedDataTable';
+import { Button } from '@/modules/shared/components/ui/button';
 
 export default function TeamPage() {
-    const { data: mechanics = [], isLoading } = useQuery({
+    const { data: mechanics = [], isLoading, refetch } = useQuery({
         queryKey: ['mechanic-team'],
         queryFn: () => mechanicService.getAvailableMechanics(),
     });
@@ -14,6 +17,61 @@ export default function TeamPage() {
     const totalMechanics = mechanics.length;
     const busyCount = mechanics.filter((m: any) => m.soViecDangLam > 0).length;
     const freeCount = totalMechanics - busyCount;
+
+    const columns = [
+        {
+            header: 'Kỹ thuật viên',
+            accessorKey: 'fullName',
+            render: (value: any, m: any) => (
+                <div className="flex items-center gap-4">
+                    <BaseAvatar 
+                        name={m.fullName} 
+                        size="md"
+                        online={m.soViecDangLam === 0}
+                    />
+                    <div>
+                        <p className="font-bold text-slate-800 dark:text-slate-100">{m.fullName}</p>
+                        <p className="text-[10px] font-medium text-slate-400">ID: #{m.id}</p>
+                    </div>
+                </div>
+            )
+        },
+        {
+            header: 'Chuyên môn / Cấp bậc',
+            accessorKey: 'chuyenMonLabel',
+            className: 'hidden md:table-cell',
+            render: (value: any, m: any) => (
+                <div className="flex items-center gap-2">
+                    {m.chuyenMonLabel && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800 font-bold">
+                            {m.chuyenMonLabel}
+                        </span>
+                    )}
+                    {m.capBacLabel && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
+                            {m.capBacLabel}
+                        </span>
+                    )}
+                </div>
+            )
+        },
+        {
+            header: 'Khối lượng CV',
+            accessorKey: 'soViecDangLam',
+            className: 'text-center',
+            render: (soViec: number) => (
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold ${
+                    soViec === 0
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                        : soViec >= 3
+                            ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                            : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+                }`}>
+                    {soViec === 0 ? 'Sẵn sàng' : `${soViec} đơn đang làm`}
+                </span>
+            )
+        }
+    ];
 
     return (
         <DashboardLayout title="Đội thợ" subtitle="Quản lý và theo dõi đội ngũ Kỹ thuật viên">
@@ -27,7 +85,7 @@ export default function TeamPage() {
                 ) : (
                     <>
                         {/* Summary Cards */}
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
                                 <div className="flex items-center gap-3 mb-2">
                                     <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
@@ -63,63 +121,30 @@ export default function TeamPage() {
                             </div>
                         </div>
 
-                        {/* Mechanic List */}
-                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
-                                <h2 className="font-semibold text-slate-800 dark:text-white">Danh sách Kỹ thuật viên</h2>
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Danh sách kỹ thuật viên</h2>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => refetch()} 
+                                    className="h-9 px-4 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold gap-2"
+                                >
+                                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                                    <span>Làm mới</span>
+                                </Button>
                             </div>
 
-                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {mechanics.map((m: any) => (
-                                    <div key={m.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <div className="flex items-center gap-4">
-                                            {/* Avatar */}
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${
-                                                m.soViecDangLam > 0 ? 'bg-amber-500' : 'bg-emerald-500'
-                                            }`}>
-                                                {m.fullName?.charAt(m.fullName.lastIndexOf(' ') + 1) || '?'}
-                                            </div>
-
-                                            {/* Info */}
-                                            <div>
-                                                <p className="font-semibold text-slate-800 dark:text-white">{m.fullName}</p>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    {m.chuyenMonLabel && (
-                                                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
-                                                            {m.chuyenMonLabel}
-                                                        </span>
-                                                    )}
-                                                    {m.capBacLabel && (
-                                                        <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                                                            {m.capBacLabel}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Workload */}
-                                        <div className="flex items-center gap-3">
-                                            <span className={`text-sm font-semibold px-3 py-1 rounded-full ${
-                                                m.soViecDangLam === 0
-                                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-                                                    : m.soViecDangLam >= 3
-                                                        ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
-                                                        : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
-                                            }`}>
-                                                {m.soViecDangLam === 0 ? 'Rảnh' : `${m.soViecDangLam} đơn`}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {mechanics.length === 0 && (
-                                    <div className="px-6 py-12 text-center text-slate-400">
-                                        <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                        <p>Chưa có kỹ thuật viên nào trong hệ thống</p>
-                                    </div>
-                                )}
-                            </div>
+                            <AdvancedDataTable
+                                data={mechanics}
+                                columns={columns}
+                                isLoading={isLoading}
+                                searchPlaceholder="Tìm theo tên hoặc chuyên môn..."
+                                emptyState={{
+                                    title: 'Trống',
+                                    description: 'Chưa có kỹ thuật viên nào trong hệ thống.'
+                                }}
+                            />
                         </div>
                     </>
                 )}

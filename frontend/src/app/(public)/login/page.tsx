@@ -23,7 +23,6 @@ export default function RoleSelectorPage() {
                 'Thoanh toán & Hóa đơn điện tử'
             ],
             color: 'blue',
-            demoInfo: 'Sử dụng SĐT: 0900000000'
         },
         {
             id: 'staff',
@@ -176,9 +175,11 @@ export default function RoleSelectorPage() {
                                             </div>
 
                                             <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-                                                <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">
-                                                    {role.demoInfo}
-                                                </span>
+                                                {role.demoInfo ? (
+                                                    <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">
+                                                        {role.demoInfo}
+                                                    </span>
+                                                ) : <div />}
                                                 <div className="flex items-center gap-1 text-slate-900 dark:text-white font-bold text-[10px] uppercase tracking-tighter">
                                                     Truy cập <ArrowRight size={12} />
                                                 </div>

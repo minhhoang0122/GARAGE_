@@ -7,11 +7,13 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProfileDrawer from './ProfileDrawer';
 import AvatarUploadModal from './AvatarUploadModal';
-import { usePresence } from '@/hooks/usePresence';
+import { usePresence, updateStaffMember } from '@/hooks/usePresence';
 import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
 import { ROLE_DISPLAY_NAMES } from '@/config/menu';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function UserAvatar() {
+    const queryClient = useQueryClient();
     const { data: session, update } = useSession();
     const [isUploading, setIsUploading] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
@@ -43,6 +45,41 @@ export default function UserAvatar() {
         }
     };
 
+    const updateAvatarMutation = useMutation({
+        mutationFn: async (newAvatarUrl: string) => {
+            return await api.patch(`/users/${user?.id}/avatar`, {
+                avatar: newAvatarUrl
+            });
+        },
+        onSuccess: async (_, newAvatarUrl) => {
+            // 1. Cập nhật state nội bộ của usePresence (đồng bộ Sidebar/Topbar ngay lập tức)
+            updateStaffMember(Number(user?.id), { avatar: newAvatarUrl });
+            
+            // 2. Cập nhật session của NextAuth
+            await update({
+                ...session,
+                user: {
+                    ...session?.user,
+                    image: newAvatarUrl
+                }
+            });
+            
+            // 3. Làm mới cache toàn cục để các trang đang hiển thị avatar này được cập nhật
+            queryClient.invalidateQueries({ queryKey: ['staff'] });
+            queryClient.invalidateQueries({ queryKey: ['receptions'] });
+            queryClient.invalidateQueries({ queryKey: ['reception'] });
+
+            toast.success('Cập nhật ảnh đại diện thành công');
+            setIsUploading(false);
+        },
+        onError: (error: any) => {
+            console.error('Avatar update error:', error);
+            const errorMsg = error.message || 'Lỗi khi cập nhật ảnh đại diện';
+            toast.error(errorMsg);
+            setIsUploading(false);
+        }
+    });
+
     const handleUpload = async (file: File) => {
         setIsUploading(true);
         const formData = new FormData();
@@ -53,27 +90,11 @@ export default function UserAvatar() {
             const uploadRes = await api.upload('/images/upload', formData);
             if (!uploadRes.url) throw new Error('Không nhận được URL ảnh');
 
-            const newAvatarUrl = uploadRes.url;
-
-            await api.patch(`/users/${user?.id}/avatar`, {
-                avatar: newAvatarUrl
-            });
-
-            await update({
-                ...session,
-                user: {
-                    ...session?.user,
-                    image: newAvatarUrl
-                },
-                avatar: newAvatarUrl
-            });
-
-            toast.success('Cập nhật ảnh đại diện thành công');
+            // Kích hoạt mutation để cập nhật DB và đồng bộ UI
+            updateAvatarMutation.mutate(uploadRes.url);
         } catch (error: any) {
-            console.error('Avatar upload error:', error);
-            const errorMsg = error.message || (typeof error === 'string' ? error : 'Lỗi khi cập nhật ảnh đại diện');
-            toast.error(errorMsg);
-        } finally {
+            console.error('Upload process error:', error);
+            toast.error(error.message || 'Lỗi khi tải ảnh lên');
             setIsUploading(false);
         }
     };

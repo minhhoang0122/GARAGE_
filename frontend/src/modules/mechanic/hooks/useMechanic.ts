@@ -38,6 +38,17 @@ export const useJobDetails = (orderId: number) => {
 
 // --- Mutations ---
 
+export const useUpdateItemLimit = (orderId: number) => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ itemId, limit }: { itemId: number; limit: number }) => 
+            mechanicService.updateItemLimit(itemId, limit),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.mechanic.job(orderId) });
+        },
+    });
+};
+
 export const useClaimJob = () => {
     const queryClient = useQueryClient();
     return useMutation({

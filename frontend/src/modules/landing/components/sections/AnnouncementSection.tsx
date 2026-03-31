@@ -50,9 +50,9 @@ export default function AnnouncementSection({
 
     const getTypeColor = (type: string) => {
         switch (type) {
-            case 'URGENT': return 'bg-red-50 text-red-600 border-red-100';
-            case 'PROMO': return 'bg-orange-50 text-orange-600 border-orange-100';
-            default: return 'bg-blue-50 text-blue-600 border-blue-100';
+            case 'URGENT': return 'bg-red-50 !text-red-600 border-red-100';
+            case 'PROMO': return 'bg-orange-50 !text-orange-600 border-orange-100';
+            default: return 'bg-blue-50 !text-blue-600 border-blue-100';
         }
     };
 
@@ -78,7 +78,7 @@ export default function AnnouncementSection({
                             initial={{ opacity: 0, y: 10 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
-                            className="inline-flex items-center gap-2 px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-[10px] font-black uppercase tracking-widest mb-6"
+                            className="inline-flex items-center gap-2 px-3 py-1 bg-orange-100 !text-orange-700 rounded-full text-[10px] font-black uppercase tracking-widest mb-6"
                         >
                             <span className="w-1.5 h-1.5 rounded-full bg-orange-600 animate-pulse" />
                             News Center
@@ -86,7 +86,7 @@ export default function AnnouncementSection({
                         <h2 className="text-4xl md:text-5xl font-black !text-stone-900 tracking-tight leading-tight mb-6">
                             {displayTitle}
                         </h2>
-                        <p className="text-stone-600 text-lg leading-relaxed font-medium">
+                        <p className="!text-stone-600 text-lg leading-relaxed font-medium">
                             {displaySubtitle}
                         </p>
                     </div>
@@ -138,7 +138,7 @@ export default function AnnouncementSection({
                                     </div>
 
                                     <div className="pt-8 border-t border-stone-200 mt-auto flex items-center justify-between">
-                                        <span className="inline-flex items-center gap-2 text-stone-900 font-black text-xs group-hover:text-orange-600 transition-all uppercase tracking-tight">
+                                        <span className="inline-flex items-center gap-2 !text-stone-900 font-black text-xs group-hover:!text-orange-600 transition-all uppercase tracking-tight">
                                             Khám phá ngay
                                         </span>
                                         <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center text-stone-600 group-hover:bg-orange-600 group-hover:text-white transition-all duration-500 shadow-inner">

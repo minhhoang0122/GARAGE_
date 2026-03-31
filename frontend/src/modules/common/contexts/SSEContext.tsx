@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { api, API_URL } from '@/lib/api';
 import { useSession } from 'next-auth/react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const getCookie = (name: string) => {
     if (typeof document === 'undefined') return null;
@@ -20,38 +21,29 @@ interface SSEContextType {
     removeListener: (event: string, callback: (data: any) => void) => void;
     subscribeToTopic: (topic: string) => Promise<void>;
     unsubscribeFromTopic: (topic: string) => Promise<void>;
-    fetchNotifications: () => Promise<void>;
-    setNotifications: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 const SSEContext = createContext<SSEContextType | undefined>(undefined);
 
 export const SSEProvider = ({ children }: { children: ReactNode }) => {
     const { data: session } = useSession();
+    const queryClient = useQueryClient();
     const [isConnected, setIsConnected] = useState(false);
-    const [notifications, setNotifications] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
 
     const eventSourceRef = useRef<EventSource | null>(null);
     const listenersRef = useRef<Map<string, Set<(data: any) => void>>>(new Map());
-    const abortRef = useRef<AbortController | null>(null);
     const subscribedTopics = useRef<Set<string>>(new Set());
 
-    const fetchNotifications = React.useCallback(async () => {
-        if (abortRef.current) abortRef.current.abort();
-        const controller = new AbortController();
-        abortRef.current = controller;
+    const token = (session?.user as any)?.accessToken || getCookie('token');
 
-        try {
-            const data = await api.get('/notifications', getCookie('token') || undefined);
-            setNotifications(data || []);
-        } catch (error) {
-            if (error instanceof Error && error.name === 'AbortError') return;
-            console.error('[SSE] Failed to fetch notifications', error);
-        } finally {
-            if (!controller.signal.aborted) setLoading(false);
-        }
-    }, []);
+    // Sử dụng TanStack Query để quản lý danh sách thông báo
+    const { data: notifications = [], isLoading: loading } = useQuery<any[]>({
+        queryKey: ['notifications'],
+        queryFn: () => api.get('/notifications'),
+        enabled: !!token,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+
 
     const subscribeToTopic = React.useCallback(async (topic: string) => {
         if (subscribedTopics.current.has(topic)) return;
@@ -95,6 +87,23 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
                         // Call specific listeners
                         listenersRef.current.get(event)?.forEach(cb => cb(data));
 
+                        // Global cache invalidation for user updates
+                        if (event === 'user_updated') {
+                            console.log('[SSE] Global Invalidation for User Update:', data.id);
+                            // Invalidate all queries that might contain staff/user info
+                            queryClient.invalidateQueries({ queryKey: ['staff'] });
+                            queryClient.invalidateQueries({ queryKey: ['users'] });
+                            queryClient.invalidateQueries({ queryKey: ['receptions'] });
+                            queryClient.invalidateQueries({ queryKey: ['reception'] });
+                            queryClient.invalidateQueries({ queryKey: ['orders'] });
+                        }
+
+                        // Special handling for order status updates
+                        if (event === 'order_updated') {
+                            console.log('[SSE] Global Invalidation for Order Update:', data.id);
+                            queryClient.invalidateQueries({ queryKey: ['orders'] });
+                        }
+
                         // Special handling for notifications to update state
                         if (event === 'notification') {
                             // Play notification sound (Facebook-style Pop)
@@ -108,6 +117,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
                                 }
                             };
                             playSound();
+
                              // Parse date from ISO string or Jackson array [y, m, d, h, m, s]
                             let dateValue: Date;
                             if (Array.isArray(data.createdAt)) {
@@ -117,9 +127,11 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
                                 dateValue = new Date(data.createdAt);
                             }
 
-                            setNotifications(prev => {
-                                if (prev.some(n => n.id === data.id)) return prev;
-                                return [{ ...data, createdAt: dateValue }, ...prev];
+                            // Cập nhật TanStack Query cache trực tiếp khi có thông báo mới
+                            queryClient.setQueryData(['notifications'], (prev: any[] | undefined) => {
+                                const current = prev || [];
+                                if (current.some(n => n.id === data.id)) return current;
+                                return [{ ...data, createdAt: dateValue }, ...current];
                             });
                         }
                     } catch (err) {
@@ -129,19 +141,15 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
             }
         }
         callbacks.add(callback);
-    }, []);
+    }, [queryClient]);
 
     const removeListener = React.useCallback((event: string, callback: (data: any) => void) => {
         listenersRef.current.get(event)?.delete(callback);
     }, []);
 
     useEffect(() => {
-        // Sử dụng một proxy ổn định cho token
-        const token = (session?.user as any)?.accessToken || getCookie('token');
-        
         if (!token) {
             console.log('[SSE] No active token, skipping connection');
-            setLoading(false);
             if (eventSourceRef.current) {
                 eventSourceRef.current.close();
                 eventSourceRef.current = null;
@@ -150,10 +158,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
-        // 1. Initial Fetch
-        fetchNotifications();
-
-        // 2. Setup SSE
+        // Setup SSE
         const url = `${API_URL}/sse/stream?token=${token}`;
 
         // Tránh tạo nhiều connection nếu token không đổi
@@ -198,17 +203,21 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
             });
         });
 
-        // Ensure default 'notification' listener is active
+        // Ensure default listeners are active for global side effects
         addListener('notification', () => {});
+        addListener('user_updated', (data) => {
+            console.log('[SSE] Global Invalidation triggered for user:', data.id);
+            // Internal handled in addListener common block, but adding here 
+            // ensures the event is actually registered with the EventSource
+        });
 
         return () => {
             if (eventSourceRef.current) {
                 eventSourceRef.current.close();
                 eventSourceRef.current = null;
             }
-            if (abortRef.current) abortRef.current.abort();
         };
-    }, [(session?.user as any)?.accessToken, API_URL, fetchNotifications, subscribeToTopic, addListener]);
+    }, [token, API_URL, subscribeToTopic, addListener]);
 
     // --- Logic Dynamic Page Title (Facebook-style Blinking) ---
     useEffect(() => {
@@ -245,9 +254,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
             addListener,
             removeListener,
             subscribeToTopic,
-            unsubscribeFromTopic,
-            fetchNotifications,
-            setNotifications
+            unsubscribeFromTopic
         }}>
             {children}
         </SSEContext.Provider>

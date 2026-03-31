@@ -1,6 +1,7 @@
 package com.gara.modules.service.service;
 
 import com.gara.dto.ReceptionDetailDTO;
+import com.gara.dto.ReceptionListDTO;
 import com.gara.dto.ReceptionFormData;
 import com.gara.dto.VehicleSearchResultDTO;
 import com.gara.entity.*;
@@ -197,7 +198,7 @@ public class ReceptionService {
             RepairOrder order = new RepairOrder();
             order.setReception(reception);
             order.setServiceAdvisor(user);
-            order.setStatus(OrderStatus.WAITING_FOR_DIAGNOSIS);
+            order.setStatus(OrderStatus.RECEIVED);
             order.setPartsTotal(BigDecimal.ZERO);
             order.setLaborTotal(BigDecimal.ZERO);
             order.setGrandTotal(BigDecimal.ZERO);
@@ -211,7 +212,7 @@ public class ReceptionService {
                     .tableName("RepairOrder")
                     .recordId(order.getId())
                     .action("CREATE")
-                    .newData(OrderStatus.WAITING_FOR_DIAGNOSIS.name())
+                    .newData(OrderStatus.RECEIVED.name())
                     .reason("Tiếp nhận xe: " + vehicle.getLicensePlate())
                     .userId(user.getId())
                     .build());
@@ -248,67 +249,81 @@ public class ReceptionService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getAllReceptions() {
+    public List<ReceptionListDTO> getAllReceptions() {
         List<Object[]> results = receptionRepository.findAllReceptionsRaw(
                 org.springframework.data.domain.PageRequest.of(0, 50));
 
         return results.stream().map(row -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("ID", row[0]);
-            m.put("NgayGio", row[1]);
-            m.put("XeBienSo", row[2]);
-            m.put("KhachHangName", row[3]);
-            m.put("KhachHangPhone", row[4]);
-            m.put("XeNhanHieu", row[5]);
-            m.put("XeModel", row[6]);
-            m.put("HinhAnh", row[9]);
-
-            if (row[7] != null) {
-                Map<String, Object> orderMap = new HashMap<>();
-                orderMap.put("ID", row[7]);
-
-                // Assuming row[8] contains the enum status, handle accordingly
-                String statusStr = null;
-                if (row[8] != null) {
-                    if (row[8] instanceof OrderStatus) {
-                        statusStr = ((OrderStatus) row[8]).name();
-                    } else {
-                        statusStr = row[8].toString();
-                    }
+            Integer id = (Integer) row[0];
+            LocalDateTime ngayGio = (LocalDateTime) row[1];
+            String xeBienSo = (String) row[2];
+            String khachHangName = (String) row[3];
+            String khachHangPhone = (String) row[4];
+            String xeNhanHieu = (String) row[5];
+            String xeModel = (String) row[6];
+            Integer orderId = (Integer) row[7];
+            
+            String statusStr = null;
+            if (row[8] != null) {
+                if (row[8] instanceof OrderStatus) {
+                    statusStr = ((OrderStatus) row[8]).name();
+                } else {
+                    statusStr = row[8].toString();
                 }
-                orderMap.put("TrangThai", statusStr);
-                m.put("DonHangSuaChua", orderMap);
             }
-            return m;
+            
+            String hinhAnh = (String) row[9];
+            String receptionistName = (String) row[10];
+            String receptionistAvatar = (String) row[11];
+
+            return new ReceptionListDTO(
+                id, ngayGio, xeBienSo, khachHangName, khachHangPhone, 
+                xeNhanHieu, xeModel, orderId, statusStr, hinhAnh,
+                receptionistName, receptionistAvatar
+            );
         }).toList();
     }
 
     @Transactional(readOnly = true)
     public java.util.Optional<ReceptionDetailDTO> getReceptionById(Integer id) {
         return receptionRepository.findByIdWithDetails(id).map(reception -> {
-            return ReceptionDetailDTO.builder()
+            User r = reception.getReceptionist();
+            String name = (r != null) ? (r.getFullName() != null ? r.getFullName() : r.getUsername()) : "N/A";
+            String avatar = (r != null) ? r.getAvatar() : null;
+
+            var vehicle = reception.getVehicle();
+            var customer = (vehicle != null) ? vehicle.getCustomer() : null;
+            var repairOrder = reception.getRepairOrder();
+
+            var builder = ReceptionDetailDTO.builder()
                 .id(reception.getId())
                 .ngayGio(reception.getReceptionDate())
                 .yeuCauSoBo(reception.getPreliminaryRequest())
                 .mucXang(reception.getFuelLevel())
                 .tinhTrangVoXe(reception.getShellStatus())
                 .hinhAnh(reception.getImages())
-                .bienSo(reception.getVehicle().getLicensePlate())
-                .nhanHieu(reception.getVehicle().getBrand())
-                .model(reception.getVehicle().getModel())
-                .soKhung(reception.getVehicle().getVin())
-                .soMay(reception.getVehicle().getEngineNumber())
+                .bienSo(vehicle != null ? vehicle.getLicensePlate() : null)
+                .nhanHieu(vehicle != null ? vehicle.getBrand() : null)
+                .model(vehicle != null ? vehicle.getModel() : null)
+                .soKhung(vehicle != null ? vehicle.getVin() : null)
+                .soMay(vehicle != null ? vehicle.getEngineNumber() : null)
                 .odo(reception.getOdo())
-                .tenKhach(reception.getVehicle().getCustomer() != null ? reception.getVehicle().getCustomer().getFullName() : null)
-                .sdtKhach(
-                        reception.getVehicle().getCustomer() != null ? reception.getVehicle().getCustomer().getPhone() : null)
-                .diaChiKhach(
-                        reception.getVehicle().getCustomer() != null ? reception.getVehicle().getCustomer().getAddress() : null)
-                .emailKhach(
-                        reception.getVehicle().getCustomer() != null ? reception.getVehicle().getCustomer().getEmail() : null)
-                .orderId(reception.getRepairOrder() != null ? reception.getRepairOrder().getId() : null)
-                .orderStatus(reception.getRepairOrder() != null ? reception.getRepairOrder().getStatus().name() : null)
-                .build();
+                .receptionistName(name)
+                .receptionistAvatar(avatar);
+
+            if (customer != null) {
+                builder.tenKhach(customer.getFullName())
+                       .sdtKhach(customer.getPhone())
+                       .diaChiKhach(customer.getAddress())
+                       .emailKhach(customer.getEmail());
+            }
+
+            if (repairOrder != null) {
+                builder.orderId(repairOrder.getId())
+                       .orderStatus(repairOrder.getStatus() != null ? repairOrder.getStatus().name() : null);
+            }
+
+            return builder.build();
         });
     }
 

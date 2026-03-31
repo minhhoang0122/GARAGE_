@@ -50,6 +50,35 @@ const notifyHookListeners = () => {
     hookListeners.forEach(fn => fn(normalizedOnline, normalizedStaff));
 };
 
+/**
+ * Cập nhật thông tin thành viên trong danh sách toàn cục và thông báo cho các hook đang lắng nghe.
+ * Dùng cho cập nhật tức thời (Optimistic UI) khi user tự đổi profile hoặc nhận từ SSE.
+ */
+export const updateStaffMember = (userId: number, data: any) => {
+    const id = Number(userId);
+    let changed = false;
+
+    // Cập nhật trong allStaffGlobal
+    allStaffGlobal = allStaffGlobal.map(member => {
+        if (Number(member.id) === id) {
+            changed = true;
+            return { ...member, ...data };
+        }
+        return member;
+    });
+
+    // Cập nhật trong onlineUsersGlobal nếu đang online
+    if (onlineUsersGlobal.has(id)) {
+        const currentUser = onlineUsersGlobal.get(id);
+        onlineUsersGlobal.set(id, { ...currentUser, ...data });
+        changed = true;
+    }
+
+    if (changed) {
+        notifyHookListeners();
+    }
+};
+
 // WebSocket singleton to persist across component lifecycles
 let wsInstance: WebSocket | null = null;
 let wsConnecting = false;
@@ -159,8 +188,18 @@ export const usePresence = () => {
         };
 
         addListener('user_presence', handlePresenceChange);
+
+        const handleUserUpdate = (data: any) => {
+            console.log('[Presence] User update received via SSE:', data);
+            if (data.userId) {
+                updateStaffMember(Number(data.userId), data);
+            }
+        };
+        addListener('user_updated', handleUserUpdate);
+
         return () => {
             removeListener('user_presence', handlePresenceChange);
+            removeListener('user_updated', handleUserUpdate);
         };
     }, [addListener, removeListener]);
 
@@ -169,6 +208,7 @@ export const usePresence = () => {
     return {
         onlineUsers,
         allStaff,
-        isOnline: (userId: number | string | undefined) => !!userId && onlineUsers.has(Number(userId))
+        isOnline: (userId: number | string | undefined) => !!userId && onlineUsers.has(Number(userId)),
+        updateStaffMember
     };
 };

@@ -2,7 +2,7 @@
 
 import { ReactNode, memo, useState, useCallback, useEffect, useMemo } from 'react';
 import Image from 'next/image';
-import { Loader2 } from 'lucide-react';
+import { Loader2, User } from 'lucide-react';
 
 interface BaseAvatarProps {
     id?: string | number; // Thêm id để sinh màu chính xác hơn
@@ -16,6 +16,7 @@ interface BaseAvatarProps {
     showStatus?: boolean;
     onClick?: () => void;
     active?: boolean;
+    isUnassigned?: boolean;
 }
 
 const getAvatarColor = (name: string, id?: string | number) => {
@@ -52,7 +53,8 @@ const BaseAvatar: React.FC<BaseAvatarProps> = ({
     className = '', 
     showStatus = true,
     onClick,
-    active
+    active,
+    isUnassigned
 }) => {
     const avatarColor = getAvatarColor(name || 'User', id);
     
@@ -83,20 +85,26 @@ const BaseAvatar: React.FC<BaseAvatarProps> = ({
         xl: 'w-4 h-4',
     };
 
+    const isDefault = isUnassigned || (!src && !name);
+    
     const containerStyle = `
         relative ${sizeClasses[size]} rounded-full overflow-hidden 
-        ${isLoading ? 'bg-slate-200 dark:bg-slate-800 animate-pulse' : `bg-gradient-to-tr ${avatarColor}`}
+        ${isLoading ? 'bg-slate-200 dark:bg-slate-800 animate-pulse' : 
+          isUnassigned ? 'bg-slate-50 dark:bg-slate-900/50' : `bg-gradient-to-tr ${avatarColor}`}
         flex items-center justify-center text-white font-black tracking-tight
-        shadow-sm transition-all duration-300
-        ${showBorder ? `border-2 ${active ? 'border-indigo-500 shadow-indigo-500/20' : 'border-white/10 dark:border-slate-800'}` : ''}
+        transition-all duration-300
+        ${showBorder ? `border-2 shadow-sm ${active ? 'border-indigo-500 shadow-indigo-500/20' : 
+          isUnassigned ? 'border-dashed border-slate-300 dark:border-slate-700' : 'border-white/10 dark:border-slate-800'}` : 'border-none shadow-none'}
         ${onClick ? 'cursor-pointer hover:scale-105 active:scale-95' : ''}
     `;
 
     return (
-        <div className={`relative flex-shrink-0 select-none group/avatar ${className}`}>
+        <div className={`relative flex-shrink-0 select-none group/avatar rounded-full ${className}`}>
             <div className={containerStyle} onClick={onClick}>
                 {isLoading ? (
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+                ) : isUnassigned ? (
+                    <User className="w-[60%] h-[60%] text-slate-300 dark:text-slate-700" />
                 ) : src ? (
                     <div className="relative w-full h-full">
                         <Image 

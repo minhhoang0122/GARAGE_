@@ -6,27 +6,24 @@ import Link from 'next/link';
 import { Calendar, User, ArrowLeft, Share2, Facebook, Twitter, MessageSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 import { BlogPost } from '@/modules/landing/types/cms';
 
 export default function BlogDetailPage() {
     const { slug } = useParams();
     const router = useRouter();
-    const [post, setPost] = useState<BlogPost | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+
+    const { data: post, isLoading, isError } = useQuery<BlogPost | null>({
+        queryKey: ['public', 'cms', 'blog', slug],
+        queryFn: () => api.getCached(`/public/cms/blog/${slug}`),
+        enabled: !!slug,
+    });
 
     useEffect(() => {
-        if (!slug) return;
-        api.getCached(`/public/cms/blog/${slug}`)
-            .then(data => {
-                if (data) setPost(data);
-                else router.push('/blog');
-            })
-            .catch(err => {
-                console.error('Error fetching blog detail:', err);
-                router.push('/blog');
-            })
-            .finally(() => setIsLoading(false));
-    }, [slug]);
+        if (!isLoading && (isError || !post)) {
+            router.push('/blog');
+        }
+    }, [isLoading, isError, post, router]);
 
     if (isLoading) {
         return (

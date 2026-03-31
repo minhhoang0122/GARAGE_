@@ -186,15 +186,21 @@ public class MechanicService {
         }
 
         order.setAssignedMechanic(quanDoc);
+
+        // Transition: RECEIVED → WAITING_FOR_DIAGNOSIS when manager claims
+        OrderStatus oldStatus = order.getStatus();
+        if (OrderStatus.RECEIVED.equals(oldStatus)) {
+            order.setStatus(OrderStatus.WAITING_FOR_DIAGNOSIS);
+        }
         repairOrderRepository.save(order);
 
         asyncAuditService.logAsync(AuditLog.builder()
                 .tableName("RepairOrder")
                 .recordId(orderId)
                 .action("UPDATE")
-                .oldData("")
-                .newData("QD:" + quanDoc.getFullName())
-                .reason("Quản đốc " + quanDoc.getFullName() + " nhận phụ trách đơn hàng")
+                .oldData(oldStatus.name())
+                .newData("QD:" + quanDoc.getFullName() + " | Status:" + order.getStatus().name())
+                .reason("Quản đốc " + quanDoc.getFullName() + " nhận phụ trách — chuyển sang Chờ chẩn đoán")
                 .userId(userId)
                 .build());
     }
@@ -321,26 +327,26 @@ public class MechanicService {
                 .toList();
 
         for (ProposalItemDTO pItem : items) {
-            if (pItem.getQuantity() == null || pItem.getQuantity() <= 0) {
+            if (pItem.quantity() == null || pItem.quantity() <= 0) {
                 throw new RuntimeException("Số lượng phải lớn hơn 0");
             }
             
-            if (existingProductIds.contains(pItem.getProductId())) {
-                throw new RuntimeException("Phụ tùng/Dịch vụ (ID: " + pItem.getProductId() + ") đã tồn tại. Vui lòng kiểm tra lại.");
+            if (existingProductIds.contains(pItem.productId())) {
+                throw new RuntimeException("Phụ tùng/Dịch vụ (ID: " + pItem.productId() + ") đã tồn tại. Vui lòng kiểm tra lại.");
             }
             
-            Product product = productRepository.findById(pItem.getProductId())
+            Product product = productRepository.findById(pItem.productId())
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
             OrderItem item = new OrderItem();
             item.setRepairOrder(order);
             item.setProduct(product);
-            item.setQuantity(pItem.getQuantity().intValue());
+            item.setQuantity(pItem.quantity().intValue());
             item.setUnitPrice(product.getRetailPrice());
-            item.setTotalAmount(product.getRetailPrice().multiply(BigDecimal.valueOf(pItem.getQuantity())));
+            item.setTotalAmount(product.getRetailPrice().multiply(BigDecimal.valueOf(pItem.quantity())));
             item.setStatus(ItemStatus.PROPOSAL);
             item.setSuggestedBy(user);
-            item.setNote(pItem.getNote());
+            item.setNote(pItem.note());
             item.setSuggestedAt(LocalDateTime.now());
 
             orderItemRepository.save(item);
@@ -380,15 +386,15 @@ public class MechanicService {
     private void recalculateOrderTotals(Integer orderId, List<ProposalItemDTO> items) {
         BigDecimal deltaParts = items.stream()
                 .map(p -> {
-                    Product pr = productRepository.findById(p.getProductId()).orElseThrow();
-                    return pr.getIsService() ? BigDecimal.ZERO : pr.getRetailPrice().multiply(BigDecimal.valueOf(p.getQuantity()));
+                    Product pr = productRepository.findById(p.productId()).orElseThrow();
+                    return pr.getIsService() ? BigDecimal.ZERO : pr.getRetailPrice().multiply(BigDecimal.valueOf(p.quantity()));
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal deltaLabor = items.stream()
                 .map(p -> {
-                    Product pr = productRepository.findById(p.getProductId()).orElseThrow();
-                    return pr.getIsService() ? pr.getRetailPrice().multiply(BigDecimal.valueOf(p.getQuantity())) : BigDecimal.ZERO;
+                    Product pr = productRepository.findById(p.productId()).orElseThrow();
+                    return pr.getIsService() ? pr.getRetailPrice().multiply(BigDecimal.valueOf(p.quantity())) : BigDecimal.ZERO;
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -415,16 +421,16 @@ public class MechanicService {
         }
 
         for (ProposalItemDTO pItem : items) {
-            Product product = productRepository.findById(pItem.getProductId()).orElseThrow();
+            Product product = productRepository.findById(pItem.productId()).orElseThrow();
             OrderItem item = new OrderItem();
             item.setRepairOrder(order);
             item.setProduct(product);
-            item.setQuantity(pItem.getQuantity().intValue());
+            item.setQuantity(pItem.quantity().intValue());
             item.setUnitPrice(product.getRetailPrice());
-            item.setTotalAmount(product.getRetailPrice().multiply(BigDecimal.valueOf(pItem.getQuantity())));
+            item.setTotalAmount(product.getRetailPrice().multiply(BigDecimal.valueOf(pItem.quantity())));
             item.setStatus(user.isManager() || user.isAdmin() ? ItemStatus.PROPOSAL : ItemStatus.WAITING_FOR_MANAGER_APPROVAL);
             item.setSuggestedBy(user);
-            item.setNote(pItem.getNote());
+            item.setNote(pItem.note());
             item.setSuggestedAt(LocalDateTime.now());
             orderItemRepository.save(item);
         }
@@ -657,21 +663,21 @@ public class MechanicService {
 
                         return ProposalItemDTO.builder()
                                 .id(item.getId())
-                                .productId(item.getProductId())
+                                .productId(item.getProduct() != null ? item.getProduct().getId() : null)
                                 .productCode(item.getProduct() != null ? item.getProduct().getSku() : "N/A")
                                 .productName(item.getProduct() != null ? item.getProduct().getName() : "Không rõ")
                                 .quantity(item.getQuantity().doubleValue())
                                 .unitPrice(item.getUnitPrice())
-                                .note(item.getNotes())
+                                .note(item.getNote())
                                 .isService(item.getProduct() != null ? item.getProduct().getIsService() : false)
                                 .status(item.getStatus() != null ? item.getStatus().name() : "DE_XUAT")
-                                .isTechnicalAddition(item.getIsEmergency())
+                                .isTechnicalAddition(Boolean.TRUE.equals(item.getIsWarranty()))
                                 .proposedByName(proposerName)
                                 .proposedByRole(proposerRole)
                                 .proposedAt(item.getSuggestedAt() != null ? item.getSuggestedAt().toString() : null)
                                 .build();
                     })
-                    .toList();
+                    .collect(Collectors.toList());
         }
 
         Vehicle v = r.getVehicle();

@@ -36,6 +36,10 @@ export const useCreateUser = () => {
         mutationFn: identityService.createUser,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.identity.users.all() });
+            queryClient.invalidateQueries({ queryKey: ['staff'] });
+            queryClient.invalidateQueries({ queryKey: ['receptions'] });
+            queryClient.invalidateQueries({ queryKey: ['reception'] });
+            queryClient.invalidateQueries({ queryKey: ['repair-orders'] });
         }
     });
 };
@@ -46,6 +50,10 @@ export const useUpdateUser = () => {
         mutationFn: ({ id, data }: { id: number; data: any }) => identityService.updateUser(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.identity.users.all() });
+            queryClient.invalidateQueries({ queryKey: ['staff'] });
+            queryClient.invalidateQueries({ queryKey: ['receptions'] });
+            queryClient.invalidateQueries({ queryKey: ['reception'] });
+            queryClient.invalidateQueries({ queryKey: ['repair-orders'] });
         }
     });
 };

@@ -45,7 +45,7 @@ export default function TeamSection({
                         <span className="text-orange-500 font-black uppercase text-xs tracking-widest mb-4 block">
                             Con người là nòng cốt
                         </span>
-                        <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight text-white">
+                        <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight !text-white">
                             {displayTitle}
                         </h2>
                         <p className="text-stone-400 text-lg">
@@ -82,7 +82,7 @@ export default function TeamSection({
                                 </div>
                             </div>
 
-                            <h3 className="text-2xl font-bold mb-1 text-white">{member.name}</h3>
+                            <h3 className="text-2xl font-bold mb-1 !text-white">{member.name}</h3>
                             <p className="text-orange-500 font-bold text-xs mb-4">
                                 {member.role}
                             </p>

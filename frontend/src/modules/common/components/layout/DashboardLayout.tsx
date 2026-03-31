@@ -33,9 +33,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
     // Lắng nghe sự kiện để tự động refresh dữ liệu (Real-time Sync)
     const handleNotification = useCallback(() => {
-        router.refresh();
+        // Chỉ dùng invalidateQueries, tuyệt đối không dùng router.refresh() ở Layout chung
+        // để tránh việc hệ thống phải re-render toàn bộ server components.
         queryClient.invalidateQueries();
-    }, [router, queryClient]);
+    }, [queryClient]);
 
     useSSE('notification', handleNotification);
 

@@ -5,20 +5,14 @@ import Link from 'next/link';
 import { ArrowRight, Calendar, User, Clock, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 import { BlogPost } from '@/modules/landing/types/cms';
 
 export default function BlogListPage() {
-    const [posts, setPosts] = useState<BlogPost[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        api.getCached('/public/cms/blog')
-            .then(data => {
-                if (Array.isArray(data)) setPosts(data);
-            })
-            .catch(err => console.error('Error fetching blogs:', err))
-            .finally(() => setIsLoading(false));
-    }, []);
+    const { data: posts = [], isLoading } = useQuery<BlogPost[]>({
+        queryKey: ['public', 'cms', 'blog'],
+        queryFn: () => api.getCached('/public/cms/blog')
+    });
 
     const mechanicalSpring = {
         type: "spring" as const,

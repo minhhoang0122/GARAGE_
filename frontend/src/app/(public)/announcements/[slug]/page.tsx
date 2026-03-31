@@ -7,27 +7,16 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Announcement } from '@/modules/landing/types/cms';
 import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 
 export default function AnnouncementDetailPage() {
     const { slug } = useParams();
-    const [announcement, setAnnouncement] = useState<Announcement | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchAnnouncement = async () => {
-            try {
-                const data = await api.get(`/public/cms/announcements/${slug}`);
-                setAnnouncement(data);
-            } catch (err: any) {
-                console.error('Failed to fetch announcement:', err);
-                // err.message thường chứa nội dung từ api.ts reject
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        if (slug) fetchAnnouncement();
-    }, [slug]);
+    const { data: announcement, isLoading, isError } = useQuery<Announcement>({
+        queryKey: ['public', 'cms', 'announcements', slug],
+        queryFn: () => api.get(`/public/cms/announcements/${slug}`),
+        enabled: !!slug
+    });
 
     if (isLoading) {
         return (

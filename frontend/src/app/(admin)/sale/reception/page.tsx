@@ -7,16 +7,18 @@ import { Plus, FileText, Car, Printer, RefreshCw, Eye, ExternalLink } from 'luci
 import { EmptyState } from '@/modules/shared/components/ui/empty-state';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import CreateOrderButton from '@/modules/sale/components/CreateOrderButton';
-import { getStatusBadge } from '@/lib/status';
+
+import { StatusBadge } from '@/modules/shared/components/ui/StatusBadge';
+import { AdvancedDataTable } from '../../../../modules/shared/components/ui/AdvancedDataTable';
 import { ReceptionListSkeleton } from '@/modules/reception/components/ReceptionListSkeleton';
-import { SearchInput } from '@/modules/shared/components/ui/search-input';
+import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
 import { useToast } from '@/contexts/ToastContext';
 import { useReceptions, useUpdateReceptionStatus } from '@/modules/reception/hooks/useReception';
 import { queryKeys } from '@/lib/query-keys';
 import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
 import { Reception } from '@/modules/reception/services/reception';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { formatFullName } from '@/lib/utils';
+import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 
 import { useRef } from 'react';
 
@@ -33,254 +35,189 @@ export default function ReceptionListPage() {
 
     const updateStatusMutation = useUpdateReceptionStatus();
 
-    // Filter locally based on standardized Reception interface
-    const filteredReceptions = (receptions || []).filter((r: Reception) =>
-        r.plate?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-        r.customerName?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-        r.customerPhone?.includes(searchKeyword)
-    );
+    const [activeTab, setActiveTab] = useState('ALL');
 
-    const parentRef = useRef<HTMLDivElement>(null);
+    const tabs = [
+        { id: 'ALL', label: 'Tất cả' },
+        { id: 'WAITING_FOR_DIAGNOSIS', label: 'Chờ chẩn đoán' },
+        { id: 'IN_PROGRESS', label: 'Đang sửa chữa' },
+        { id: 'COMPLETED', label: 'Đã bàn giao' },
+    ];
 
-    const rowVirtualizer = useVirtualizer({
-        count: filteredReceptions.length,
-        getScrollElement: () => parentRef.current,
-        estimateSize: () => 64, // Ước lượng chiều cao mỗi dòng
-        overscan: 5,
+    const filteredReceptions = (receptions || []).filter((r: Reception) => {
+        const matchesSearch = 
+            r.plate?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+            r.customerName?.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+            r.customerPhone?.includes(searchKeyword);
+        
+        const currentStatus = r.orderStatus || r.status || 'RECEIVED';
+        const matchesTab = activeTab === 'ALL' || currentStatus === activeTab;
+        
+        return matchesSearch && matchesTab;
     });
+
+    const columns: any[] = [
+        {
+            header: 'Biển số & Thời gian',
+            accessorKey: 'plate',
+            render: (value: any, r: Reception) => (
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                        <Car className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <Link href={`/sale/reception/${r.id}`} className="font-bold text-slate-900 dark:text-slate-100 hover:text-indigo-600 transition-colors">
+                            {r.plate}
+                        </Link>
+                        <div className="text-[11px] text-slate-500">
+                            {new Date(r.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} • {new Date(r.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            header: 'Khách hàng',
+            accessorKey: 'customerName',
+            render: (value: any, r: Reception) => (
+                <div className="flex flex-col">
+                    <div className="font-bold text-slate-900 dark:text-slate-100">{formatFullName(r.customerName)}</div>
+                    <div className="text-[11px] text-slate-500 font-medium">{r.customerPhone}</div>
+                </div>
+            )
+        },
+        {
+            header: 'Thông tin xe',
+            accessorKey: 'vehicleBrand',
+            render: (value: any, r: Reception) => (
+                <div className="text-slate-600 dark:text-slate-300">
+                    {r.vehicleBrand} {r.vehicleModel}
+                </div>
+            )
+        },
+        {
+            header: ROLE_DISPLAY_NAMES.SALE,
+            accessorKey: 'advisorName',
+            className: 'w-[140px]',
+            render: (value: any, r: Reception) => (
+                <div className="flex items-center gap-2 group/sa">
+                    <BaseAvatar 
+                        name={r.advisorName} 
+                        id={r.advisorId} 
+                        src={r.advisorAvatar}
+                        size="xs" 
+                        showStatus={false}
+                        showBorder={false}
+                        className="transition-all shadow-sm"
+                    />
+                    <div className="flex flex-col min-w-0">
+                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate leading-none mb-0.5">{r.advisorName}</span>
+                        <span className="text-[8px] font-semibold text-slate-400 uppercase tracking-tighter">{ROLE_DISPLAY_NAMES.SALE}</span>
+                    </div>
+                </div>
+            )
+        },
+        {
+            header: ROLE_DISPLAY_NAMES.QUAN_LY_XUONG,
+            accessorKey: 'thoChanDoanName',
+            className: 'w-[140px]',
+            render: (value: any, r: Reception) => (
+                <div className="flex items-center gap-2 group/foreman">
+                    <BaseAvatar 
+                        name={r.thoChanDoanName || 'Chưa chỉ định'} 
+                        id={r.thoChanDoanId}
+                        src={r.foremanAvatar}
+                        isUnassigned={!r.thoChanDoanName}
+                        size="xs" 
+                        showStatus={false}
+                        showBorder={false}
+                        className="transition-all shadow-sm"
+                    />
+                    <div className="flex flex-col min-w-0">
+                        <span className={`text-[11px] font-bold truncate leading-none mb-0.5 ${!r.thoChanDoanName ? 'text-slate-400 italic font-medium' : 'text-slate-700 dark:text-slate-200'}`}>
+                            {r.thoChanDoanName || 'Chưa chỉ định'}
+                        </span>
+                        <span className={`text-[8px] font-semibold uppercase tracking-tighter ${!r.thoChanDoanName ? 'text-slate-300' : 'text-emerald-500 dark:text-emerald-400'}`}>
+                            {ROLE_DISPLAY_NAMES.QUAN_LY_XUONG}
+                        </span>
+                    </div>
+                </div>
+            )
+        },
+        {
+            header: 'Trạng thái',
+            accessorKey: 'status',
+            render: (value: any, r: Reception) => (
+                <StatusBadge status={r.orderStatus || r.status || 'RECEIVED'} />
+            )
+        },
+        {
+            header: 'Thao tác',
+            accessorKey: 'id',
+            className: 'text-right',
+            render: (value: any, r: Reception) => (
+                <div className="flex items-center justify-end gap-2">
+                    <Link
+                        href={`/sale/reception/${r.id}`}
+                        className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-500"
+                        title="Xem chi tiết"
+                    >
+                        <Eye className="w-4 h-4" />
+                    </Link>
+                    {r.orderId && (
+                        <Link
+                            href={`/sale/orders/${r.orderId}?source=reception`}
+                            className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-all"
+                        >
+                            Đơn hàng
+                        </Link>
+                    )}
+                </div>
+            )
+        }
+    ];
 
     return (
         <DashboardLayout title="Tiếp nhận xe" subtitle="Danh sách xe đã tiếp nhận">
-            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
-                <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="relative flex-1 max-w-md">
-                        <SearchInput
-                            placeholder="Tìm theo biển số, tên KH..."
-                        />
-                    </div>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => loadReceptions()}
-                            className="p-2 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                            disabled={loading}
-                        >
-                            <RefreshCw className={`w-5 h-5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
-                        </button>
-                        <Link
-                            href="/sale/reception/new"
-                            className="bg-slate-900 text-white px-3.5 py-1.5 rounded-lg text-sm font-bold hover:bg-slate-800 flex items-center gap-2 transition-colors shadow-sm"
-                        >
-                            <Plus className="w-5 h-5" />
-                            Tiếp nhận xe mới
-                        </Link>
-                    </div>
-                </div>
-
-                {loading ? (
-                    <ReceptionListSkeleton />
-                ) : filteredReceptions.length === 0 ? (
-                    <div className="p-8 flex justify-center">
-                        <EmptyState
-                            title={searchKeyword ? 'Không tìm thấy kết quả nào' : 'Chưa có phiếu tiếp nhận nào'}
-                            description={searchKeyword ? `Không tìm thấy phiếu nào khớp với từ khóa "${searchKeyword}"` : "Bắt đầu bằng cách tạo phiếu tiếp nhận mới cho khách hàng đến sửa chữa."}
-                            icon={FileText}
-                            actionLabel={!searchKeyword ? "Tạo phiếu ngay" : undefined}
-                            onAction={!searchKeyword ? () => router.push('/sale/reception/new') : undefined}
-                        />
-                    </div>
-                ) : (
-                    <>
-                        {/* Desktop Table View */}
-                        <div 
-                            ref={parentRef}
-                            className="hidden md:block overflow-auto max-h-[calc(100vh-280px)] scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800"
-                        >
-                                <div
-                                    style={{
-                                        height: `${rowVirtualizer.getTotalSize() + 48}px`,
-                                        width: '100%',
-                                        position: 'relative',
-                                    }}
-                                >
-                                <table className="w-full text-left border-collapse table-fixed">
-                                    <thead className="sticky top-0 z-10">
-                                        <tr className="bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 transition-colors backdrop-blur-md flex items-center w-full">
-                                            <th className="px-2 py-3 text-center w-14 flex-shrink-0">Ảnh</th>
-                                            <th className="px-3 py-3 text-center w-28 flex-shrink-0">Thời gian</th>
-                                            <th className="px-3 py-3 text-center w-32 flex-shrink-0">Biển số</th>
-                                            <th className="px-3 py-3 text-left flex-1 min-w-[200px]">Khách hàng</th>
-                                            <th className="px-3 py-3 text-left w-36 flex-shrink-0">Xe</th>
-                                            <th className="px-3 py-3 text-center w-32 flex-shrink-0">Trạng thái</th>
-                                            <th className="px-3 py-3 text-left w-56 flex-shrink-0 pl-8">Thao tác</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                                            const r = filteredReceptions[virtualRow.index];
-                                            return (
-                                                <tr 
-                                                    key={r.id} 
-                                                    className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors absolute top-0 left-0 w-full flex items-center border-b border-slate-100 dark:border-slate-800"
-                                                    style={{
-                                                        height: `${virtualRow.size}px`,
-                                                        transform: `translateY(${virtualRow.start + 48}px)`,
-                                                    }}
-                                                >
-                                                    <td className="w-14 px-2 text-center flex-shrink-0">
-                                                        {(r as any).HinhAnh ? (
-                                                            <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 mx-auto">
-                                                                <img src={(r as any).HinhAnh.split(',')[0]} alt="Xe" className="w-full h-full object-cover" />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="w-10 h-10 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-400 mx-auto">
-                                                                <Car className="w-4 h-4 opacity-40" />
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    <td className="w-28 px-3 text-center flex-shrink-0">
-                                                        <div className="flex flex-col items-center">
-                                                            <span className="font-medium text-slate-900 dark:text-slate-100 text-sm">
-                                                                {new Date(r.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
-                                                            <span className="text-[11px] text-slate-400">
-                                                                {new Date(r.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="w-32 px-3 text-center flex-shrink-0 text-indigo-600 dark:text-indigo-400">
-                                                        <Link href={`/sale/reception/${r.id}`} className="font-bold text-sm hover:underline inline-flex items-center gap-1.5 break-all">
-                                                            {r.plate}
-                                                        </Link>
-                                                    </td>
-                                                    <td className="flex-1 px-3 text-left overflow-hidden min-w-[200px]">
-                                                        <div className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate">{r.customerName}</div>
-                                                        <div className="text-[11px] text-slate-500 truncate">{r.customerPhone}</div>
-                                                    </td>
-                                                    <td className="w-36 px-3 text-left flex-shrink-0 overflow-hidden">
-                                                        <span className="text-sm text-slate-600 dark:text-slate-300 truncate block">
-                                                            {r.vehicleBrand} {r.vehicleModel}
-                                                        </span>
-                                                    </td>
-                                                    <td className="w-32 px-3 text-center flex-shrink-0">
-                                                        <div className="flex justify-center">
-                                                            {r.orderId ? (
-                                                                getStatusBadge(r.orderStatus || 'TIEP_NHAN')
-                                                            ) : (
-                                                                getStatusBadge(r.status || 'TIEP_NHAN')
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="w-56 pl-8 flex-shrink-0">
-                                                        <div className="flex items-center justify-start gap-2">
-                                                            <Link
-                                                                href={`/sale/reception/${r.id}`}
-                                                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[11px] rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap"
-                                                            >
-                                                                <Eye className="w-3.5 h-3.5" />
-                                                                Xem phiếu
-                                                            </Link>
-                                                            {(r as any).DonHangSuaChua ? (
-                                                                <Link
-                                                                    href={`/sale/orders/${(r as any).DonHangSuaChua.ID}?source=reception`}
-                                                                    className="px-2.5 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-[11px] rounded-lg shadow-sm hover:translate-y-[-1px] transition-all whitespace-nowrap"
-                                                                >
-                                                                    Đơn hàng
-                                                                </Link>
-                                                            ) : (
-                                                                <CreateOrderButton receptionId={r.id} />
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+            <div className="space-y-4">
+                <AdvancedDataTable
+                    data={filteredReceptions}
+                    columns={columns}
+                    isLoading={loading}
+                    searchPlaceholder="Tìm theo biển số, tên khách hàng..."
+                    tabs={tabs}
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    onSearch={(val: string) => {
+                        const params = new URLSearchParams(searchParams);
+                        if (val) params.set('q', val);
+                        else params.delete('q');
+                        router.push(`${pathname}?${params.toString()}`);
+                    } }
+                    emptyState={{
+                        title: searchKeyword ? 'Không tìm thấy kết quả nào' : 'Chưa có phiếu tiếp nhận nào',
+                        description: searchKeyword ? `Không tìm thấy phiếu nào khớp với từ khóa "${searchKeyword}"` : "Bắt đầu bằng cách tạo phiếu tiếp nhận mới cho khách hàng đến sửa chữa.",
+                        icon: <FileText className="w-12 h-12" />
+                    }}
+                    actionButton={
+                        <div className="flex gap-2">
+                             <button
+                                onClick={() => loadReceptions()}
+                                className="p-2 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                disabled={loading}
+                            >
+                                <RefreshCw className={`w-5 h-5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
+                            </button>
+                            <Link
+                                href="/sale/reception/new"
+                                className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded-xl text-sm font-bold hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 transition-all shadow-premium-sm"
+                            >
+                                <Plus className="w-5 h-5" />
+                                Tiếp nhận xe mới
+                            </Link>
                         </div>
-
-                        {/* Mobile Card View */}
-                        <div className="md:hidden grid grid-cols-1 gap-3 p-3">
-                            {filteredReceptions.map((r: Reception) => (
-                                <div key={r.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 shadow-sm flex gap-3">
-                                    {/* Image Left - Smaller on mobile */}
-                                    <div className="flex-shrink-0">
-                                        {(r as any).HinhAnh ? (
-                                            <div className="w-14 h-14 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
-                                                <img src={(r as any).HinhAnh.split(',')[0]} alt="Xe" className="w-full h-full object-cover" />
-                                            </div>
-                                        ) : (
-                                            <div className="w-14 h-14 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-400">
-                                                <Car className="w-6 h-6 opacity-40" />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Content Right */}
-                                    <div className="flex-1 min-w-0 space-y-1.5">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <Link href={`/sale/reception/${r.id}`} className="font-bold text-base text-slate-900 dark:text-slate-100 hover:text-indigo-600 flex items-center gap-1.5 leading-tight">
-                                                    {r.plate}
-                                                    <ExternalLink className="w-3.5 h-3.5 opacity-30" />
-                                                </Link>
-                                                <p className="text-xs text-slate-500 line-clamp-1">{r.vehicleBrand} {r.vehicleModel}</p>
-                                            </div>
-                                            {(r as any).DonHangSuaChua ? (
-                                                <div className="scale-90 origin-top-right">
-                                                    {getStatusBadge((r as any).DonHangSuaChua.TrangThai)}
-                                                </div>
-                                            ) : (
-                                                getStatusBadge(r.status || 'TIEP_NHAN')
-                                            )}
-                                        </div>
-
-                                        <div className="text-xs text-slate-600 dark:text-slate-300">
-                                            <p className="font-medium truncate">{r.customerName}</p>
-                                        </div>
-
-                                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 mt-1">
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] font-bold text-slate-400">Thời gian</span>
-                                                <span className="text-xs text-slate-600 dark:text-slate-300">
-                                                    {new Date(r.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} <span className="text-slate-300">|</span> {new Date(r.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
-                                                </span>
-                                            </div>
-
-                                            <div className="flex gap-2">
-                                                <Link
-                                                    href={`/sale/reception/${r.id}`}
-                                                    className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-[10px] rounded flex items-center hover:bg-slate-200 transition-colors"
-                                                >
-                                                    Xem phiếu
-                                                </Link>
-
-                                                {(r as any).DonHangSuaChua ? (
-                                                    <Link
-                                                        href={`/sale/orders/${(r as any).DonHangSuaChua.ID}?source=reception`}
-                                                        className="px-2.5 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold text-[10px] rounded flex items-center hover:bg-slate-800 dark:hover:bg-white transition-colors"
-                                                    >
-                                                        Đơn hàng
-                                                    </Link>
-                                                ) : (
-                                                    <CreateOrderButton receptionId={r.id} />
-                                                )}
-
-                                                <Link
-                                                    href={`/sale/reception/${r.id}?print=true`}
-                                                    target="_blank"
-                                                    className="p-1.5 text-slate-500 bg-slate-50 dark:bg-slate-800 rounded hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
-                                                >
-                                                    <Printer className="w-4 h-4" />
-                                                </Link>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </>
-                )}
+                    }
+                />
             </div>
         </DashboardLayout>
     );

@@ -33,7 +33,6 @@ export default function ReturnItemButton({ orderId, productId, productName, maxQ
             onSuccess: () => {
                 toast({ title: "Thành công", description: 'Hoàn nhập thành công!' });
                 setIsOpen(false);
-                router.refresh();
             },
             onError: (error: any) => {
                 toast({ 

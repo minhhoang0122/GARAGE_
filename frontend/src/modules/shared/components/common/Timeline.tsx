@@ -34,6 +34,8 @@ interface TimelineEvent {
   newValue?: string;
   actorName: string;
   actorRole: string;
+  actorId?: number;
+  actorAvatar?: string;
   createdAt: string;
   isInternal: boolean;
 }
@@ -154,39 +156,45 @@ const Timeline: React.FC<{ receptionId: number; initialEvents?: TimelineEvent[] 
                 const isNote = event.actionType === 'NOTE';
                 return (
                   <div key={event.id || idx} className="group">
-                    <div className={`p-4 rounded-xl border shadow-sm transition-all duration-200 ${isNote ? 'bg-white border-indigo-100 ring-1 ring-indigo-50/50' : 'bg-white border-slate-200'}`}>
+                    <div className={`p-4 rounded-xl border transition-all duration-300 ${
+                      isNote 
+                        ? 'bg-white border-indigo-200 ring-1 ring-indigo-100 shadow-md transform hover:-translate-y-0.5' 
+                        : 'bg-white border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md'
+                    }`}>
                       <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="p-1 rounded-lg bg-slate-50 border border-slate-100 text-[10px] font-bold text-slate-500 flex items-center gap-1.5">
+                          <span className="p-1 px-2 rounded-lg bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-500 flex items-center gap-1.5 shadow-sm">
                             {getActionIcon(event.actionType)}
                             {event.actionType}
                           </span>
                           {getActionBadge(event.actionType)}
                         </div>
-                        <time className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
+                        <time className="text-[11px] text-slate-400 font-bold whitespace-nowrap">
                           {format(new Date(event.createdAt), 'HH:mm - dd/MM', { locale: vi })}
                         </time>
                       </div>
 
-                      <p className={`text-sm leading-relaxed mb-3 ${isNote ? 'text-slate-900 font-semibold' : 'text-slate-600'}`}>
+                      <p className={`text-[13.5px] leading-relaxed mb-4 ${isNote ? 'text-slate-900 font-semibold' : 'text-slate-600 font-medium'}`}>
                         {event.content}
                       </p>
 
-                      <div className="flex items-center gap-2 pt-3 border-t border-dashed border-slate-100">
+                      <div className="flex items-center gap-3 pt-3 border-t border-slate-100/80">
                         <BaseAvatar
-                          src={(event as any).actorAvatar || (event as any).actorImage}
+                          id={event.actorId}
+                          src={event.actorAvatar}
                           name={event.actorName || 'Hệ thống'}
                           size="xs"
                           showStatus={false}
+                          showBorder={false}
                         />
-                        <div className="flex flex-col">
-                          <span className="text-[11px] font-bold text-slate-700 leading-none">{event.actorName || 'Hệ thống'}</span>
-                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                            {ROLE_DISPLAY_NAMES[event.actorRole] || event.actorRole || 'Hệ thống'}
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate">{event.actorName || 'Hệ thống'}</span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate">
+                            {ROLE_DISPLAY_NAMES[String(event.actorRole || '').toUpperCase()] || event.actorRole || 'Nhân viên'}
                           </span>
                         </div>
                         {event.isInternal && (
-                          <Badge variant="secondary" className="text-[9px] h-4 py-0 px-1 ml-auto bg-amber-50 text-amber-600 border-amber-100">NỘI BỘ</Badge>
+                          <Badge variant="secondary" className="text-[9px] h-4 py-0 px-1 ml-auto bg-amber-50 text-amber-600 border-amber-100 font-bold">NỘI BỘ</Badge>
                         )}
                       </div>
                     </div>

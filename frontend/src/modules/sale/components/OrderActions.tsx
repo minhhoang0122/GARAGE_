@@ -73,9 +73,7 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
 
     const confirmCancel = async () => {
         setShowCancelDialog(false);
-        cancelMatch({ orderId, reason: cancelReason }, {
-            onSuccess: () => router.refresh()
-        });
+        cancelMatch({ orderId, reason: cancelReason });
     };
 
     const warnings: { icon: React.ReactNode; text: string; severity: 'red' | 'amber' | 'blue' }[] = [];
@@ -115,9 +113,7 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
                         <button
                             onClick={async () => {
                                 if (await confirm({ title: 'Gửi báo giá', message: 'Xác nhận gửi báo giá cho khách?\n\nPhụ tùng sẽ được TẠM GIỮ trong kho.', type: 'info' })) {
-                                    submitQuoteMatch(orderId, {
-                                        onSuccess: () => router.refresh()
-                                    });
+                                    submitQuoteMatch(orderId);
                                 }
                             }}
                             disabled={isActionDisabled || isMissingDiagnostic}
@@ -141,9 +137,7 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
                         <button
                             onClick={async () => {
                                 if (await confirm({ title: 'Duyệt báo giá', message: 'Xác nhận khách hàng ĐÃ DUYỆT báo giá?\n\nLệnh sửa chữa sẽ được chuyển cho thợ.', type: 'info' })) {
-                                    finalizeMatch(orderId, {
-                                        onSuccess: () => router.refresh()
-                                    });
+                                    finalizeMatch(orderId);
                                 }
                             }}
                             disabled={isActionDisabled || isMissingDiagnostic}

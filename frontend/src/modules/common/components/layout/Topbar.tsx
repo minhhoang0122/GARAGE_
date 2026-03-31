@@ -80,7 +80,7 @@ export default function Topbar({ title, subtitle, onMenuClick }: TopbarProps) {
 
                     <div className="flex flex-col min-w-0 justify-center">
                         {/* Streamlined Breadcrumbs - Lavender/Pink Gradient Bar */}
-                        <div className="flex items-center gap-1.5 w-fit mb-1 px-3 py-1 rounded-full bg-gradient-to-r from-purple-200 to-pink-200 dark:from-purple-900/40 dark:to-pink-900/40 border border-purple-200 dark:border-purple-800/50 shadow-sm">
+                        <div className="inline-flex items-center w-fit gap-1.5 mb-1 px-3 py-1 rounded-full bg-gradient-to-r from-purple-200 to-pink-200 dark:from-purple-900/40 dark:to-pink-900/40 border border-purple-200 dark:border-purple-800/50 shadow-sm overflow-x-auto max-w-full no-scrollbar">
                             <Link href="/" className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex-shrink-0 pb-px">
                                 <Home className="w-3.5 h-3.5" />
                             </Link>

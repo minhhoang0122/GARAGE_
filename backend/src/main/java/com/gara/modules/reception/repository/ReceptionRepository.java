@@ -21,11 +21,12 @@ public interface ReceptionRepository extends JpaRepository<Reception, Integer> {
         List<Reception> findByVehicleLicensePlateOrderByReceptionDateDesc(String licensePlate);
 
         @org.springframework.data.jpa.repository.Query("SELECT " +
-                        "r.id, r.receptionDate, v.licensePlate, c.fullName, c.phone, v.brand, v.model, o.id, o.status, r.images "
-                        +
+                        "r.id, r.receptionDate, v.licensePlate, c.fullName, c.phone, v.brand, v.model, o.id, o.status, r.images, " +
+                        "u.fullName, u.avatar " +
                         "FROM Reception r " +
                         "JOIN r.vehicle v " +
                         "JOIN v.customer c " +
+                        "LEFT JOIN r.receptionist u " +
                         "LEFT JOIN r.repairOrder o " +
                         "ORDER BY r.receptionDate DESC")
         List<Object[]> findAllReceptionsRaw(org.springframework.data.domain.Pageable pageable);

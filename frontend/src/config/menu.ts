@@ -90,7 +90,7 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
 // Tên hiển thị cho vai trò
 export const ROLE_DISPLAY_NAMES: Record<string, string> = {
     ADMIN: 'Quản trị viên',
-    SALE: 'Nhân viên Tiếp nhận',
+    SALE: 'Cố vấn dịch vụ',
     KHO: 'Nhân viên Kho',
     QUAN_LY_XUONG: 'Quản đốc xưởng',
     THO_SUA_CHUA: 'Kỹ thuật viên',
