@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useMemo } from 'react';
+import { use, useMemo, Suspense } from 'react';
 import { notFound, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -25,8 +25,7 @@ import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 import { useOrderDetail } from '@/modules/sale/hooks/useSale';
 import { usePaymentsByOrder } from '@/modules/finance/hooks/useFinance';
 
-export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params);
+function OrderDetailPageContent({ id }: { id: string }) {
     const orderId = parseInt(id);
     const searchParams = useSearchParams();
     
@@ -281,5 +280,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 </OrderWorkspaceProvider>
             </div>
         </DashboardLayout>
+    );
+}
+
+export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
+    return (
+        <Suspense fallback={
+            <DashboardLayout title="Hồ sơ Lệnh sửa chữa" subtitle="Đang tải dữ liệu...">
+                <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+                    <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+                    <p className="text-slate-500 font-medium">Đang chuẩn bị hồ sơ đơn hàng...</p>
+                </div>
+            </DashboardLayout>
+        }>
+            <OrderDetailPageContent id={id} />
+        </Suspense>
     );
 }

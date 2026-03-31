@@ -75,12 +75,8 @@ export default function JobCard({ job }: { job: RepairJob }) {
                 {/* Mechanic Status - Technical Overhaul */}
                 <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                     {isUnassigned ? (
-                        <div className="flex items-center gap-2.5 px-3 py-1.5 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 rounded-full border border-blue-200 dark:border-blue-500/20">
-                            <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                            </span>
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Sẵn sàng nhận</span>
+                        <div className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-50 text-slate-500 rounded-full border border-slate-200">
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Chờ phân công</span>
                         </div>
                     ) : isQC ? (
                         <div className="flex items-center gap-2.5 px-3 py-1.5 bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 rounded-full border border-amber-200 dark:border-amber-500/20">
@@ -126,13 +122,8 @@ export default function JobCard({ job }: { job: RepairJob }) {
                 {/* Primary Action Button */}
                 <Link
                     href={`/mechanic/jobs/${job.id}`}
-                    className={`
-                        relative flex items-center justify-center w-10 h-10 rounded-full shadow-sm transition-all duration-300
-                        ${isUnassigned
-                            ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-lg shadow-slate-900/20 hover:scale-110 dark:bg-white dark:text-slate-900'
-                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-slate-500'}
-                    `}
-                    title={isUnassigned ? "Nhận việc ngay" : "Xem chi tiết"}
+                    className="relative flex items-center justify-center w-10 h-10 rounded-full shadow-sm transition-all duration-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-slate-500"
+                    title="Xem chi tiết"
                 >
                     <ChevronRight className="w-5 h-5" />
                 </Link>

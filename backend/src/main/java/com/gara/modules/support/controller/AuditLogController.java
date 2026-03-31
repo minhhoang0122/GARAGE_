@@ -40,6 +40,9 @@ public class AuditLogController {
                         m.put("timestamp", log.getCreatedAt());
                         m.put("user",
                                 log.getUser() != null ? log.getUser().getFullName() : "System");
+                        m.put("userAvatar", log.getUser() != null ? log.getUser().getAvatar() : null);
+                        m.put("userId", log.getUser() != null ? log.getUser().getId() : null);
+                        m.put("userRole", log.getUser() != null && log.getUser().getRoles() != null && !log.getUser().getRoles().isEmpty() ? log.getUser().getRoles().iterator().next().getName() : null);
                         return m;
                     })
                     .toList();

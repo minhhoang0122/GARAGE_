@@ -7,6 +7,7 @@ import { Search, History, Filter, User, Calendar, Info, ChevronDown, ChevronUp }
 import { formatDate } from '@/lib/utils';
 import { Card } from '@/modules/shared/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
+import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
 
 type AuditLog = {
     id: number;
@@ -18,6 +19,9 @@ type AuditLog = {
     reason: string | null;
     timestamp: string;
     user: string;
+    userAvatar?: string;
+    userRole?: string;
+    userId?: number;
 };
 
 export default function AuditLogsPage() {
@@ -52,7 +56,7 @@ export default function AuditLogsPage() {
     };
 
     return (
-        <DashboardLayout title="Nhật Ký Hệ Thống" subtitle="Ghi lại toàn bộ lịch sử thao tác của người dùng">
+        <DashboardLayout title="Audit Logs (Máy chủ)" subtitle="Ghi nhận mọi thao tác Thêm/Sửa/Xóa CSDL toàn cục ở mức hệ thống để truy vết bảo mật.">
             <div className="max-w-6xl mx-auto space-y-6 pb-20">
                 {/* Search & Stats */}
                 <Card className="flex flex-col md:flex-row gap-4 justify-between items-center p-4">
@@ -110,10 +114,11 @@ export default function AuditLogsPage() {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center text-xs font-bold">
-                                                            {log.user.charAt(0)}
+                                                        <BaseAvatar name={log.user} src={log.userAvatar} size="sm" showStatus={false} showBorder={false} />
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{log.user}</span>
+                                                            {log.userRole && <span className="text-[10px] text-slate-400 capitalize">{log.userRole.toLowerCase()}</span>}
                                                         </div>
-                                                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{log.user}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">

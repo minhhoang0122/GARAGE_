@@ -1,9 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Car, Wrench, Clock, CheckCircle, AlertCircle, Loader2, ChevronRight, Gauge, Activity } from 'lucide-react';
+import { ArrowLeft, Car, Wrench, Clock, CheckCircle, AlertCircle, Loader2, ChevronRight, Gauge, Activity, Search, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMyOrders } from '@/modules/customer/hooks/useCustomer';
 import { useQueryClient } from '@tanstack/react-query';

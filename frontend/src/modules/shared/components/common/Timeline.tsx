@@ -40,7 +40,7 @@ interface TimelineEvent {
   isInternal: boolean;
 }
 
-const Timeline: React.FC<{ receptionId: number; initialEvents?: TimelineEvent[] }> = ({ receptionId, initialEvents = [] }) => {
+const Timeline: React.FC<{ receptionId: number; initialEvents?: TimelineEvent[]; readOnly?: boolean }> = ({ receptionId, initialEvents = [], readOnly = false }) => {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
   const [filter, setFilter] = useState<'ALL' | 'NOTES' | 'SYSTEM'>('ALL');

@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { formatCurrency } from '@/lib/utils';
@@ -10,7 +11,7 @@ import { AdvancedDataTable } from '../../../../modules/shared/components/ui/Adva
 import { StatusBadge } from '@/modules/shared/components/ui/StatusBadge';
 import { Button } from '@/modules/shared/components/ui/button';
 
-export default function WarehouseInventoryPage() {
+function WarehouseInventoryPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const query = searchParams.get('q') || '';
@@ -146,5 +147,22 @@ export default function WarehouseInventoryPage() {
                 />
             </div>
         </DashboardLayout>
+    );
+}
+
+export default function WarehouseInventoryPage() {
+    return (
+        <Suspense fallback={
+            <DashboardLayout title="Tồn kho" subtitle="Đang tải dữ liệu...">
+                <div className="flex items-center justify-center min-h-[400px]">
+                    <div className="flex flex-col items-center gap-4">
+                        <Package className="w-10 h-10 text-indigo-600 animate-pulse opacity-20" />
+                        <p className="text-slate-500 font-medium">Đang kiểm kê kho hàng...</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        }>
+            <WarehouseInventoryPageContent />
+        </Suspense>
     );
 }

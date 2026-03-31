@@ -39,12 +39,13 @@ import {
     FormMessage,
 } from '@/modules/shared/components/ui/form';
 import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
+import { VALIDATION_LIMITS } from '@/lib/schemas';
 
 const userSchema = z.object({
-    username: z.string().min(3, 'Tên đăng nhập tối thiểu 3 ký tự'),
-    password: z.string().optional().or(z.literal('')),
-    fullName: z.string().min(2, 'Họ tên tối thiểu 2 ký tự'),
-    phone: z.string().optional(),
+    username: z.string().min(3, 'Tên đăng nhập tối thiểu 3 ký tự').max(VALIDATION_LIMITS.USERNAME_MAX, `Tên đăng nhập tối đa ${VALIDATION_LIMITS.USERNAME_MAX} ký tự`),
+    password: z.string().max(VALIDATION_LIMITS.PASSWORD_MAX, `Mật khẩu tối đa ${VALIDATION_LIMITS.PASSWORD_MAX} ký tự`).optional().or(z.literal('')),
+    fullName: z.string().min(2, 'Họ tên tối thiểu 2 ký tự').max(VALIDATION_LIMITS.NAME_MAX, `Họ tên tối đa ${VALIDATION_LIMITS.NAME_MAX} ký tự`),
+    phone: z.string().max(VALIDATION_LIMITS.PHONE_MAX, `Số điện thoại tối đa ${VALIDATION_LIMITS.PHONE_MAX} ký tự`).optional(),
     roleCodes: z.array(z.string()).min(1, 'Chọn ít nhất 1 vai trò')
 });
 

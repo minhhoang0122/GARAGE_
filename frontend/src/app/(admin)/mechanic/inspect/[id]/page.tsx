@@ -5,6 +5,7 @@ import { ArrowLeft, AlertCircle, Loader2, Car, User, Clock, Fuel, ShieldCheck, C
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { Suspense } from 'react';
 import { api } from '@/lib/api';
 import ImageGallery from '@/modules/shared/components/common/ImageGallery';
 import { useToast } from '@/contexts/ToastContext';
@@ -33,7 +34,7 @@ interface ReceptionDetail {
     pendingReviewCount?: number;
 }
 
-export default function InspectPage() {
+function InspectPageContent() {
     const { id } = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -217,5 +218,20 @@ export default function InspectPage() {
                 </div>
             </div>
         </DashboardLayout>
+    );
+}
+
+export default function InspectPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-slate-50/50">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+                    <p className="font-bold text-slate-400 animate-pulse">Đang chuẩn bị dữ liệu...</p>
+                </div>
+            </div>
+        }>
+            <InspectPageContent />
+        </Suspense>
     );
 }

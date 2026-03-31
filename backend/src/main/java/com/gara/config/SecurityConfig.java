@@ -62,6 +62,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/config", "/api/config/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
                         .requestMatchers("/api/logs", "/api/logs/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
 
+                        // Vehicle History (Hồ sơ Xe - Admin + Sale)
+                        .requestMatchers("/api/admin/vehicles/**")
+                        .hasAnyAuthority("ADMIN", "ROLE_ADMIN", "SALE", "ROLE_SALE")
+
                         // Suppliers (Nhà cung cấp - Admin + Kho + Sale)
                         .requestMatchers("/api/suppliers/**")
                         .hasAnyAuthority("ADMIN", "ROLE_ADMIN", "KHO", "ROLE_KHO", "SALE", "ROLE_SALE")

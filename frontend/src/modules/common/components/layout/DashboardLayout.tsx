@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, memo, useState, useCallback, useEffect } from 'react';
+import { ReactNode, memo, useState, useCallback, useEffect, Suspense } from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { usePathname, useRouter } from 'next/navigation';
@@ -57,6 +57,42 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     if (pathname === '/login' || pathname === '/admin/login') {
         return <>{children}</>;
     }
+
+    return (
+        <Suspense fallback={
+            <div className="flex h-screen bg-slate-50 dark:bg-slate-950 items-center justify-center font-sans">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="relative w-16 h-16">
+                        <div className="absolute inset-0 border-4 border-indigo-100 dark:border-slate-800 rounded-full"></div>
+                        <div className="absolute inset-0 border-4 border-indigo-600 dark:border-indigo-400 rounded-full border-t-transparent animate-spin"></div>
+                    </div>
+                    <div className="text-center">
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-100 uppercase tracking-widest leading-none">GARAGEMASTER</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-[0.2em] mt-2">Đang tải giao diện...</p>
+                    </div>
+                </div>
+            </div>
+        }>
+            <DashboardShellContent isMobileMenuOpen={isMobileMenuOpen} toggleMobileMenu={toggleMobileMenu} closeMobileMenu={closeMobileMenu}>
+                {children}
+            </DashboardShellContent>
+        </Suspense>
+    );
+}
+
+function DashboardShellContent({ 
+    children, 
+    isMobileMenuOpen, 
+    toggleMobileMenu, 
+    closeMobileMenu 
+}: { 
+    children: ReactNode; 
+    isMobileMenuOpen: boolean; 
+    toggleMobileMenu: () => void; 
+    closeMobileMenu: () => void; 
+}) {
+    const pathname = usePathname();
+    const { title, subtitle } = useLayoutContext();
 
     return (
         <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative overflow-hidden">

@@ -10,4 +10,5 @@ import java.util.List;
 public interface ReceptionTimelineRepository extends JpaRepository<ReceptionTimeline, Long> {
     List<ReceptionTimeline> findByReceptionIdOrderByCreatedAtDesc(Integer receptionId);
     List<ReceptionTimeline> findByReceptionIdOrderByCreatedAtAsc(Integer receptionId);
+    List<ReceptionTimeline> findByReception_Vehicle_IdOrderByCreatedAtDesc(Integer vehicleId);
 }

@@ -21,6 +21,8 @@ interface SSEContextType {
     removeListener: (event: string, callback: (data: any) => void) => void;
     subscribeToTopic: (topic: string) => Promise<void>;
     unsubscribeFromTopic: (topic: string) => Promise<void>;
+    setNotifications: (updater: any) => void;
+    fetchNotifications: () => Promise<void>;
 }
 
 const SSEContext = createContext<SSEContextType | undefined>(undefined);
@@ -37,12 +39,16 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     const token = (session?.user as any)?.accessToken || getCookie('token');
 
     // Sử dụng TanStack Query để quản lý danh sách thông báo
-    const { data: notifications = [], isLoading: loading } = useQuery<any[]>({
+    const { data: notifications = [], isLoading: loading, refetch: fetchNotifications } = useQuery<any[]>({
         queryKey: ['notifications'],
         queryFn: () => api.get('/notifications'),
         enabled: !!token,
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
+
+    const setNotifications = React.useCallback((updater: any) => {
+        queryClient.setQueryData(['notifications'], updater);
+    }, [queryClient]);
 
 
     const subscribeToTopic = React.useCallback(async (topic: string) => {
@@ -254,7 +260,9 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
             addListener,
             removeListener,
             subscribeToTopic,
-            unsubscribeFromTopic
+            unsubscribeFromTopic,
+            setNotifications,
+            fetchNotifications: async () => { await fetchNotifications(); }
         }}>
             {children}
         </SSEContext.Provider>

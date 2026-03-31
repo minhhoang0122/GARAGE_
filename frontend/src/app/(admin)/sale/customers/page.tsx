@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { DashboardLayout } from '@/modules/common/components/layout';
@@ -16,7 +16,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useCustomers, useCreateCustomer } from '@/modules/customer/hooks/useCustomer';
 import { Customer } from '@/modules/customer/services/customer';
 
-export default function SaleCustomersPage() {
+function SaleCustomersPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const queryClient = useQueryClient();
@@ -263,5 +263,22 @@ export default function SaleCustomersPage() {
                 </div>
             )}
         </DashboardLayout>
+    );
+}
+
+export default function SaleCustomersPage() {
+    return (
+        <Suspense fallback={
+            <DashboardLayout title="Quản lý Khách hàng" subtitle="Đang tải dữ liệu...">
+                <div className="flex items-center justify-center min-h-[400px]">
+                    <div className="flex flex-col items-center gap-4">
+                        <User className="w-10 h-10 text-slate-400 animate-pulse opacity-20" />
+                        <p className="text-slate-500 font-medium">Đang chuẩn bị danh mục khách hàng...</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        }>
+            <SaleCustomersPageContent />
+        </Suspense>
     );
 }

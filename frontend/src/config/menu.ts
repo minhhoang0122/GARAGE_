@@ -28,6 +28,8 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
                 { label: 'Báo cáo', href: '/dashboard', icon: 'BarChart3' },
                 { label: 'Cấu hình', href: '/admin/config', icon: 'Settings' },
                 { label: 'Nhật ký', href: '/admin/logs', icon: 'History' },
+                { label: 'Tiến trình đơn', href: '/admin/order-timelines', icon: 'Activity' },
+                { label: 'Hồ sơ Xe', href: '/admin/vehicle-histories', icon: 'CarFront' },
             ],
         },
         {
@@ -49,6 +51,7 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
                 { label: 'Thu ngân', href: '/sale/checkout', icon: 'CreditCard' },
                 { label: 'Bảo hành', href: '/sale/warranty-claims', icon: 'ShieldCheck' },
                 { label: 'Lịch hẹn', href: '/sale/bookings', icon: 'ClipboardCheck' },
+                { label: 'Hồ sơ Xe', href: '/admin/vehicle-histories', icon: 'CarFront' },
             ],
         },
     ],

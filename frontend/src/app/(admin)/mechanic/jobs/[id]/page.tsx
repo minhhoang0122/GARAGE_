@@ -6,14 +6,12 @@ import { ArrowLeft, Car, User, Phone, Wrench, Package, CheckCircle2, Loader2, Cl
 import Link from 'next/link';
 import JobItemCheckbox from './JobItemCheckbox';
 import CompleteJobButton from './CompleteJobButton';
-import UnclaimJobButton from './UnclaimJobButton';
-import ClaimJobButton from './ClaimJobButton';
 import MechanicProductSearch from '@/modules/mechanic/components/MechanicProductSearch';
 import DepositWarning from '@/modules/mechanic/components/DepositWarning';
 import { useSession } from 'next-auth/react';
 import { useJobDetails } from '@/modules/mechanic/hooks/useMechanic';
 import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
-import { use } from 'react';
+import { use, Suspense } from 'react';
 import Timeline from '@/modules/shared/components/common/Timeline';
 import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
 import { 
@@ -27,8 +25,7 @@ import {
 } from '@/lib/status';
 import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 
-export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params);
+function JobDetailPageContent({ id }: { id: string }) {
     const orderId = parseInt(id);
     const searchParams = useSearchParams();
     const { data: session } = useSession();
@@ -88,16 +85,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                                 <Wrench className="w-4 h-4" /> Chia việc
                             </Link>
                         )}
-                        {isJobActive && isApproved(job.status) && (
-                            <ClaimJobButton
-                                orderId={job.id}
-                                claimedByName={job.claimedByName}
-                                isClaimedByMe={isClaimedByMe}
-                            />
-                        )}
                         {isClaimedByMe && isJobActive && (
                             <>
-                                <UnclaimJobButton orderId={job.id} completedItems={job.completedItems} />
                                 <CompleteJobButton orderId={job.id} disabled={!allCompleted} className="hidden md:flex" />
                             </>
                         )}
@@ -449,5 +438,21 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 )}
             </div >
         </DashboardLayout >
+    );
+}
+
+export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
+    return (
+        <Suspense fallback={
+            <DashboardLayout title="Chi tiết công việc" subtitle={`Đơn hàng #${id}`}>
+                <div className="flex items-center justify-center h-64">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    <p className="ml-3 text-slate-500 font-medium">Đang chuẩn bị dữ liệu...</p>
+                </div>
+            </DashboardLayout>
+        }>
+            <JobDetailPageContent id={id} />
+        </Suspense>
     );
 }

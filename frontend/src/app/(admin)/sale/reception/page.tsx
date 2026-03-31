@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Plus, FileText, Car, Printer, RefreshCw, Eye, ExternalLink } from 'lucide-react';
@@ -22,7 +22,7 @@ import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 
 import { useRef } from 'react';
 
-export default function ReceptionListPage() {
+function ReceptionListPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const pathname = usePathname();
@@ -220,6 +220,23 @@ export default function ReceptionListPage() {
                 />
             </div>
         </DashboardLayout>
+    );
+}
+
+export default function ReceptionListPage() {
+    return (
+        <Suspense fallback={
+            <DashboardLayout title="Tiếp nhận xe" subtitle="Đang tải dữ liệu...">
+                <div className="flex items-center justify-center min-h-[400px]">
+                    <div className="flex flex-col items-center gap-4">
+                        <RefreshCw className="w-10 h-10 text-blue-600 animate-spin" />
+                        <p className="text-slate-500 font-medium">Đang chuẩn bị danh sách tiếp nhận...</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        }>
+            <ReceptionListPageContent />
+        </Suspense>
     );
 }
 

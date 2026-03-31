@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import Link from 'next/link';
 import { ArrowRight, FileText, Banknote, Calendar, Car } from 'lucide-react';
@@ -14,7 +14,7 @@ import { StatusBadge } from '@/modules/shared/components/ui/StatusBadge';
 import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
 import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 
-export default function OrderListPage() {
+function OrderListPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState('Tất cả');
@@ -197,5 +197,22 @@ export default function OrderListPage() {
                 }}
             />
         </DashboardLayout>
+    );
+}
+
+export default function OrderListPage() {
+    return (
+        <Suspense fallback={
+            <DashboardLayout title="Danh sách đơn hàng" subtitle="Đang tải dữ liệu...">
+                <div className="flex items-center justify-center min-h-[400px]">
+                    <div className="flex flex-col items-center gap-4">
+                        <FileText className="w-10 h-10 text-blue-600 animate-pulse opacity-20" />
+                        <p className="text-slate-500 font-medium">Đang chuẩn bị danh sách đơn hàng...</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        }>
+            <OrderListPageContent />
+        </Suspense>
     );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Button } from '@/modules/shared/components/ui/button';
@@ -23,7 +23,7 @@ import LiveInvoice from '@/modules/sale/components/LiveInvoice';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-export default function SaleCheckoutPage() {
+function SaleCheckoutPageContent() {
     const queryClient = useQueryClient();
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
     const [searchKeyword, setSearchKeyword] = useState('');
@@ -210,5 +210,22 @@ export default function SaleCheckoutPage() {
                 </div>
             </div>
         </DashboardLayout>
+    );
+}
+
+export default function SaleCheckoutPage() {
+    return (
+        <Suspense fallback={
+            <DashboardLayout title="Thu ngân" subtitle="Đang tải dữ liệu...">
+                <div className="flex h-[calc(100vh-130px)] items-center justify-center bg-white dark:bg-slate-950">
+                    <div className="flex flex-col items-center gap-4">
+                        <RefreshCw className="w-10 h-10 text-blue-600 animate-spin" />
+                        <p className="text-slate-500 font-medium italic uppercase tracking-widest text-xs">Đang chuẩn bị hệ thống thu ngân...</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        }>
+            <SaleCheckoutPageContent />
+        </Suspense>
     );
 }

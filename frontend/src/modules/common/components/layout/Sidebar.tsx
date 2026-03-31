@@ -6,10 +6,11 @@ import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
 import { ReactNode, memo, useState, useCallback, useEffect, useMemo } from 'react';
 import {
-    Car, LayoutDashboard, Users, BarChart3, Settings, History,
+    Car, CarFront, LayoutDashboard, Users, BarChart3, Settings, History,
     ShoppingCart, Package, FileText, CreditCard, PackagePlus,
     PackageMinus, Boxes, ClipboardCheck, ClipboardList, LogOut,
-    Wrench, ShieldCheck, Component, Tag, Wallet, UserCog
+    Wrench, ShieldCheck, Component, Tag, Wallet, UserCog, Activity,
+    Megaphone, Truck
 } from 'lucide-react';
 import { ROLE_MENUS, ROLE_DISPLAY_NAMES, MenuGroup } from '@/config/menu';
 import { VaiTroType } from '@/lib/auth';
@@ -20,10 +21,10 @@ import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
 
 // Static icon map for faster lookups
 const ICON_MAP: Record<string, any> = {
-    Car, LayoutDashboard, Users, BarChart3, Settings, History,
+    Car, CarFront, LayoutDashboard, Users, BarChart3, Settings, History,
     ShoppingCart, Package, FileText, CreditCard, PackagePlus,
     PackageMinus, Boxes, ClipboardCheck, ClipboardList, LogOut, Component,
-    Tag, Wallet, UserCog, Wrench, ShieldCheck
+    Tag, Wallet, UserCog, Wrench, ShieldCheck, Activity, Megaphone, Truck
 };
 
 // --- PREMIUM ICON COMPONENT ---
