@@ -23,19 +23,27 @@ public class RenderKeepAliveService {
     @Value("${RENDER_EXTERNAL_URL:}")
     private String renderExternalUrl;
 
+    private boolean isReady = false;
+
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void onApplicationReady() {
+        this.isReady = true;
+        log.info("Application is ready. RenderKeepAliveService started.");
+    }
+
     /**
      * Pings the health endpoint every 3 minutes (180,000 milliseconds).
      */
-    @Scheduled(fixedRate = 180000)
+    @Scheduled(fixedRate = 180000, initialDelay = 60000)
     public void keepAlive() {
-        if (renderExternalUrl == null || renderExternalUrl.isEmpty()) {
-            // Not running on Render or URL not configured, skip
+        if (!isReady || renderExternalUrl == null || renderExternalUrl.isEmpty()) {
             return;
         }
-
+        
         String healthUrl = renderExternalUrl.endsWith("/") 
                 ? renderExternalUrl + "api/status/health" 
                 : renderExternalUrl + "/api/status/health";
+        // ... (rest of code)
 
         try {
             URL url = URI.create(healthUrl).toURL();
