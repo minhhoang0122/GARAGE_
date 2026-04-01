@@ -165,9 +165,9 @@ public class MechanicController {
     }
 
     @DeleteMapping("/items/{itemId}")
-    public ResponseEntity<?> removeProposedItem(@PathVariable Integer itemId) {
+    public ResponseEntity<?> removeProposedItem(@PathVariable Integer itemId, @AuthenticationPrincipal Object principal) {
         try {
-            mechanicService.removeProposedItem(itemId);
+            mechanicService.removeProposedItem(itemId, extractUserId(principal));
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));

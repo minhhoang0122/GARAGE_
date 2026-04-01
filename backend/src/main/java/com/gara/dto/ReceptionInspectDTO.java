@@ -19,7 +19,9 @@ public record ReceptionInspectDTO(
                 String imageUrl,
                 Integer orderId,
                 String status,
-                List<ProposalItemDTO> existingItems) {
+                List<ProposalItemDTO> existingItems,
+                Integer assignedMechanicId,
+                String assignedMechanicName) {
 
         public static ReceptionInspectDTOBuilder builder() {
                 return new ReceptionInspectDTOBuilder();
@@ -42,6 +44,8 @@ public record ReceptionInspectDTO(
                 private Integer orderId;
                 private String status;
                 private List<ProposalItemDTO> existingItems;
+                private Integer assignedMechanicId;
+                private String assignedMechanicName;
 
                 public ReceptionInspectDTOBuilder id(Integer id) {
                         this.id = id;
@@ -123,9 +127,20 @@ public record ReceptionInspectDTO(
                         return this;
                 }
 
+                public ReceptionInspectDTOBuilder assignedMechanicId(Integer assignedMechanicId) {
+                        this.assignedMechanicId = assignedMechanicId;
+                        return this;
+                }
+
+                public ReceptionInspectDTOBuilder assignedMechanicName(String assignedMechanicName) {
+                        this.assignedMechanicName = assignedMechanicName;
+                        return this;
+                }
+
                 public ReceptionInspectDTO build() {
                         return new ReceptionInspectDTO(id, plate, customerName, customerPhone, vehicleBrand, vehicleModel, request,
-                                        odo, fuelLevel, bodyCondition, createdAt, proposedItemsCount, imageUrl, orderId, status, existingItems);
+                                        odo, fuelLevel, bodyCondition, createdAt, proposedItemsCount, imageUrl, orderId, status, 
+                                        existingItems, assignedMechanicId, assignedMechanicName);
                 }
         }
 }

@@ -192,6 +192,7 @@ public class AuthService {
             User user = new User();
             user.setUsername(username);
             user.setFullName(fullName);
+            user.setEmail(username + "@gara.com"); // Thêm email để tránh lỗi NOT NULL constraint
             user.setRoles(new java.util.HashSet<>(java.util.Set.of(role)));
             user.setPasswordHash(passwordEncoder.encode("123456"));
             user.setIsActive(true);
@@ -203,21 +204,33 @@ public class AuthService {
             }
         } else {
             User user = userOptional.get();
+            boolean changed = false;
+
+            // Sync email if missing or different from seeded pattern
+            if (user.getEmail() == null || user.getEmail().isEmpty()) {
+                user.setEmail(username + "@gara.com");
+                changed = true;
+            }
+
             if (!passwordEncoder.matches("123456", user.getPasswordHash())) {
                 log.info("Syncing/Resetting password for seeded user: {}", username);
                 user.setPasswordHash(passwordEncoder.encode("123456"));
-                userRepository.save(user);
+                changed = true;
             }
             
             // Ensure seeded users are ALWAYS active
             if (!user.getIsActive()) {
                 log.info("Activating locked seeded user: {}", username);
                 user.setIsActive(true);
-                userRepository.save(user);
+                changed = true;
             }
             
             if (user.getRoles().stream().noneMatch(r -> r.getName().equals(roleName))) {
                 user.getRoles().add(role);
+                changed = true;
+            }
+
+            if (changed) {
                 userRepository.save(user);
             }
         }

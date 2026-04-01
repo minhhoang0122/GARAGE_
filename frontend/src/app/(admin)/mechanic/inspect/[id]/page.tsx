@@ -32,6 +32,8 @@ interface ReceptionDetail {
     status?: string;
     existingItems: any[];
     pendingReviewCount?: number;
+    assignedMechanicId?: number;
+    assignedMechanicName?: string;
 }
 
 function InspectPageContent() {
@@ -192,6 +194,9 @@ function InspectPageContent() {
                                 initialItems={reception.existingItems || []} 
                                 readOnly={representsReadOnly || source === 'history'}
                                 currentUser={session?.user}
+                                receptionStatus={reception.status}
+                                assignedMechanicId={reception.assignedMechanicId}
+                                assignedMechanicName={reception.assignedMechanicName}
                             />
                         </div>
 

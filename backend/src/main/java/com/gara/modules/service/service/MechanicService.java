@@ -69,6 +69,18 @@ public class MechanicService {
         return fullPhone;
     }
 
+    // Helper: Validate Assigned Mechanic or Admin/Manager
+    private void validateAssignedMechanic(RepairOrder order, Integer userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        if (order.getAssignedMechanic() == null || !order.getAssignedMechanic().getId().equals(userId)) {
+            if (!user.isAdmin() && !user.isManager()) {
+                throw new RuntimeException("Chỉ Quản đốc phụ trách đơn này mới có quyền thực hiện thao tác.");
+            }
+        }
+    }
+
     // 1. Get Assigned Jobs - Role-based filtering
     @Transactional(readOnly = true)
     public List<JobSummaryDTO> getAssignedJobs(Integer userId) {
@@ -313,12 +325,14 @@ public class MechanicService {
         RepairOrder order = repairOrderRepository.findByReceptionId(receptionId)
                 .orElseThrow(() -> new RuntimeException("Order not found for reception"));
 
-        if (!List.of(OrderStatus.RECEIVED, OrderStatus.WAITING_FOR_DIAGNOSIS).contains(order.getStatus())) {
-            throw new RuntimeException("Đơn hàng đã qua giai đoạn lập đề xuất chẩn đoán.");
+        if (!OrderStatus.WAITING_FOR_DIAGNOSIS.equals(order.getStatus())) {
+            throw new RuntimeException("Đơn hàng phải ở trạng thái 'Đang khám xe' mới có thể lập đề xuất. Vui lòng bấm 'Nhận phụ trách'.");
         }
 
-        if (order.getDiagnosticMechanic() != null && !order.getDiagnosticMechanic().getId().equals(userId) && !user.isAdmin()) {
-            throw new RuntimeException("Xe này đã được tiếp nhận chẩn đoán bởi: " + order.getDiagnosticMechanic().getFullName());
+        if (order.getAssignedMechanic() == null || !order.getAssignedMechanic().getId().equals(userId)) {
+            if (!user.isAdmin()) {
+                throw new RuntimeException("Bạn không phải Quản đốc phụ trách đơn này. Không thể nộp đề xuất.");
+            }
         }
         order.setDiagnosticMechanic(user);
 
@@ -354,7 +368,7 @@ public class MechanicService {
         }
 
         OrderStatus oldStatus = order.getStatus();
-        order.setStatus(OrderStatus.WAITING_FOR_CUSTOMER_APPROVAL);
+        order.setStatus(OrderStatus.QUOTING);
         repairOrderRepository.save(order);
 
         asyncAuditService.logAsync(AuditLog.builder()
@@ -396,8 +410,10 @@ public class MechanicService {
         }
 
         User user = userRepository.findById(userId).orElseThrow();
-        if (!user.hasPermission("COMPLETE_REPAIR_JOB") && !user.isAdmin()) {
-            throw new RuntimeException("Bạn không có quyền báo phát sinh kỹ thuật.");
+        if (order.getAssignedMechanic() == null || !order.getAssignedMechanic().getId().equals(userId)) {
+            if (!user.isAdmin()) {
+                throw new RuntimeException("Chỉ Quản đốc phụ trách mới được chốt báo phát sinh kỹ thuật.");
+            }
         }
 
         for (ProposalItemDTO pItem : items) {
@@ -467,6 +483,12 @@ public class MechanicService {
         if (!OrderStatus.WAITING_FOR_QC.equals(order.getStatus())) {
             throw new RuntimeException("Đơn hàng không ở trạng thái chờ KCS.");
         }
+        
+        if (order.getAssignedMechanic() == null || !order.getAssignedMechanic().getId().equals(userId)) {
+             if (!user.isAdmin()) {
+                 throw new RuntimeException("Chỉ Quản đốc phụ trách đơn này mới được thực hiện nghiệm thu (QC).");
+             }
+        }
         order.setStatus(OrderStatus.WAITING_FOR_PAYMENT);
         repairOrderRepository.save(order);
 
@@ -498,6 +520,12 @@ public class MechanicService {
         RepairOrder order = repairOrderRepository.findById(orderId).orElseThrow();
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
         
+        if (order.getAssignedMechanic() == null || !order.getAssignedMechanic().getId().equals(userId)) {
+             if (!user.isAdmin()) {
+                 throw new RuntimeException("Chỉ Quản đốc phụ trách đơn này mới được thực hiện nghiệm thu (QC).");
+             }
+        }
+
         order.setStatus(OrderStatus.IN_PROGRESS);
         // Assuming repairOrder can store QC notes in the description or a new field.
         // If the field doesn't exist, we skip or use a generic field.
@@ -537,6 +565,8 @@ public class MechanicService {
     @Transactional
     public void adminAssignItem(Integer itemId, Integer mechanicId, Integer userId) {
         OrderItem item = orderItemRepository.findById(itemId).orElseThrow();
+        validateAssignedMechanic(item.getRepairOrder(), userId);
+        
         User mechanic = userRepository.findById(mechanicId).orElseThrow();
         
         TaskAssignment assignment = TaskAssignment.builder()
@@ -551,12 +581,17 @@ public class MechanicService {
 
     @Transactional
     public void adminUnassignItem(Integer itemId, Integer userId) {
+        OrderItem item = orderItemRepository.findById(itemId).orElseThrow();
+        validateAssignedMechanic(item.getRepairOrder(), userId);
         taskAssignmentRepository.deleteByOrderItemId(itemId);
     }
 
     @Transactional
     public void toggleItemCompletion(Integer itemId, Integer userId) {
         OrderItem item = orderItemRepository.findById(itemId).orElseThrow();
+        RepairOrder order = item.getRepairOrder();
+        validateAssignedMechanic(order, userId);
+
         if (ItemStatus.COMPLETED.equals(item.getStatus())) {
             item.setStatus(ItemStatus.IN_PROGRESS);
         } else {
@@ -601,8 +636,10 @@ public class MechanicService {
     }
 
     @Transactional
-    public void removeProposedItem(Integer itemId) {
+    public void removeProposedItem(Integer itemId, Integer userId) {
         OrderItem item = orderItemRepository.findById(itemId).orElseThrow();
+        validateAssignedMechanic(item.getRepairOrder(), userId);
+        
         if (List.of(ItemStatus.PROPOSAL, ItemStatus.WAITING_FOR_MANAGER_APPROVAL).contains(item.getStatus())) {
             orderItemRepository.delete(item);
         } else {
@@ -687,6 +724,8 @@ public class MechanicService {
                 .imageUrl(r.getImages())
                 .existingItems(existingItems)
                 .proposedItemsCount(existingItems.size())
+                .assignedMechanicId(order != null && order.getAssignedMechanic() != null ? order.getAssignedMechanic().getId() : null)
+                .assignedMechanicName(order != null && order.getAssignedMechanic() != null ? order.getAssignedMechanic().getFullName() : null)
                 .build();
     }
 
@@ -727,6 +766,7 @@ public class MechanicService {
     @Transactional
     public void confirmTechnicalIssue(Integer orderId, List<Integer> itemIds, Integer userId) {
         RepairOrder order = repairOrderRepository.findById(orderId).orElseThrow();
+        validateAssignedMechanic(order, userId);
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
         
         List<OrderItem> items = orderItemRepository.findAllById(itemIds);
@@ -764,6 +804,7 @@ public class MechanicService {
     @Transactional
     public void approveJoinTask(Integer assignmentId, Integer userId) {
         TaskAssignment ta = taskAssignmentRepository.findById(assignmentId).orElseThrow();
+        validateAssignedMechanic(ta.getOrderItem().getRepairOrder(), userId);
         ta.setStatus("APPROVED");
         taskAssignmentRepository.save(ta);
     }
@@ -771,14 +812,18 @@ public class MechanicService {
     @Transactional
     public void updateItemMaxMechanics(Integer itemId, Integer limit, Integer userId) {
         OrderItem item = orderItemRepository.findById(itemId).orElseThrow();
+        validateAssignedMechanic(item.getRepairOrder(), userId);
+        
         item.setNote((item.getNote() != null ? item.getNote() : "") + " [Max mechanics: " + limit + "]");
         orderItemRepository.save(item);
     }
 
     @Transactional
     public void updateTaskDistribution(Integer itemId, Map<Integer, BigDecimal> distributions, Integer userId) {
-        taskAssignmentRepository.deleteByOrderItemId(itemId);
         OrderItem item = orderItemRepository.findById(itemId).orElseThrow();
+        validateAssignedMechanic(item.getRepairOrder(), userId);
+        
+        taskAssignmentRepository.deleteByOrderItemId(itemId);
         
         distributions.forEach((mId, percent) -> {
             User m = userRepository.findById(mId).orElseThrow();

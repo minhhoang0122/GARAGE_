@@ -55,9 +55,19 @@ interface ProposalListProps {
     readOnly?: boolean;
     currentUser?: any;
     receptionStatus?: string;
+    assignedMechanicId?: number;
+    assignedMechanicName?: string;
 }
 
-export default function ProposalList({ receptionId, initialItems, readOnly = false, currentUser, receptionStatus }: ProposalListProps) {
+export default function ProposalList({ 
+    receptionId, 
+    initialItems, 
+    readOnly = false, 
+    currentUser, 
+    receptionStatus,
+    assignedMechanicId,
+    assignedMechanicName
+}: ProposalListProps) {
     const [items, setItems] = useState<ProposalItem[]>([]);
     const queryClient = useQueryClient();
     const router = useRouter();
@@ -103,7 +113,36 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
         onError: () => showToast('error', 'Lỗi hệ thống khi gửi đề xuất'),
     });
 
-    const isAssignmentReady = receptionStatus ? !['TIEP_NHAN', 'CHO_CHAN_DOAN', 'BAO_GIA', 'KHACH_TU_CHOI', 'HUY', 'DONG', 'HOAN_THANH'].includes(receptionStatus) : false;
+    const claimMutation = useMutation({
+        mutationFn: () => mechanicService.claimJob(receptionId),
+        onSuccess: (res) => {
+            if (res.success) {
+                showToast('success', 'Bạn đã nhận phụ trách xe này thành công!');
+                queryClient.invalidateQueries({ queryKey: ['reception', receptionId.toString()] });
+            } else {
+                showToast('error', 'Lỗi: ' + res.error);
+            }
+        },
+        onError: () => showToast('error', 'Lỗi hệ thống khi nhận đơn'),
+    });
+
+    const isAssignmentReady = receptionStatus ? !['RECEIVED', 'WAITING_FOR_DIAGNOSIS', 'QUOTING', 'WAITING_FOR_CUSTOMER_APPROVAL', 'CANCELLED', 'DONG', 'HOAN_THANH'].includes(receptionStatus) : false;
+    
+    // Kiểm tra quyền: Chỉ Quản đốc đã nhận đơn mới được sửa (hoặc Admin)
+    const isAssigned = useMemo(() => {
+        if (!currentUser) return false;
+        if (currentUser.role === 'ADMIN' || currentUser.roles?.includes('ADMIN')) return true;
+        return assignedMechanicId === Number(currentUser.id);
+    }, [assignedMechanicId, currentUser]);
+
+    const canEdit = !readOnly && (receptionStatus === 'WAITING_FOR_DIAGNOSIS' || receptionStatus === 'RECEIVED') && (receptionStatus === 'RECEIVED' || isAssigned);
+    const waitingForClaim = receptionStatus === 'RECEIVED';
+    const canClaim = waitingForClaim && (
+        currentUser?.role === 'ADMIN' || 
+        currentUser?.role === 'MANAGER' || 
+        currentUser?.role === 'QUAN_DOC' || 
+        currentUser?.permissions?.includes('ASSIGN_WORK')
+    );
 
     // Mapping trạng thái sang tiếng Việt và màu sắc (Khớp với ItemStatus.java)
     const getStatusInfo = (status?: string) => {
@@ -159,7 +198,10 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
     };
 
     const handleAddProduct = (product: Product) => {
-        if (readOnly) return;
+        if (!canEdit) {
+            showToast('error', "Bạn không có quyền thực hiện thao tác này cho đơn hàng hiện tại.");
+            return;
+        }
         if (items.some(i => i.product.id === product.id)) {
             showToast('error', "Hạng mục này đã có trong danh sách đề xuất mới");
             return;
@@ -172,7 +214,7 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
     };
 
     const updateItemQuantity = (index: number, quantity: number) => {
-        if (readOnly) return;
+        if (!canEdit) return;
         if (quantity <= 0) {
             handleRemoveItem(index);
             return;
@@ -183,12 +225,15 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
     };
 
     const handleRemoveItem = (index: number) => {
-        if (readOnly) return;
+        if (!canEdit) return;
         setItems(items.filter((_, i) => i !== index));
     };
 
     const handleRemoveSavedItem = async (itemId: number) => {
-        if (readOnly) return;
+        if (!canEdit) {
+            showToast('error', 'Bạn không có quyền xóa hạng mục đã lưu của đơn này.');
+            return;
+        }
         const confirmed = await confirm({
             title: 'Xóa hạng mục',
             message: 'Bạn có chắc muốn xóa hạng mục này?',
@@ -348,7 +393,7 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
                                         </td>
                                         {!readOnly && (
                                             <td className="px-6 py-4 text-right w-20">
-                                                {(currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER' || currentUser?.id === item.proposedById) ? (
+                                                {canEdit ? (
                                                     <button
                                                         onClick={() => handleRemoveSavedItem(item.id)}
                                                         disabled={removeMutation.isPending}
@@ -363,7 +408,7 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
                                                     </button>
                                                 ) : (
                                                     <div className="w-8 h-8 flex items-center justify-center text-slate-200" title="Bạn không có quyền xóa hạng mục này">
-                                                        <Trash2 className="w-4 h-4 opacity-20" />
+                                                        <Trash2 className="w-4 h-4 opacity-10" />
                                                     </div>
                                                 )}
                                             </td>
@@ -384,18 +429,91 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
 
     return (
         <div className="space-y-6">
+            {/* 0. Banner nhận phụ trách / Thông tin Quản đốc */}
+            {waitingForClaim ? (
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 rounded-3xl shadow-lg border border-blue-500/30 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-400/10 rounded-full -ml-12 -mb-12 blur-xl"></div>
+                    
+                    <div className="flex items-center gap-5 relative z-10">
+                        <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-white border border-white/20 shadow-inner">
+                            <Clock className="w-7 h-7" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-black text-white uppercase tracking-tight leading-none mb-1.5">
+                                {canClaim ? "Xe đang chờ tiếp nhận" : "Chờ Quản đốc tiếp nhận"}
+                            </h3>
+                            <p className="text-blue-100 text-sm font-medium">
+                                {canClaim 
+                                    ? "Bạn cần bấm 'Nhận phụ trách' để bắt đầu chẩn đoán và lập đề xuất sửa chữa."
+                                    : "Hồ sơ xe đã được tạo, vui lòng đợi Quản đốc vào nhận phụ trách để bắt đầu công việc."}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {canClaim ? (
+                        <button
+                            onClick={() => claimMutation.mutate()}
+                            disabled={claimMutation.isPending}
+                            className="relative z-10 flex items-center gap-2.5 px-8 py-3.5 bg-white text-blue-700 rounded-2xl hover:bg-blue-50 font-black text-sm uppercase tracking-wider transition-all transform hover:scale-105 active:scale-95 shadow-xl shadow-blue-900/20 disabled:opacity-50"
+                        >
+                            {claimMutation.isPending ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                                <CheckCircle2 className="w-5 h-5" />
+                            )}
+                            Nhận phụ trách đơn này
+                        </button>
+                    ) : (
+                        <div className="relative z-10 px-6 py-2 bg-blue-800/40 rounded-full border border-white/10 text-white/70 italic text-xs">
+                            Bạn không có thẩm quyền nhận phụ trách đơn
+                        </div>
+                    )}
+                </div>
+            ) : assignedMechanicName && (
+                <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/50 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700">
+                            <BaseAvatar name={assignedMechanicName} size="sm" showStatus={false} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Quản đốc phụ trách</p>
+                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{assignedMechanicName} {isAssigned && <span className="ml-2 text-[10px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full font-black uppercase">Bạn</span>}</p>
+                        </div>
+                    </div>
+                    {receptionStatus === 'WAITING_FOR_DIAGNOSIS' && isAssigned && !readOnly && (
+                        <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-100 dark:border-emerald-500/20">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span className="text-[11px] font-bold uppercase tracking-tight">Đã sẵn sàng lập đề xuất</span>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* 1. Thanh tìm kiếm và header */}
-            {!readOnly && (
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row md:items-center gap-6">
+            {canEdit && !waitingForClaim && (
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200/60 dark:border-slate-800/50 flex flex-col md:flex-row md:items-center gap-6 animate-in slide-in-from-top-2 duration-500">
                     <div className="flex-1">
-                        <h3 className="text-lg font-bold text-slate-900 mb-1">Thêm đề xuất mới</h3>
-                        <p className="text-sm text-slate-500">Tìm kiếm và thêm phụ tùng hoặc dịch vụ cần thiết cho việc sửa chữa</p>
+                        <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-1">Thêm đề xuất mới</h3>
+                        <p className="text-xs text-slate-500 font-medium">Tìm kiếm phụ tùng hoặc dịch vụ cần thiết cho việc sửa chữa</p>
                     </div>
                     <div className="w-full md:w-[400px]">
                         <ProductSearchMechanic
                             onSelect={handleAddProduct}
                             excludeIds={existingProductIds}
                         />
+                    </div>
+                </div>
+            )}
+
+            {!canEdit && !readOnly && !waitingForClaim && (
+                <div className="p-5 bg-amber-50 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-800/50 rounded-2xl flex gap-4 items-center">
+                    <div className="w-10 h-10 bg-amber-100 dark:bg-amber-500/20 rounded-xl flex items-center justify-center text-amber-600">
+                        <AlertCircle className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-sm font-bold text-amber-900 dark:text-amber-200">Giai đoạn này đã khóa chỉnh sửa</p>
+                        <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">Chỉ Quản đốc phụ trách chính mới được quyền cập nhật nội dung trong giai đoạn lập đề xuất.</p>
                     </div>
                 </div>
             )}
@@ -513,132 +631,114 @@ export default function ProposalList({ receptionId, initialItems, readOnly = fal
             </div>
 
             {/* 5. Danh sách đang soạn */}
-            {!readOnly && (
-                <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            {!readOnly && items.length > 0 && (
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <PlusCircle className="w-5 h-5 text-blue-600" />
-                            <h3 className="font-bold text-slate-900 text-sm">Danh sách đề xuất mới ({items.length})</h3>
+                            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm uppercase tracking-tight">Danh sách đề xuất mới ({items.length})</h3>
                         </div>
-                        {items.length > 0 && (
-                            <button
-                                onClick={() => setItems([])}
-                                className="text-[10px] font-bold tracking-wider text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-100 transition-colors"
-                            >
-                                Xóa tất cả
-                            </button>
-                        )}
+                        <button
+                            onClick={() => setItems([])}
+                            className="text-[10px] font-black tracking-wider text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 px-3 py-1.5 rounded-lg border border-red-100 dark:border-red-800 transition-colors uppercase"
+                        >
+                            Xóa tất cả
+                        </button>
                     </div>
 
-                    {items.length === 0 ? (
-                        <div className="p-12 text-center text-slate-500">
-                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                                <Wrench className="w-8 h-8 text-slate-300" />
-                            </div>
-                            <p className="font-medium text-slate-600">Chưa có đề xuất mới nào</p>
-                            <p className="text-sm mt-1">Sử dụng thanh tìm kiếm phía trên để bắt đầu thêm</p>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="bg-slate-50/50 border-b border-slate-100">
-                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mục đề xuất</th>
-                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-32">Số lượng</th>
-                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ghi chú kỹ thuật</th>
-                                            <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-20"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {items.map((item, index) => (
-                                            <tr key={index} className="hover:bg-blue-50/30 transition-colors group">
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`p-2 rounded-lg ${item.product.isService ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                                            {item.product.isService ? <Wrench className="w-4 h-4" /> : <Package className="w-4 h-4" />}
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-bold text-slate-800">{item.product.name}</p>
-                                                            <p className="text-xs text-slate-500 font-mono tracking-tighter uppercase">{item.product.code}</p>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    {item.product.isService ? (
-                                                        <div className="w-24 mx-auto text-center py-2 px-3 bg-slate-50 rounded-lg text-slate-400 font-bold border border-slate-100 text-[10px] uppercase">
-                                                            Cố định: 1
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); updateItemQuantity(index, item.quantity - 1); }}
-                                                                className="w-7 h-7 rounded-full border border-slate-200 flex items-center justify-center hover:bg-white hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm disabled:opacity-30"
-                                                                disabled={item.quantity <= 1}
-                                                            >
-                                                                <Minus className="w-3 h-3" />
-                                                            </button>
-                                                            <input
-                                                                type="number"
-                                                                value={item.quantity}
-                                                                onChange={(e) => updateItemQuantity(index, parseInt(e.target.value) || 1)}
-                                                                className="w-10 text-center font-bold text-slate-700 bg-transparent border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                            />
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); updateItemQuantity(index, item.quantity + 1); }}
-                                                                className="w-7 h-7 rounded-full border border-slate-200 flex items-center justify-center hover:bg-white hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm"
-                                                            >
-                                                                <Plus className="w-3 h-3" />
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <input
-                                                        type="text"
-                                                        value={item.note}
-                                                        onChange={(e) => {
-                                                            const newItems = [...items];
-                                                            newItems[index].note = e.target.value;
-                                                            setItems(newItems);
-                                                        }}
-                                                        placeholder="Lý do thay thế / sửa chữa..."
-                                                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                                    />
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800">
+                                    <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mục đề xuất</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center w-32">Số lượng</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ghi chú kỹ thuật</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right w-20"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {items.map((item, index) => (
+                                    <tr key={index} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-2.5 rounded-xl shadow-sm border ${item.product.isService ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                                                    {item.product.isService ? <Wrench className="w-4 h-4" /> : <Package className="w-4 h-4" />}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-slate-800 dark:text-slate-200">{item.product.name}</p>
+                                                    <p className="text-[10px] text-slate-400 font-black tracking-widest uppercase">{item.product.code}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {item.product.isService ? (
+                                                <div className="w-24 mx-auto text-center py-2 px-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-slate-400 font-bold border border-slate-100 dark:border-slate-700 text-[10px] uppercase">
+                                                    Cố định: 1
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center justify-center gap-2">
                                                     <button
-                                                        onClick={() => handleRemoveItem(index)}
-                                                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="Xóa"
+                                                        onClick={(e) => { e.stopPropagation(); updateItemQuantity(index, item.quantity - 1); }}
+                                                        className="w-7 h-7 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm disabled:opacity-30"
+                                                        disabled={item.quantity <= 1}
                                                     >
-                                                        <Trash2 className="w-4 h-4" />
+                                                        <Minus className="w-3 h-3" />
                                                     </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={submitMutation.isPending || items.length === 0}
-                                    className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 font-bold disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-slate-200 transition-all active:scale-95 flex-shrink-0"
-                                >
-                                    {submitMutation.isPending ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" /> Đang xử lý...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Send className="w-4 h-4" /> Gửi báo cáo đề xuất
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </>
-                    )}
+                                                    <input
+                                                        type="number"
+                                                        value={item.quantity}
+                                                        onChange={(e) => updateItemQuantity(index, parseInt(e.target.value) || 1)}
+                                                        className="w-10 text-center font-bold text-slate-700 dark:text-slate-200 bg-transparent border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                    />
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); updateItemQuantity(index, item.quantity + 1); }}
+                                                        className="w-7 h-7 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-white dark:hover:bg-slate-800 hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm"
+                                                    >
+                                                        <Plus className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <input
+                                                type="text"
+                                                value={item.note}
+                                                onChange={(e) => {
+                                                    const newItems = [...items];
+                                                    newItems[index].note = e.target.value;
+                                                    setItems(newItems);
+                                                }}
+                                                placeholder="Lý do thay thế / sửa chữa..."
+                                                className="w-full border border-slate-200 dark:border-slate-700 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-slate-200"
+                                            />
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button
+                                                onClick={() => handleRemoveItem(index)}
+                                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                title="Xóa"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="px-6 py-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex justify-end">
+                        <button
+                            onClick={handleSubmit}
+                            disabled={submitMutation.isPending || items.length === 0 || !canEdit}
+                            className="flex items-center gap-2.5 px-8 py-3 bg-slate-900 dark:bg-blue-600 text-white rounded-2xl hover:bg-slate-800 dark:hover:bg-blue-700 font-black text-sm uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed shadow-xl shadow-slate-200 dark:shadow-none transition-all active:scale-95"
+                        >
+                            {submitMutation.isPending ? (
+                                <><Loader2 className="w-5 h-5 animate-spin" /> Đang gửi...</>
+                            ) : (
+                                <><Send className="w-4 h-4" /> Gửi báo cáo đề xuất</>
+                            )}
+                        </button>
+                    </div>
                 </div>
             )}
         </div>

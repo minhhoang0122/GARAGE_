@@ -100,3 +100,7 @@ package.json
 GEMINI.md
 README.md
 skills-lock.json
+database/convert.py
+.gitignore
+docker-compose.yml
+database/migration_dump.sql
