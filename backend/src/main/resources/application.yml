@@ -27,9 +27,6 @@ spring:
 
   flyway:
     enabled: true
-    url: ${FLYWAY_DATASOURCE_URL:}
-    user: ${SPRING_DATASOURCE_USERNAME:}
-    password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: org.postgresql.Driver
     baseline-on-migrate: true
     baseline-version: "0"
