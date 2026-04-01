@@ -54,9 +54,18 @@ public class User {
     @Column(name = "created_at", updatable = false)
     private java.time.LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
+    private java.time.LocalDateTime updatedAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = java.time.LocalDateTime.now();
+        updatedAt = java.time.LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = java.time.LocalDateTime.now();
     }
 
     @Enumerated(EnumType.STRING)
@@ -68,13 +77,6 @@ public class User {
     private Set<Role> roles = new java.util.HashSet<>();
 
     // Getters and Setters
-    public java.time.LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(java.time.LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
     public Integer getId() {
         return id;
     }
@@ -127,12 +129,12 @@ public class User {
         return isActive;
     }
 
-    public boolean isActive() {
-        return isActive != null && isActive;
-    }
-
     public void setIsActive(Boolean isActive) {
         this.isActive = isActive;
+    }
+
+    public boolean isActive() {
+        return isActive != null && isActive;
     }
 
     public com.gara.entity.enums.MechanicSpecialty getSpecialty() {
@@ -157,6 +159,22 @@ public class User {
 
     public void setAvatar(String avatar) {
         this.avatar = avatar;
+    }
+
+    public java.time.LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(java.time.LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public java.time.LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(java.time.LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
     public Set<Role> getRoles() {

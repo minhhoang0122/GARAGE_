@@ -35,7 +35,7 @@ public class RepairOrder {
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
-    @Column(name = "paid_at")
+    @Column(name = "paid_at", updatable = false)
     private LocalDateTime paidAt;
 
     @Enumerated(EnumType.STRING)
@@ -49,10 +49,10 @@ public class RepairOrder {
     @Column(name = "deposit_amount", nullable = false, precision = 18, scale = 2)
     private BigDecimal deposit = BigDecimal.ZERO;
 
-    @Column(name = "total_parts_amount", nullable = false, precision = 18, scale = 2)
+    @Column(name = "total_parts_amount", nullable = false, precision = 18, scale = 2, updatable = false)
     private BigDecimal partsTotal = BigDecimal.ZERO;
 
-    @Column(name = "total_labor_amount", nullable = false, precision = 18, scale = 2)
+    @Column(name = "total_labor_amount", nullable = false, precision = 18, scale = 2, updatable = false)
     private BigDecimal laborTotal = BigDecimal.ZERO;
 
     @Column(name = "total_discount", nullable = false, precision = 18, scale = 2)
@@ -64,16 +64,16 @@ public class RepairOrder {
     @Column(name = "vat_percentage", nullable = false, precision = 5, scale = 2)
     private BigDecimal vatPercentage = BigDecimal.ZERO;
 
-    @Column(name = "total_amount", nullable = false, precision = 18, scale = 2)
+    @Column(name = "total_amount", nullable = false, precision = 18, scale = 2, updatable = false)
     private BigDecimal grandTotal = BigDecimal.ZERO;
 
     @Column(name = "is_warranty")
     private Boolean isWarrantyOrder = false;
 
-    @Column(name = "paid_amount", nullable = false, precision = 18, scale = 2)
+    @Column(name = "paid_amount", nullable = false, precision = 18, scale = 2, updatable = false)
     private BigDecimal amountPaid = BigDecimal.ZERO;
 
-    @Column(name = "debt_amount", nullable = false, precision = 18, scale = 2)
+    @Column(name = "debt_amount", nullable = false, precision = 18, scale = 2, updatable = false)
     private BigDecimal balanceDue = BigDecimal.ZERO;
 
     @Column(name = "payment_method", length = 50)

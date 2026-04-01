@@ -21,6 +21,7 @@
         <java.version>21</java.version>
         <jjwt.version>0.12.3</jjwt.version>
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+        <postgresql.version>42.7.2</postgresql.version>
     </properties>
 
     <dependencyManagement>
@@ -216,6 +217,18 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <version>10.10.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.postgresql</groupId>
+                        <artifactId>postgresql</artifactId>
+                        <version>${postgresql.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>

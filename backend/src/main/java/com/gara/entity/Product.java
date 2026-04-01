@@ -56,8 +56,11 @@ public class Product {
     @Column(name = "is_warranty_eligible")
     private Boolean isWarrantyEligible = true;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     @Version
     @Column(name = "version")
@@ -66,8 +69,14 @@ public class Product {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
         if (vatRate == null)
             vatRate = new BigDecimal("10.00");
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
     public Product() {
@@ -75,7 +84,7 @@ public class Product {
 
     public Product(Integer id, String sku, String name, BigDecimal listPrice, BigDecimal retailPrice, BigDecimal costPrice,
             BigDecimal floorPrice, Integer stockQuantity, Integer minStockLevel, Integer warrantyMonths,
-            Integer warrantyKm, Boolean isService, BigDecimal vatRate, Boolean isWarrantyEligible, LocalDateTime createdAt) {
+            Integer warrantyKm, Boolean isService, BigDecimal vatRate, Boolean isWarrantyEligible, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.sku = sku;
         this.name = name;
@@ -91,6 +100,7 @@ public class Product {
         this.vatRate = vatRate;
         this.isWarrantyEligible = isWarrantyEligible;
         this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public Integer getId() {
@@ -213,6 +223,14 @@ public class Product {
         this.createdAt = createdAt;
     }
 
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
     public Integer getVersion() {
         return version;
     }
@@ -241,6 +259,7 @@ public class Product {
         private BigDecimal vatRate = new BigDecimal("10.00");
         private Boolean isWarrantyEligible = true;
         private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
         private Integer version;
 
         public ProductBuilder id(Integer id) {
@@ -318,6 +337,11 @@ public class Product {
             return this;
         }
 
+        public ProductBuilder updatedAt(LocalDateTime updatedAt) {
+            this.updatedAt = updatedAt;
+            return this;
+        }
+
         public ProductBuilder version(Integer version) {
             this.version = version;
             return this;
@@ -325,7 +349,7 @@ public class Product {
 
         public Product build() {
             Product product = new Product(id, sku, name, listPrice, retailPrice, costPrice, floorPrice, stockQuantity, minStockLevel,
-                    warrantyMonths, warrantyKm, isService, vatRate, isWarrantyEligible, createdAt);
+                    warrantyMonths, warrantyKm, isService, vatRate, isWarrantyEligible, createdAt, updatedAt);
             product.setVersion(this.version);
             return product;
         }
