@@ -53,8 +53,13 @@ tsconfig.tsbuildinfo
  
 # AI Agent & Docs
 .agent/
+.agents/
 .antigravityignore
 docs/
+/*.md
+!/README.md
+!/GEMINI.md
+!/README.vi.md
  
 # Scratch files at root
 /*.sql
@@ -91,7 +96,7 @@ backend/backend_log*.txt
 !frontend/package.json
 !frontend/next.config.js
 !frontend/tsconfig.json
-README.md
-GEMINI.md
-ERRORS.md
 package.json
+GEMINI.md
+README.md
+skills-lock.json
