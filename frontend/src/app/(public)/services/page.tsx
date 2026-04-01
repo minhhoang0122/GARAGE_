@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSSEContext } from '@/modules/common/contexts/SSEContext';
+import { useSSEContext } from '@/modules/common/contexts/RealtimeContext';
 
 export default function ServicesPage() {
     const [search, setSearch] = useState('');

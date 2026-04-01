@@ -4,7 +4,7 @@ import { SessionProvider } from 'next-auth/react';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ConfirmProvider } from '@/modules/shared/components/ui/ConfirmModal';
-import { SSEProvider } from '@/modules/common/contexts/SSEContext';
+import { SSEProvider } from '@/modules/common/contexts/RealtimeContext';
 import { Inter } from 'next/font/google';
 
 const font = Inter({ subsets: ['latin'] });

@@ -27,7 +27,7 @@ public class InventoryReservationService {
     private final RepairOrderRepository orderRepository;
     private final UserRepository userRepository;
     private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
-    private final com.gara.modules.support.service.SseService sseService;
+    private final com.gara.modules.support.service.RealtimeService realtimeService;
 
     public InventoryReservationService(InventoryReservationRepository reservationRepository,
             ProductRepository productRepository,
@@ -36,7 +36,7 @@ public class InventoryReservationService {
             RepairOrderRepository orderRepository,
             UserRepository userRepository,
             com.gara.modules.support.service.AsyncNotificationService asyncNotificationService,
-            com.gara.modules.support.service.SseService sseService) {
+            com.gara.modules.support.service.RealtimeService realtimeService) {
         this.reservationRepository = reservationRepository;
         this.productRepository = productRepository;
         this.orderItemRepository = orderItemRepository;
@@ -44,7 +44,7 @@ public class InventoryReservationService {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.asyncNotificationService = asyncNotificationService;
-        this.sseService = sseService;
+        this.realtimeService = realtimeService;
     }
 
     // Helper: Calculate Available Stock
@@ -109,8 +109,8 @@ public class InventoryReservationService {
 
             reservationRepository.save(res);
             
-            // SSE Broadcast for real-time UI update
-            sseService.broadcast("inventory_updated", java.util.Map.of(
+            // Realtime Broadcast for real-time UI update
+            realtimeService.broadcast("inventory_updated", java.util.Map.of(
                 "productId", product.getId(),
                 "orderId", orderId,
                 "action", "RESERVE",
@@ -163,8 +163,8 @@ public class InventoryReservationService {
             res.setStatus("RELEASED");
             reservationRepository.save(res);
 
-            // SSE Broadcast for real-time UI update
-            sseService.broadcast("inventory_updated", java.util.Map.of(
+            // Realtime Broadcast for real-time UI update
+            realtimeService.broadcast("inventory_updated", java.util.Map.of(
                 "productId", res.getProduct().getId(),
                 "orderId", orderId,
                 "action", "RELEASE",
@@ -198,8 +198,8 @@ public class InventoryReservationService {
             res.setStatus("EXPIRED");
             reservationRepository.save(res);
 
-            // SSE Broadcast for real-time UI update
-            sseService.broadcast("inventory_updated", java.util.Map.of(
+            // Realtime Broadcast for real-time UI update
+            realtimeService.broadcast("inventory_updated", java.util.Map.of(
                 "productId", res.getProduct().getId(),
                 "orderId", res.getRepairOrder().getId(),
                 "action", "EXPIRE",

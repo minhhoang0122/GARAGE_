@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useSSEContext } from '@/modules/common/contexts/SSEContext';
+import { useSSEContext } from '@/modules/common/contexts/RealtimeContext';
 
 type SSECallback = (data: any) => void;
 

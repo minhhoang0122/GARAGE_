@@ -14,22 +14,25 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.gara.modules.support.service.RealtimeService;
+
+
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
-    private final com.gara.modules.support.service.SseService sseService;
+    private final RealtimeService realtimeService;
 
     public UserService(UserRepository userRepository,
             RoleRepository roleRepository,
             PasswordEncoder passwordEncoder,
-            com.gara.modules.support.service.SseService sseService) {
+            RealtimeService realtimeService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
-        this.sseService = sseService;
+        this.realtimeService = realtimeService;
     }
 
     @org.springframework.cache.annotation.Cacheable(value = "users_list")
@@ -118,10 +121,10 @@ public class UserService {
         User savedUser = userRepository.save(user);
         
         // Phát sự kiện bảo mật (để logout/refresh token nếu cần)
-        sseService.send(savedUser.getId(), "user_security_updated", java.util.Map.of("userId", savedUser.getId()));
+        realtimeService.send(savedUser.getId(), "user_security_updated", java.util.Map.of("userId", savedUser.getId()));
         
         // Phát sự kiện cập nhật thông tin (để đồng bộ UI: avatar, tên)
-        sseService.send(savedUser.getId(), "user_updated", java.util.Map.of(
+        realtimeService.send(savedUser.getId(), "user_updated", java.util.Map.of(
             "userId", savedUser.getId(),
             "avatar", savedUser.getAvatar() != null ? savedUser.getAvatar() : "",
             "fullName", savedUser.getFullName()
@@ -138,8 +141,8 @@ public class UserService {
         user.setAvatar(avatarUrl);
         userRepository.save(user);
         
-        // Gửi sự kiện SSE để đồng bộ hóa giao diện trên toàn hệ thống
-        sseService.send(id, "user_updated", java.util.Map.of(
+        // Gửi sự kiện Realtime để đồng bộ hóa giao diện trên toàn hệ thống
+        realtimeService.send(id, "user_updated", java.util.Map.of(
             "userId", id,
             "avatar", avatarUrl,
             "fullName", user.getFullName()
@@ -158,7 +161,7 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         user.setIsActive(!user.getIsActive());
         userRepository.save(user);
-        sseService.send(id, "user_security_updated", java.util.Map.of("userId", id));
+        realtimeService.send(id, "user_security_updated", java.util.Map.of("userId", id));
     }
 
     public User getUserById(Integer id) {

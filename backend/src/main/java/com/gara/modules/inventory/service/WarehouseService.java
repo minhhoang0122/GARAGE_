@@ -13,7 +13,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.gara.modules.support.service.AsyncNotificationService;
-import com.gara.modules.support.service.SseService;
+import com.gara.modules.support.service.RealtimeService;
 import java.time.LocalDateTime;
 
 import java.math.BigDecimal;
@@ -39,7 +39,7 @@ public class WarehouseService {
     private final com.gara.modules.support.service.AsyncAuditService asyncAuditService;
     private final OrderCalculationService orderCalculationService;
     private final AsyncNotificationService asyncNotificationService;
-    private final SseService sseService;
+    private final RealtimeService realtimeService;
 
     public WarehouseService(ProductRepository productRepository,
             OrderItemRepository orderItemRepository,
@@ -53,7 +53,7 @@ public class WarehouseService {
             com.gara.modules.support.service.AsyncAuditService asyncAuditService,
             OrderCalculationService orderCalculationService,
             AsyncNotificationService asyncNotificationService,
-            SseService sseService) {
+            RealtimeService realtimeService) {
         this.productRepository = productRepository;
         this.orderItemRepository = orderItemRepository;
         this.exportNoteRepository = exportNoteRepository;
@@ -66,7 +66,7 @@ public class WarehouseService {
         this.asyncAuditService = asyncAuditService;
         this.orderCalculationService = orderCalculationService;
         this.asyncNotificationService = asyncNotificationService;
-        this.sseService = sseService;
+        this.realtimeService = realtimeService;
     }
 
     public List<ProductDTO> getProducts(String search) {
@@ -466,7 +466,7 @@ public class WarehouseService {
         Map<String, Object> sseData = new HashMap<>();
         sseData.put("importNoteId", note.getId());
         sseData.put("message", "New import note pending approval");
-        sseService.broadcastToTopic("role:ADMIN", "IMPORT_PENDING_APPROVAL", sseData);
+        realtimeService.broadcastToTopic("role:ADMIN", "IMPORT_PENDING_APPROVAL", sseData);
 
         return note.getId();
     }

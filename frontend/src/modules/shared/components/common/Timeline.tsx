@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
 import BaseAvatar from './BaseAvatar';
-import { useSSEContext } from '@/modules/common/contexts/SSEContext';
+import { useSSEContext } from '@/modules/common/contexts/RealtimeContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { receptionService } from '@/modules/reception/services/reception';
 import { ROLE_DISPLAY_NAMES } from '@/config/menu';

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSSEContext } from '@/modules/common/contexts/SSEContext';
+import { useSSEContext } from '@/modules/common/contexts/RealtimeContext';
 
 interface RealtimeRefreshProps {
     events: string[];

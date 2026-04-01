@@ -47,7 +47,7 @@ public class SaleService {
     private final OrderCalculationService orderCalculationService;
 
     private final com.gara.modules.inventory.service.WarehouseService warehouseService;
-    private final com.gara.modules.support.service.SseService sseService;
+    private final com.gara.modules.support.service.RealtimeService realtimeService;
     private final TimelineService timelineService;
 
     public SaleService(RepairOrderRepository orderRepository,
@@ -64,7 +64,7 @@ public class SaleService {
             jakarta.persistence.EntityManager entityManager,
             OrderCalculationService orderCalculationService,
             com.gara.modules.inventory.service.WarehouseService warehouseService,
-            com.gara.modules.support.service.SseService sseService,
+            com.gara.modules.support.service.RealtimeService realtimeService,
             TimelineService timelineService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -80,7 +80,7 @@ public class SaleService {
         this.entityManager = entityManager;
         this.warehouseService = warehouseService;
         this.orderCalculationService = orderCalculationService;
-        this.sseService = sseService;
+        this.realtimeService = realtimeService;
         this.timelineService = timelineService;
     }
 
@@ -115,7 +115,7 @@ public class SaleService {
         sseData.put("orderId", orderId);
         sseData.put("claimedBy", user.getFullName());
         sseData.put("claimedById", user.getId());
-        sseService.broadcast("order_claimed", sseData);
+        realtimeService.broadcast("order_claimed", sseData);
 
         // Timeline Log
         timelineService.recordEvent(order.getReception().getId(), user, "CLAIM_ORDER",
@@ -435,7 +435,7 @@ public class SaleService {
         Map<String, Object> sseData = new HashMap<>();
         sseData.put("orderId", orderId);
         sseData.put("type", "ADD_ITEM");
-        sseService.broadcast("order_item_status_changed", sseData);
+        realtimeService.broadcast("order_item_status_changed", sseData);
 
         // Timeline Log
         timelineService.recordEvent(order.getReception().getId(), user, "ADD_ITEM",
@@ -503,7 +503,7 @@ public class SaleService {
         Map<String, Object> sseData = new HashMap<>();
         sseData.put("orderId", item.getRepairOrder().getId());
         sseData.put("type", "UPDATE_ITEM");
-        sseService.broadcast("order_item_status_changed", sseData);
+        realtimeService.broadcast("order_item_status_changed", sseData);
 
         // Timeline Log - chi tiết giá trị cũ → mới
         StringBuilder logContent = new StringBuilder();
@@ -580,7 +580,7 @@ public class SaleService {
         sseData.put("itemId", itemId);
         sseData.put("status", status.name());
         sseData.put("type", "STATUS_CHANGE");
-        sseService.broadcast("order_item_status_changed", sseData);
+        realtimeService.broadcast("order_item_status_changed", sseData);
 
         // Timeline Log
         String statusLabel = ItemStatus.CUSTOMER_APPROVED.equals(status) ? "ĐỒNG Ý" : "TỪ CHỐI";
@@ -632,7 +632,7 @@ public class SaleService {
         Map<String, Object> sseData = new HashMap<>();
         sseData.put("orderId", order.getId());
         sseData.put("type", "REMOVE_ITEM");
-        sseService.broadcast("order_item_status_changed", sseData);
+        realtimeService.broadcast("order_item_status_changed", sseData);
 
         // Timeline Log
         timelineService.recordEvent(order.getReception().getId(), user, "DELETE_ITEM",
@@ -739,7 +739,7 @@ public class SaleService {
         Map<String, Object> sseData = new HashMap<>();
         sseData.put("orderId", orderId);
         sseData.put("type", "UPDATE_TOTALS");
-        sseService.broadcast("order_item_status_changed", sseData);
+        realtimeService.broadcast("order_item_status_changed", sseData);
 
         // Timeline Log - chi tiết
         StringBuilder logContent = new StringBuilder();

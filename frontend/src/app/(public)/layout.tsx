@@ -7,7 +7,7 @@ import { ConfirmProvider } from '@/modules/shared/components/ui/ConfirmModal';
 import { Inter } from 'next/font/google';
 import QueryProvider from '@/providers/QueryProvider';
 import { Toaster } from 'sonner';
-import { SSEProvider } from '@/modules/common/contexts/SSEContext';
+import { SSEProvider } from '@/modules/common/contexts/RealtimeContext';
 
 const font = Inter({ subsets: ['latin'] });
 

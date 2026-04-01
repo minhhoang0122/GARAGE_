@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useSSEContext } from '@/modules/common/contexts/SSEContext';
+import { useSSEContext } from '@/modules/common/contexts/RealtimeContext';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 

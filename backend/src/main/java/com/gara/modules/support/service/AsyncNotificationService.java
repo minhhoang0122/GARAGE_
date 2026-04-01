@@ -15,12 +15,12 @@ import java.time.LocalDateTime;
 public class AsyncNotificationService {
 
     private final NotificationRepository notificationRepository;
-    private final SseService sseService;
+    private final RealtimeService realtimeService;
     private final Map<String, LocalDateTime> sentLog = new ConcurrentHashMap<>();
 
-    public AsyncNotificationService(NotificationRepository notificationRepository, SseService sseService) {
+    public AsyncNotificationService(NotificationRepository notificationRepository, RealtimeService realtimeService) {
         this.notificationRepository = notificationRepository;
-        this.sseService = sseService;
+        this.realtimeService = realtimeService;
     }
 
     /**
@@ -31,12 +31,12 @@ public class AsyncNotificationService {
         try {
             notificationRepository.save(notif);
             
-            // Push to SSE using DTO
+            // Push to Realtime using DTO
             NotificationDTO dto = mapToDTO(notif);
             if (notif.getUserId() != null) {
-                sseService.send(notif.getUserId(), "notification", dto);
+                realtimeService.send(notif.getUserId(), "notification", dto);
             } else if (notif.getRole() != null) {
-                sseService.broadcastToTopic("role:" + notif.getRole(), "notification", dto);
+                realtimeService.broadcastToTopic("role:" + notif.getRole(), "notification", dto);
             }
         } catch (Exception e) {
             System.err.println("Lỗi khi gửi Notification bất đồng bộ: " + e.getMessage());
@@ -81,12 +81,12 @@ public class AsyncNotificationService {
             if (duplicates.isEmpty()) {
                 notificationRepository.save(notif);
                 
-                // Push to SSE using DTO
+                // Push to Realtime using DTO
                 NotificationDTO dto = mapToDTO(notif);
                 if (notif.getUserId() != null) {
-                    sseService.send(notif.getUserId(), "notification", dto);
+                    realtimeService.send(notif.getUserId(), "notification", dto);
                 } else if (notif.getRole() != null) {
-                    sseService.broadcastToTopic("role:" + notif.getRole(), "notification", dto);
+                    realtimeService.broadcastToTopic("role:" + notif.getRole(), "notification", dto);
                 }
             }
         } catch (Exception e) {

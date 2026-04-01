@@ -13,11 +13,11 @@ import java.math.BigDecimal;
 @Service
 public class ProductService {
     private final ProductRepository productRepository;
-    private final com.gara.modules.support.service.SseService sseService;
+    private final com.gara.modules.support.service.RealtimeService realtimeService;
 
-    public ProductService(ProductRepository productRepository, com.gara.modules.support.service.SseService sseService) {
+    public ProductService(ProductRepository productRepository, com.gara.modules.support.service.RealtimeService realtimeService) {
         this.productRepository = productRepository;
-        this.sseService = sseService;
+        this.realtimeService = realtimeService;
     }
 
     @Cacheable("products")
@@ -52,7 +52,7 @@ public class ProductService {
             product.setCostPrice(req.getCostPrice());
 
         Product saved = productRepository.save(product);
-        sseService.broadcast("metadata_updated", java.util.Map.of(
+        realtimeService.broadcast("metadata_updated", java.util.Map.of(
             "type", "PRODUCT",
             "id", saved.getId(),
             "action", "UPDATE",
@@ -95,7 +95,7 @@ public class ProductService {
             validatePrice(product);
             productRepository.save(product);
         }
-        sseService.broadcast("metadata_updated", java.util.Map.of(
+        realtimeService.broadcast("metadata_updated", java.util.Map.of(
             "type", "PRODUCT",
             "action", "BATCH_UPDATE",
             "message", "Danh sách giá vật tư đã được cập nhật hàng loạt"

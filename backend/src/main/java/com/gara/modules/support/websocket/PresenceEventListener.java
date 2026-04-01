@@ -2,7 +2,7 @@ package com.gara.modules.support.websocket;
 
 import com.gara.entity.User;
 import com.gara.modules.identity.service.UserService;
-import com.gara.modules.support.service.SseService;
+import com.gara.modules.support.service.RealtimeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -27,11 +27,11 @@ import java.util.stream.Collectors;
 public class PresenceEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(PresenceEventListener.class);
-    private final SseService realtimeService;
+    private final RealtimeService realtimeService;
     private final SimpMessagingTemplate messagingTemplate;
     private final UserService userService;
 
-    public PresenceEventListener(SseService realtimeService, SimpMessagingTemplate messagingTemplate, UserService userService) {
+    public PresenceEventListener(RealtimeService realtimeService, SimpMessagingTemplate messagingTemplate, UserService userService) {
         this.realtimeService = realtimeService;
         this.messagingTemplate = messagingTemplate;
         this.userService = userService;

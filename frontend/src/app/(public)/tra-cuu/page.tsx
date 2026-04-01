@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Search, Info, Tag, Clock, ArrowRight, ArrowLeft, CarFront, FileText, Wrench, Settings, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
-import { useSSEContext } from '@/modules/common/contexts/SSEContext';
+import { useSSEContext } from '@/modules/common/contexts/RealtimeContext';
 
 import { useQuery } from '@tanstack/react-query';
 

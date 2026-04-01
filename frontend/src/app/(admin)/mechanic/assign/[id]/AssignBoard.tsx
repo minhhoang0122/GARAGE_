@@ -11,7 +11,7 @@ import { useSession } from 'next-auth/react';
 import { queryKeys } from '@/lib/query-keys';
 import { useJobDetails, useAvailableMechanics, useAssignMechanic, useSubmitAssignments, useUnassignItem } from '@/modules/mechanic/hooks/useMechanic';
 import { isInProgress } from '@/lib/status';
-import { useSSEContext } from '@/modules/common/contexts/SSEContext';
+import { useSSEContext } from '@/modules/common/contexts/RealtimeContext';
 import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
 import { toast } from '@/modules/shared/components/ui/use-toast';
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Info, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { markAsRead, markAllAsRead } from '@/actions/notification';
-import { useSSEContext } from '@/modules/common/contexts/SSEContext';
+import { useSSEContext } from '@/modules/common/contexts/RealtimeContext';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
  

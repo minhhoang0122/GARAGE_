@@ -10,8 +10,7 @@ import java.util.stream.Collectors;
 import java.util.Map;
 import java.util.HashMap;
 import jakarta.validation.Valid;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+
 
 @RestController
 @RequestMapping("/api/users")
@@ -19,11 +18,11 @@ public class UserController {
 
     private static final Logger log = LoggerFactory.getLogger(UserController.class);
     private final UserService userService;
-    private final com.gara.modules.support.service.SseService sseService;
+    private final com.gara.modules.support.service.RealtimeService realtimeService;
 
-    public UserController(UserService userService, com.gara.modules.support.service.SseService sseService) {
+    public UserController(UserService userService, com.gara.modules.support.service.RealtimeService realtimeService) {
         this.userService = userService;
-        this.sseService = sseService;
+        this.realtimeService = realtimeService;
     }
 
     @GetMapping
@@ -79,13 +78,13 @@ public class UserController {
     @GetMapping("/online-status")
     public ResponseEntity<?> getOnlineStatus() {
         return ResponseEntity.ok(Map.of(
-            "onlineUsers", sseService.getOnlineUserIds()
+            "onlineUsers", realtimeService.getOnlineUserIds()
         ));
     }
 
     @GetMapping("/online-details")
     public ResponseEntity<?> getOnlineDetails() {
-        var onlineIds = sseService.getOnlineUserIds();
+        var onlineIds = realtimeService.getOnlineUserIds();
         var details = userService.getAllUsers().stream()
                 .filter(u -> onlineIds.contains(u.getId()))
                 .map(u -> {
@@ -102,28 +101,7 @@ public class UserController {
         return ResponseEntity.ok(details);
     }
 
-    @GetMapping("/presence/stream")
-    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter presenceStream(@RequestParam String token) {
-        // Auth is already handled by JwtAuthFilter which populates SecurityContext
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal() instanceof String && "anonymousUser".equals(auth.getPrincipal())) {
-            log.warn("Unauthorized attempt to access presence stream with token: {}", token != null ? "provided" : "none");
-            // Return a completion or specific error if needed, but here we just return a fast-failing emitter
-            var emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(1L);
-            emitter.complete();
-            return emitter;
-        }
 
-        try {
-            Integer userId = (Integer) auth.getPrincipal();
-            return sseService.subscribe(userId);
-        } catch (ClassCastException e) {
-            log.error("Principal is not an Integer. Actual type: {}", auth.getPrincipal().getClass().getName());
-            var emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(1L);
-            emitter.complete();
-            return emitter;
-        }
-    }
 
     @PostMapping
     public ResponseEntity<?> createUser(@RequestBody @Valid UserReqDTO req) {

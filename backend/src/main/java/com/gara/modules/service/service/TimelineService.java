@@ -3,7 +3,7 @@ package com.gara.modules.service.service;
 import com.gara.entity.ReceptionTimeline;
 import com.gara.entity.User;
 import com.gara.modules.service.repository.ReceptionTimelineRepository;
-import com.gara.modules.support.service.SseService;
+import com.gara.modules.support.service.RealtimeService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,11 +13,11 @@ import java.util.List;
 public class TimelineService {
 
     private final ReceptionTimelineRepository timelineRepository;
-    private final SseService sseService;
+    private final RealtimeService realtimeService;
 
-    public TimelineService(ReceptionTimelineRepository timelineRepository, SseService sseService) {
+    public TimelineService(ReceptionTimelineRepository timelineRepository, RealtimeService realtimeService) {
         this.timelineRepository = timelineRepository;
-        this.sseService = sseService;
+        this.realtimeService = realtimeService;
     }
 
     /**
@@ -45,9 +45,9 @@ public class TimelineService {
 
             timelineRepository.save(timeline);
 
-            // Phát sự kiện SSE để cập nhật giao diện real-time
+            // Phát sự kiện STOMP để cập nhật giao diện real-time
             String topic = "reception:" + receptionId;
-            sseService.broadcastToTopic(topic, "EVENT_TIMELINE", timeline);
+            realtimeService.broadcastToTopic(topic, "EVENT_TIMELINE", timeline);
             
         } catch (Exception e) {
             // Đảm bảo rủi ro lỗi ghi log không phá nát logic hệ thống chính

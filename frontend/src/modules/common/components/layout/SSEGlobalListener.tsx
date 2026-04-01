@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSSEContext } from '@/modules/common/contexts/SSEContext';
+import { useSSEContext } from '@/modules/common/contexts/RealtimeContext';
 import { useSession, signOut } from 'next-auth/react';
 import { useToast } from '@/contexts/ToastContext';
 import { useRouter } from 'next/navigation';
