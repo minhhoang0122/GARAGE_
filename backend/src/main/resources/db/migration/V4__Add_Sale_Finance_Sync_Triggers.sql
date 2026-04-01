@@ -18,7 +18,9 @@ BEGIN
         SET 
             total_parts_amount = COALESCE((SELECT SUM(oi.total_amount) FROM "order_items" oi JOIN "products" p ON oi.product_id = p.id WHERE oi.repair_order_id = r_id AND p.is_service = false), 0),
             total_labor_amount = COALESCE((SELECT SUM(oi.total_amount) FROM "order_items" oi JOIN "products" p ON oi.product_id = p.id WHERE oi.repair_order_id = r_id AND p.is_service = true), 0),
-            total_amount = COALESCE((SELECT SUM(oi.total_amount) FROM "order_items" oi WHERE oi.repair_order_id = r_id), 0)
+            total_amount = COALESCE((SELECT SUM(oi.total_amount) FROM "order_items" oi WHERE oi.repair_order_id = r_id), 0),
+            debt_amount = COALESCE((SELECT SUM(oi.total_amount) FROM "order_items" oi WHERE oi.repair_order_id = r_id), 0) - paid_amount,
+            updated_at = NOW()
         WHERE id = r_id;
     END IF;
     
@@ -48,11 +50,13 @@ BEGIN
         UPDATE "repair_orders"
         SET 
             paid_amount = COALESCE((SELECT SUM(amount) FROM "financial_transactions" WHERE repair_order_id = r_id AND status = 'COMPLETED'), 0),
+            debt_amount = total_amount - COALESCE((SELECT SUM(amount) FROM "financial_transactions" WHERE repair_order_id = r_id AND status = 'COMPLETED'), 0),
             paid_at = CASE 
                 WHEN (SELECT SUM(amount) FROM "financial_transactions" WHERE repair_order_id = r_id AND status = 'COMPLETED') >= total_amount 
                 THEN NOW() 
                 ELSE NULL 
-            END
+            END,
+            updated_at = NOW()
         WHERE id = r_id;
     END IF;
 
