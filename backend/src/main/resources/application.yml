@@ -25,6 +25,16 @@ spring:
       keepalive-time: 30000
       leak-detection-threshold: 60000
 
+  flyway:
+    enabled: true
+    url: ${FLYWAY_DATASOURCE_URL}
+    user: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+    out-of-order: true
+
   cloudinary:
     cloud-name: ${CLOUDINARY_CLOUD_NAME}
     api-key: ${CLOUDINARY_API_KEY}
@@ -38,7 +48,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     open-in-view: false
     properties:
