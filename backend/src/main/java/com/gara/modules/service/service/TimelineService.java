@@ -6,6 +6,8 @@ import com.gara.modules.service.repository.ReceptionTimelineRepository;
 import com.gara.modules.support.service.RealtimeService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 
@@ -45,13 +47,25 @@ public class TimelineService {
 
             timelineRepository.save(timeline);
 
-            // Phát sự kiện STOMP để cập nhật giao diện real-time
-            String topic = "reception:" + receptionId;
-            realtimeService.broadcastToTopic(topic, "EVENT_TIMELINE", timeline);
+            // Tối ưu hóa: Chỉ phát sự kiện real-time sau khi Transaction đã commit thành công
+            // Giúp giải phóng kết nối DB sớm và tránh thông báo sai nếu transaction bị rollback
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            String topic = "reception:" + receptionId;
+                            realtimeService.broadcastToTopic(topic, "EVENT_TIMELINE", timeline);
+                        }
+                    }
+                );
+            } else {
+                // Nếu không có transaction, phát luôn
+                String topic = "reception:" + receptionId;
+                realtimeService.broadcastToTopic(topic, "EVENT_TIMELINE", timeline);
+            }
             
         } catch (Exception e) {
-            // Đảm bảo rủi ro lỗi ghi log không phá nát logic hệ thống chính
-            // Ở đây ta chỉ log lỗi ghi nhật ký ra console/logger
             System.err.println("Lỗi khi ghi timeline: " + e.getMessage());
         }
     }

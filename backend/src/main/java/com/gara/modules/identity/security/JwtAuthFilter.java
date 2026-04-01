@@ -5,6 +5,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,10 +23,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
+    private final CacheManager cacheManager;
 
-    public JwtAuthFilter(JwtUtil jwtUtil, UserRepository userRepository) {
+    public JwtAuthFilter(JwtUtil jwtUtil, UserRepository userRepository, CacheManager cacheManager) {
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
+        this.cacheManager = cacheManager;
     }
 
     @Override
@@ -51,10 +55,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 Integer userId = jwtUtil.extractUserId(token);
 
                 if (userId != null) {
-                    // Bug 11 Fix: Verify user is still active in Database
-                    // Prevents "Stale Session" where blocked users stay logged in via old JWT
-                    com.gara.entity.User user = userRepository.findById(userId).orElse(null);
-                    if (user == null || !user.getIsActive()) {
+                    // Performance Fix: Cache user status to prevent DB hit on every request
+                    Boolean isActive = getCachedUserStatus(userId);
+                    if (isActive == null || !isActive) {
                         SecurityContextHolder.clearContext();
                         filterChain.doFilter(request, response);
                         return;
@@ -96,5 +99,26 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Lấy trạng thái active của user từ Cache, nếu không có mới truy vấn DB.
+     * Cache name: auth_user_status (Cấu hình trong application.yml - TTL 300s)
+     */
+    private Boolean getCachedUserStatus(Integer userId) {
+        Cache cache = cacheManager.getCache("auth_user_status");
+        if (cache != null) {
+            Boolean cachedValue = cache.get(userId, Boolean.class);
+            if (cachedValue != null) return cachedValue;
+        }
+
+        // DB Fallback
+        com.gara.entity.User user = userRepository.findById(userId).orElse(null);
+        boolean isActive = (user != null && user.getIsActive());
+        
+        if (cache != null) {
+            cache.put(userId, isActive);
+        }
+        return isActive;
     }
 }

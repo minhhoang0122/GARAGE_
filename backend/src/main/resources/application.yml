@@ -18,11 +18,12 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       minimum-idle: 2
-      maximum-pool-size: 10
+      maximum-pool-size: 15
       idle-timeout: 60000
       pool-name: GaraHikariPool
       max-lifetime: 300000
-      connection-timeout: 60000
+      connection-timeout: 30000
+      leak-detection-threshold: 2000
       initialization-fail-timeout: -1
       keepalive-time: 30000
       validation-timeout: 5000
@@ -73,6 +74,7 @@ spring:
     caffeine:
       spec: maximumSize=1000,expireAfterWrite=300s
     cache-names:
+      - auth_user_status
       - users_list
       - system_configs
       - products_list

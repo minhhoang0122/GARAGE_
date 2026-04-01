@@ -77,13 +77,16 @@ public class InventoryReservationService {
         }
 
         // 3. Process each item (Skip items already exported/completed)
+        java.util.List<AuditLog> auditLogs = new java.util.ArrayList<>();
+        java.util.Set<Integer> updatedProductIds = new java.util.HashSet<>();
+
         for (OrderItem item : items) {
             if (List.of(ItemStatus.IN_PROGRESS, ItemStatus.COMPLETED).contains(item.getStatus())) {
-                continue; // Bug 97 Fix: Don't reserve items that are already out of the warehouse
+                continue; 
             }
             // STRICT LOCK: Lock Product row to prevent race condition
             Product product = productRepository.findByIdWithLock(item.getProduct().getId())
-                    .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProduct().getId()));
+                    .orElseThrow(() -> new RuntimeException("Sản phẩm không tồn tại: " + item.getProduct().getId()));
 
             // Calculate Availability (Inside Lock)
             Integer reservedQty = reservationRepository.sumReservedQuantity(product.getId());
@@ -91,9 +94,7 @@ public class InventoryReservationService {
 
             if (available < item.getQuantity()) {
                 throw new RuntimeException("Không đủ tồn kho khả dụng cho " + product.getName() +
-                        ". Tồn: " + product.getStockQuantity() +
-                        ", Giữ: " + reservedQty +
-                        ", Cần: " + item.getQuantity());
+                        ". Hiện có: " + available + ", Cần: " + item.getQuantity());
             }
 
             // Create Reservation
@@ -102,31 +103,37 @@ public class InventoryReservationService {
                     .product(product)
                     .quantity(item.getQuantity())
                     .status("ACTIVE")
-                    // Bug 118 Fix: Support 3 days TTL for complex repairs
                     .expiryDate(LocalDateTime.now().plusDays(3)) 
                     .creator(userRepository.getReferenceById(userId))
                     .build();
 
             reservationRepository.save(res);
-            
-            // Realtime Broadcast for real-time UI update
-            realtimeService.broadcast("inventory_updated", java.util.Map.of(
-                "productId", product.getId(),
-                "orderId", orderId,
-                "action", "RESERVE",
-                "message", "Cập nhật tồn kho khả dụng (Tạm giữ)"
-            ));
+            updatedProductIds.add(product.getId());
 
-            // Audit Log
-            AuditLog audit = AuditLog.builder()
+            // Collect Audit Logs
+            auditLogs.add(AuditLog.builder()
                     .tableName("InventoryReservation")
                     .recordId(orderId)
                     .action("INSERT")
-                    .newData("Item: " + product.getSku() + ", Qty: " + item.getQuantity())
-                    .reason("Reserve for Order #" + orderId)
+                    .newData("SKU: " + product.getSku() + ", SL: " + item.getQuantity())
+                    .reason("Giữ hàng cho Đơn #" + orderId)
                     .userId(userId)
-                    .build();
-            auditLogRepository.save(audit);
+                    .build());
+        }
+
+        // 4. Batch Save Audit Logs
+        if (!auditLogs.isEmpty()) {
+            auditLogRepository.saveAll(auditLogs);
+        }
+
+        // 5. Single Broadcast to notify UI (Triggered after all DB work in transaction is near completion)
+        if (!updatedProductIds.isEmpty()) {
+            realtimeService.broadcast("inventory_updated", java.util.Map.of(
+                "orderId", orderId,
+                "action", "RESERVE_BATCH",
+                "productIds", updatedProductIds,
+                "message", "Cập nhật tồn kho hàng loạt"
+            ));
         }
     }
 

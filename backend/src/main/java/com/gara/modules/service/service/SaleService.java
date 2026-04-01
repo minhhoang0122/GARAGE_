@@ -15,6 +15,8 @@ import com.gara.modules.finance.repository.*;
 import com.gara.modules.reception.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
 import com.gara.dto.*;
 import java.math.BigDecimal;
@@ -81,6 +83,7 @@ public class SaleService {
     }
 
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void claimOrder(Integer orderId, User user) {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId));
@@ -121,6 +124,7 @@ public class SaleService {
 
     // 7. Get Dashboard Stats
     @Transactional(readOnly = true)
+    @Cacheable(value = "dashboard_stats", key = "'all'")
     public DashboardStatsDTO getDashboardStats() {
         // Đếm toàn bộ xe đang ở Gara (chưa đóng hoặc hủy)
         long countWaiting = orderRepository.countByStatusIn(
@@ -331,6 +335,7 @@ public class SaleService {
     }
 
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "dashboard_stats", allEntries = true)
     public RepairOrder createOrderFromReception(Integer receptionId, User user) {
         Reception reception = receptionRepository.findById(receptionId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy phiếu tiếp nhận với ID: " + receptionId, HttpStatus.NOT_FOUND));
@@ -376,6 +381,7 @@ public class SaleService {
     }
 
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void addItem(Integer orderId, Integer productId, Integer quantity, User user) {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND));
@@ -441,6 +447,7 @@ public class SaleService {
 
     // 4. Update Item
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void updateItem(Integer itemId, Integer quantity, Double discountPercent, Integer version, User user) {
         OrderItem item = orderItemRepository.findById(itemId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy hạng mục công việc", HttpStatus.NOT_FOUND));
@@ -520,6 +527,7 @@ public class SaleService {
 
     // 4b. Update Item Status (Approve/Reject)
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void updateItemStatus(Integer itemId, ItemStatus status, User user) {
         // First lock the item to prevent concurrent status updates from spam clicking
         orderItemRepository.findByIdWithLock(itemId);
@@ -591,6 +599,7 @@ public class SaleService {
 
     // 5. Remove Item
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void removeItem(Integer itemId, User user) {
         OrderItem item = orderItemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Item not found"));
@@ -644,6 +653,7 @@ public class SaleService {
 
     // 6. Send Quote to Customer
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void submitToCustomer(Integer orderId, User user) {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND));
@@ -707,6 +717,7 @@ public class SaleService {
      * Update global discount and VAT percentage for an order and recalculate totals.
      */
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void updateOrderTotals(Integer orderId, BigDecimal discount, BigDecimal vatPercent, User user) {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found with ID: " + orderId));
@@ -760,6 +771,7 @@ public class SaleService {
 
     // 6c. Submit Replenishment Quote (For Technical Issues found mid-repair)
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void submitReplenishmentQuote(Integer orderId, User user) {
         RepairOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));

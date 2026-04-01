@@ -12,6 +12,7 @@ import com.gara.modules.support.service.AsyncAuditService;
 import com.gara.modules.support.service.AsyncNotificationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -158,6 +159,7 @@ public class MechanicService {
     }
 
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void claimJob(Integer orderId, Integer userId) {
         RepairOrder order = repairOrderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng."));
@@ -212,6 +214,7 @@ public class MechanicService {
     }
 
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void submitAssignments(Integer orderId, Integer userId) {
         RepairOrder order = repairOrderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng."));
@@ -298,6 +301,7 @@ public class MechanicService {
     }
 
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void submitProposal(Integer receptionId, List<ProposalItemDTO> items, Integer userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -430,6 +434,7 @@ public class MechanicService {
     }
 
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void completeJob(Integer orderId) {
         RepairOrder order = repairOrderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
@@ -454,6 +459,7 @@ public class MechanicService {
     }
 
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void qcPass(Integer orderId, Integer userId) {
         RepairOrder order = repairOrderRepository.findById(orderId).orElseThrow();
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
@@ -482,6 +488,7 @@ public class MechanicService {
     }
 
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void qcFail(Integer orderId, Integer userId) {
         qcFail(orderId, userId, "KCS không đạt yêu cầu");
     }

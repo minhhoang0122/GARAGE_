@@ -22,7 +22,9 @@ public class CacheConfig {
                 "products_list",
                 "products",
                 "services_list",
-                "public_services"
+                "public_services",
+                "auth_user_status",
+                "dashboard_stats"
         );
         // Cấu hình chung cho mọi vùng cache (Caffeine)
         cacheManager.setCaffeine(Caffeine.newBuilder()

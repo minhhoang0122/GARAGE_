@@ -11,6 +11,7 @@ import com.gara.modules.customer.repository.*;
 import com.gara.modules.support.service.AsyncAuditService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -100,6 +101,7 @@ public class ReceptionService {
 
 
     @Transactional
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Integer createReception(ReceptionFormData data, User user) {
         try {
             // 1. Find or Create Vehicle & Customer
