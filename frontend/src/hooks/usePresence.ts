@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { api } from '@/lib/api';
 import { useRealtime } from '@/modules/common/contexts/RealtimeContext';
 import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 
@@ -85,6 +86,39 @@ export const usePresence = () => {
             setAllStaff(updatedStaff);
         };
         hookListeners.push(handleUpdate);
+
+        // --- QUICK SYNC (Bổ sung để tránh trễ 10-15s) ---
+        const fetchInitialPresence = async () => {
+            try {
+                // Gọi song song để tối ưu tốc độ
+                const [staffRes, statusRes] = await Promise.all([
+                    api.get('/users/staff'),
+                    api.get('/users/online-status')
+                ]);
+
+                if (Array.isArray(staffRes)) {
+                    allStaffGlobal = staffRes;
+                    
+                    const onlineIds = new Set(statusRes?.onlineUsers || []);
+                    onlineUsersGlobal.clear();
+                    
+                    allStaffGlobal.forEach(u => {
+                        if (onlineIds.has(Number(u.id))) {
+                            onlineUsersGlobal.set(Number(u.id), u);
+                        }
+                    });
+                    
+                    console.log('[Presence] Quick sync completed via REST API');
+                    notifyHookListeners();
+                }
+            } catch (err) {
+                console.error('[Presence] Quick sync failed:', err);
+            }
+        };
+
+        // Chỉ thực hiện sync nếu chưa có dữ liệu hoặc để cập nhật mới nhất
+        fetchInitialPresence();
+
         return () => {
             hookListeners = hookListeners.filter(fn => fn !== handleUpdate);
         };
