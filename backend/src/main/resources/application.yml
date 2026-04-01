@@ -12,7 +12,7 @@ spring:
     timeout-per-shutdown-phase: 30s
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:${DATABASE_URL:jdbc:postgresql://localhost:5433/GaraManagement}?sslmode=prefer}
+    url: ${SPRING_DATASOURCE_URL:${DATABASE_URL:jdbc:postgresql://localhost:5433/GaraManagement}?sslmode=require}
     username: ${SPRING_DATASOURCE_USERNAME:${DATABASE_USERNAME:postgres}}
     password: ${SPRING_DATASOURCE_PASSWORD:${DATABASE_PASSWORD:}}
     driver-class-name: org.postgresql.Driver
@@ -22,14 +22,10 @@ spring:
       idle-timeout: 30000
       pool-name: GaraHikariPool
       max-lifetime: 480000
-
-   
-      connection-timeout: 10000
-      initialization-fail-timeout: 0   
+      connection-timeout: 30000
+      initialization-fail-timeout: -1
       keepalive-time: 30000
-
-      # leak-detection-threshold: 60000
-
+      connection-test-query: SELECT 1
 
   cloudinary:
     cloud-name: ${CLOUDINARY_CLOUD_NAME}
@@ -42,7 +38,6 @@ spring:
       max-request-size: 11MB
 
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
     generate-ddl: true
     hibernate:
       ddl-auto: update
@@ -51,19 +46,14 @@ spring:
     properties:
       hibernate:
         format_sql: false
-
-       
         default_batch_fetch_size: 50
         jdbc:
           batch_size: 50
           fetch_size: 50
         order_inserts: true
         order_updates: true
-
-      
-        temp:
-          use_jdbc_metadata_defaults: false
-
+        boot:
+          allow_jdbc_metadata_access: true
         cache:
           use_second_level_cache: true
           use_query_cache: true
