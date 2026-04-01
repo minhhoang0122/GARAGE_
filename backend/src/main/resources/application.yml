@@ -10,6 +10,7 @@ server:
 spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:${DATABASE_URL:jdbc:postgresql://localhost:5433/GaraManagement}}?sslmode=require
     username: ${SPRING_DATASOURCE_USERNAME:${DATABASE_USERNAME:postgres}}
@@ -21,10 +22,13 @@ spring:
       idle-timeout: 30000
       pool-name: GaraHikariPool
       max-lifetime: 480000
-      connection-timeout: 60000
+
+   
+      connection-timeout: 10000
+      initialization-fail-timeout: 0   
       keepalive-time: 30000
-      leak-detection-threshold: 60000
-      initialization-fail-timeout: 60000
+
+      # leak-detection-threshold: 60000
 
   flyway:
     enabled: true
@@ -33,12 +37,10 @@ spring:
     baseline-version: "0"
     locations: classpath:db/migration
     out-of-order: true
-    connect-retries: 5                    # thêm dòng này
-    connect-retries-interval: 10    
-  cloudinary:
-    cloud-name: ${CLOUDINARY_CLOUD_NAME}
-    api-key: ${CLOUDINARY_API_KEY}
-    api-secret: ${CLOUDINARY_API_SECRET}
+
+
+    connect-retries: 2
+    connect-retries-interval: 5
 
   servlet:
     multipart:
@@ -54,13 +56,19 @@ spring:
     properties:
       hibernate:
         format_sql: false
-        # Xóa allow_jdbc_metadata_access: false vì ddl-auto: update cần đọc metadata
+
+        # 🔥 tối ưu hiệu năng
         default_batch_fetch_size: 50
         jdbc:
           batch_size: 50
           fetch_size: 50
         order_inserts: true
         order_updates: true
+
+        # 🔥 giảm load metadata (startup nhanh hơn)
+        temp:
+          use_jdbc_metadata_defaults: false
+
         cache:
           use_second_level_cache: true
           use_query_cache: true
