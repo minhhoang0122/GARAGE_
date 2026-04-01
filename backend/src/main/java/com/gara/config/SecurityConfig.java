@@ -46,7 +46,8 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
-                        .requestMatchers("/api/ws/**").permitAll() // WebSocket: permitAll to handle internal handshake correctly
+                        .requestMatchers("/api/status/**").permitAll()
+                        .requestMatchers("/api/ws/**", "/api/garage-ws/**").permitAll() // WebSocket & STOMP endpoints
                         .requestMatchers("/api/users/presence/stream").permitAll() // SSE: permitAll to avoid 'response committed' crash
 
                         .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()

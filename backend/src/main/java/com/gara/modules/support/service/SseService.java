@@ -1,143 +1,210 @@
 package com.gara.modules.support.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import org.springframework.scheduling.annotation.Scheduled;
+
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicLong;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.stream.Collectors;
 
+/**
+ * Service quản lý Real-time Messaging (bao gồm SSE legacy và STOMP mới).
+ */
 @Service
 public class SseService {
     private static final Logger log = LoggerFactory.getLogger(SseService.class);
     
-    // emitters: userId -> SseEmitter
-    private final Map<Integer, SseEmitter> emitters = new ConcurrentHashMap<>();
+    private final SimpMessagingTemplate messagingTemplate;
     
-    // topicSubscriptions: topicName -> Set of userIds
-    private final Map<String, Set<Integer>> topicSubscriptions = new ConcurrentHashMap<>();
-    
-    // Basic Event ID for Last-Event-ID support (Stateless for now, but provides increments)
-    private final AtomicLong eventIdCounter = new AtomicLong(0);
+    // Quản lý SSE Emitters (Legacy)
+    private final Map<Integer, Set<SseEmitter>> emitters = new ConcurrentHashMap<>();
+    private final AtomicLong counter = new AtomicLong(0);
 
-    @Scheduled(fixedRate = 30000)
-    public void sendHeartbeat() {
-        emitters.forEach((userId, emitter) -> {
-            try {
-                emitter.send(SseEmitter.event().comment("ping"));
-            } catch (Exception e) {
-                // Heartbeat fails often when client is gone, cleanup silently
-                cleanupUser(userId);
-            }
-        });
+    // Quản lý Online Status (STOMP)
+    // Key: SessionId, Value: UserId
+    private final Map<String, Integer> activeSessions = new ConcurrentHashMap<>();
+    
+    public SseService(SimpMessagingTemplate messagingTemplate) {
+        this.messagingTemplate = messagingTemplate;
     }
 
+    /**
+     * Phương thức subscribe dành cho legacy SSE.
+     */
     public SseEmitter subscribe(Integer userId) {
-        // Timeout 24h. In production, this should be tuned based on ingress/proxy settings.
-        SseEmitter emitter = new SseEmitter(24 * 60 * 60 * 1000L); 
-
-        emitter.onCompletion(() -> cleanupUser(userId));
-        emitter.onTimeout(() -> cleanupUser(userId));
-        emitter.onError((e) -> cleanupUser(userId));
-
-        emitters.put(userId, emitter);
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
         
+        this.emitters.computeIfAbsent(userId, k -> new CopyOnWriteArraySet<>()).add(emitter);
+
+        emitter.onCompletion(() -> removeEmitter(userId, emitter));
+        emitter.onTimeout(() -> removeEmitter(userId, emitter));
+        emitter.onError((e) -> removeEmitter(userId, emitter));
+
         try {
             emitter.send(SseEmitter.event()
-                .name("connected")
-                .id(String.valueOf(eventIdCounter.incrementAndGet()))
-                .data("SSE Connected for user " + userId));
+                    .name("init")
+                    .data(Map.of("message", "Connected to Garage Realtime (SSE Legacy)")));
         } catch (IOException e) {
-            cleanupUser(userId);
+            removeEmitter(userId, emitter);
         }
-        
+
         return emitter;
     }
 
-    public synchronized void subscribeToTopic(Integer userId, String topic) {
-        topicSubscriptions.computeIfAbsent(topic, k -> new CopyOnWriteArraySet<>()).add(userId);
-        log.debug("User {} subscribed to topic: {}", userId, topic);
-    }
-
-    public synchronized void unsubscribeFromTopic(Integer userId, String topic) {
-        Set<Integer> subs = topicSubscriptions.get(topic);
-        if (subs != null) {
-            subs.remove(userId);
-            if (subs.isEmpty()) {
-                topicSubscriptions.remove(topic);
-            }
-        }
-    }
-
-    private void cleanupUser(Integer userId) {
-        if (emitters.containsKey(userId)) {
-            emitters.remove(userId);
-            // Remove from all topics
-            topicSubscriptions.values().forEach(set -> set.remove(userId));
-            log.debug("Cleanup SSE connection for user: {}", userId);
-        }
-    }
-
-    public void send(Integer userId, String eventName, Object data) {
-        SseEmitter emitter = emitters.get(userId);
-        if (emitter != null) {
-            try {
-                emitter.send(SseEmitter.event()
-                    .name(eventName)
-                    .id(String.valueOf(eventIdCounter.incrementAndGet()))
-                    .data(data));
-            } catch (IOException e) {
-                // Connection aborted/broken pipe - expected
-                cleanupUser(userId);
-            } catch (Exception e) {
-                log.error("Error sending SSE to user {}: {}", userId, e.getMessage());
-                cleanupUser(userId);
+    private void removeEmitter(Integer userId, SseEmitter emitter) {
+        Set<SseEmitter> userEmitters = this.emitters.get(userId);
+        if (userEmitters != null) {
+            userEmitters.remove(emitter);
+            if (userEmitters.isEmpty()) {
+                this.emitters.remove(userId);
             }
         }
     }
 
     /**
-     * Gửi cho đúng những người đang quan tâm đến Topic này
+     * Gửi thông báo đến 1 user cụ thể (Hỗ trợ cả SSE và STOMP).
      */
-    public void broadcastToTopic(String topic, String eventName, Object data) {
-        Set<Integer> userIds = topicSubscriptions.get(topic);
-        if (userIds == null || userIds.isEmpty()) return;
+    public void send(Integer userId, String event, Object data) {
+        // 1. Gửi qua STOMP (Khuyên dùng)
+        try {
+            messagingTemplate.convertAndSendToUser(
+                userId.toString(), 
+                "/queue/notifications", 
+                Map.of("event", event, "data", data)
+            );
+        } catch (Exception e) {
+            log.error("Failed to send STOMP message to user {}", userId, e);
+        }
 
-        String id = String.valueOf(eventIdCounter.incrementAndGet());
-        userIds.forEach(userId -> {
-            SseEmitter emitter = emitters.get(userId);
-            if (emitter != null) {
+        // 2. Gửi qua SSE (Legacy - fallback)
+        Set<SseEmitter> userEmitters = emitters.get(userId);
+        if (userEmitters != null) {
+            userEmitters.forEach(emitter -> {
                 try {
                     emitter.send(SseEmitter.event()
-                        .name(eventName)
-                        .id(id)
-                        .data(data));
-                } catch (Exception e) {
-                    cleanupUser(userId);
+                            .id(String.valueOf(counter.incrementAndGet()))
+                            .name(event)
+                            .data(data));
+                } catch (IOException e) {
+                    removeEmitter(userId, emitter);
                 }
-            }
+            });
+        }
+    }
+
+    /**
+     * Broadcast thông báo đến tất cả các topic (Hỗ trợ cả SSE và STOMP).
+     */
+    public void broadcast(String event, Object data) {
+        // 1. Gửi qua STOMP Topic chung
+        try {
+            messagingTemplate.convertAndSend("/topic/global", Map.of("event", event, "data", data));
+        } catch (Exception e) {
+            log.error("Failed to broadcast STOMP message", e);
+        }
+
+        // 2. Gửi qua SSE cho tất cả user (Legacy)
+        emitters.forEach((userId, userEmitters) -> {
+            userEmitters.forEach(emitter -> {
+                try {
+                    emitter.send(SseEmitter.event()
+                            .id(String.valueOf(counter.incrementAndGet()))
+                            .name(event)
+                            .data(data));
+                } catch (IOException e) {
+                    removeEmitter(userId, emitter);
+                }
+            });
         });
     }
 
     /**
-     * Gửi cho tất cả người dùng (vd: thông báo hệ thống)
+     * Bridge method: Broadcast thông báo đến 1 topic cụ thể.
+     * Tương tự như broadcast chung nhưng gửi qua topic động.
      */
-    public void broadcast(String eventName, Object data) {
-        String id = String.valueOf(eventIdCounter.incrementAndGet());
-        emitters.forEach((userId, emitter) -> {
-            try {
-                emitter.send(SseEmitter.event()
-                    .name(eventName)
-                    .id(id)
-                    .data(data));
-            } catch (Exception e) {
-                cleanupUser(userId);
+    public void broadcastToTopic(String topic, Object data) {
+        broadcastToTopic(topic, "update", data);
+    }
+
+    public void broadcastToTopic(String topic, String event, Object data) {
+        // 1. Gửi qua STOMP Topic động
+        try {
+            messagingTemplate.convertAndSend("/topic/" + topic, Map.of("event", event, "data", data));
+        } catch (Exception e) {
+            log.error("Failed to broadcast STOMP to topic {}", topic, e);
+        }
+
+        // 2. Với SSE (Legacy), chúng ta không có khái niệm topic cho User cụ thể nên sẽ broadcast cho tất cả emitter 
+        // có lắng nghe event tương ứng (mặc dù SSE legacy trong hệ thống này không lọc theo topic phía Server).
+        // Phía Client SSE sẽ lọc event theo string name.
+        broadcast(event, data);
+    }
+
+    /**
+     * Bridge method: Legacy subscribe to topic (No-op in STOMP as client handles it).
+     */
+    public void subscribeToTopic(Integer userId, String topic) {
+        log.debug("User {} requested legacy subscribe to topic {}.", userId, topic);
+    }
+
+    /**
+     * Bridge method: Legacy unsubscribe from topic (No-op in STOMP).
+     */
+    public void unsubscribeFromTopic(Integer userId, String topic) {
+        log.debug("User {} requested legacy unsubscribe from topic {}.", userId, topic);
+    }
+
+    // --- Presence Management for STOMP ---
+
+    public void onSessionConnected(String sessionId, Integer userId) {
+        activeSessions.put(sessionId, userId);
+        log.info("User {} connected via STOMP (Session: {})", userId, sessionId);
+        broadcastPresenceUpdate(userId, true);
+    }
+
+    public void onSessionDisconnected(String sessionId) {
+        Integer userId = activeSessions.remove(sessionId);
+        if (userId != null) {
+            if (!activeSessions.containsValue(userId)) {
+                log.info("User {} is now offline (All sessions closed)", userId);
+                broadcastPresenceUpdate(userId, false);
             }
+        }
+    }
+
+    private void broadcastPresenceUpdate(Integer userId, boolean isOnline) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("userId", userId);
+        payload.put("isOnline", isOnline);
+        messagingTemplate.convertAndSend("/topic/presence", payload);
+    }
+
+    public Set<Integer> getOnlineUserIds() {
+        return activeSessions.values().stream().collect(Collectors.toSet());
+    }
+
+    /**
+     * Heartbeat để giữ kết nối SSE (Legacy) không bị timeout bởi Proxy.
+     */
+    @Scheduled(fixedDelay = 30000)
+    public void heartbeat() {
+        emitters.values().forEach(userEmitters -> {
+            userEmitters.forEach(emitter -> {
+                try {
+                    emitter.send(SseEmitter.event().name("ping").data("heartbeat"));
+                } catch (IOException e) {
+                    // Cleaner by callback
+                }
+            });
         });
     }
 }

@@ -2,7 +2,6 @@ package com.gara.modules.identity.controller;
 
 import com.gara.dto.UserReqDTO;
 import com.gara.modules.identity.service.UserService;
-import com.gara.modules.support.websocket.PresenceWebSocketHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -20,12 +19,10 @@ public class UserController {
 
     private static final Logger log = LoggerFactory.getLogger(UserController.class);
     private final UserService userService;
-    private final PresenceWebSocketHandler presenceWebSocketHandler;
     private final com.gara.modules.support.service.SseService sseService;
 
-    public UserController(UserService userService, PresenceWebSocketHandler presenceWebSocketHandler, com.gara.modules.support.service.SseService sseService) {
+    public UserController(UserService userService, com.gara.modules.support.service.SseService sseService) {
         this.userService = userService;
-        this.presenceWebSocketHandler = presenceWebSocketHandler;
         this.sseService = sseService;
     }
 
@@ -82,13 +79,13 @@ public class UserController {
     @GetMapping("/online-status")
     public ResponseEntity<?> getOnlineStatus() {
         return ResponseEntity.ok(Map.of(
-            "onlineUsers", presenceWebSocketHandler.getOnlineUserIds()
+            "onlineUsers", sseService.getOnlineUserIds()
         ));
     }
 
     @GetMapping("/online-details")
     public ResponseEntity<?> getOnlineDetails() {
-        var onlineIds = presenceWebSocketHandler.getOnlineUserIds();
+        var onlineIds = sseService.getOnlineUserIds();
         var details = userService.getAllUsers().stream()
                 .filter(u -> onlineIds.contains(u.getId()))
                 .map(u -> {
