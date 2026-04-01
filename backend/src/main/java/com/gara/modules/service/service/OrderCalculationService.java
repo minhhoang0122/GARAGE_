@@ -16,6 +16,12 @@ import java.util.List;
  * This prevents inconsistent VAT or Total logic across Sale, Mechanic, and
  * Finance modules.
  */
+/**
+ * @deprecated This service is superseded by Database Triggers (V4/V5).
+ * Calculations for grandTotal, partsTotal, laborTotal, and balanceDue are now 
+ * handled automatically by the database for better consistency and performance.
+ */
+@Deprecated
 @Service
 public class OrderCalculationService {
 

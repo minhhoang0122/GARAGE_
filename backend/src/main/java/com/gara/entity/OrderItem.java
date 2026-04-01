@@ -1,6 +1,8 @@
 package com.gara.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 import java.math.BigDecimal;
 import java.util.List;
 import com.gara.entity.enums.ItemStatus;
@@ -77,6 +79,10 @@ public class OrderItem {
     @Column(name = "suggested_at")
     private java.time.LocalDateTime suggestedAt;
 
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "updated_at", insertable = false, updatable = false)
+    private java.time.LocalDateTime updatedAt;
+
     // Foreign Keys
     @Column(name = "repair_order_id", insertable = false, updatable = false)
     private Integer repairOrderId;
@@ -146,6 +152,21 @@ public class OrderItem {
         this.isEmergency = isEmergency != null ? isEmergency : false;
         this.suggestedAt = suggestedAt;
         this.suggestedBy = suggestedBy;
+    }
+
+    public OrderItem(Integer id, Integer quantity, BigDecimal unitPrice, BigDecimal discountAmount,
+            BigDecimal discountPercentage, BigDecimal totalAmount, BigDecimal vatPercentage, BigDecimal vatAmount,
+            Integer priority, String priceAdjustmentReason, ItemStatus status, String notes,
+            Boolean isWarranty, String warrantyNotes, Boolean isCompleted, Integer maxMechanics,
+            Integer repairOrderId, Integer productId, RepairOrder repairOrder, Product product,
+            Integer mechanicId, User mechanic, List<TaskAssignment> taskAssignments,
+            Boolean isEmergency, java.time.LocalDateTime suggestedAt, User suggestedBy,
+            java.time.LocalDateTime updatedAt) {
+        this(id, quantity, unitPrice, discountAmount, discountPercentage, totalAmount, vatPercentage, vatAmount,
+                priority, priceAdjustmentReason, status, notes, isWarranty, warrantyNotes, isCompleted, maxMechanics,
+                repairOrderId, productId, repairOrder, product, mechanicId, mechanic, taskAssignments,
+                isEmergency, suggestedAt, suggestedBy);
+        this.updatedAt = updatedAt;
     }
 
     public Integer getVersion() {
@@ -388,6 +409,14 @@ public class OrderItem {
         this.suggestedAt = suggestedAt;
     }
 
+    public java.time.LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(java.time.LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
     public static OrderItemBuilder builder() {
         return new OrderItemBuilder();
     }
@@ -535,6 +564,7 @@ public class OrderItem {
         private User suggestedBy;
         private Boolean isEmergency = false;
         private java.time.LocalDateTime suggestedAt;
+        private java.time.LocalDateTime updatedAt;
 
         public OrderItemBuilder suggestedBy(User suggestedBy) {
             this.suggestedBy = suggestedBy;
@@ -546,8 +576,8 @@ public class OrderItem {
             return this;
         }
 
-        public OrderItemBuilder suggestedAt(java.time.LocalDateTime suggestedAt) {
-            this.suggestedAt = suggestedAt;
+        public OrderItemBuilder updatedAt(java.time.LocalDateTime updatedAt) {
+            this.updatedAt = updatedAt;
             return this;
         }
 
@@ -555,7 +585,7 @@ public class OrderItem {
             return new OrderItem(id, quantity, unitPrice, discountAmount, discountPercentage, totalAmount, vatPercentage, vatAmount,
                     priority, priceAdjustmentReason, status, notes, isWarranty, warrantyNotes, isCompleted, maxMechanics,
                     repairOrderId, productId, repairOrder, product, mechanicId, mechanic, taskAssignments,
-                    isEmergency, suggestedAt, suggestedBy);
+                    isEmergency, suggestedAt, suggestedBy, updatedAt);
         }
     }
 }

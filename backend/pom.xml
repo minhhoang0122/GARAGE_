@@ -118,15 +118,7 @@
             <version>4.0.0</version>
         </dependency>
         
-        <!-- Flyway for Database Migration -->
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-database-postgresql</artifactId>
-        </dependency>
+
         
         <!-- Test -->
         <dependency>
@@ -218,18 +210,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
-            <plugin>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-maven-plugin</artifactId>
-                <version>10.10.0</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.postgresql</groupId>
-                        <artifactId>postgresql</artifactId>
-                        <version>${postgresql.version}</version>
-                    </dependency>
-                </dependencies>
-            </plugin>
+
         </plugins>
     </build>
 </project>

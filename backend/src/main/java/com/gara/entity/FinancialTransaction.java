@@ -2,6 +2,8 @@ package com.gara.entity;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -29,6 +31,10 @@ public class FinancialTransaction {
     @Column(name = "method", nullable = false)
     private PaymentMethod method; // CASH, TRANSFER
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private TransactionStatus status = TransactionStatus.COMPLETED;
+
     @Column(name = "reference_code")
     private String referenceCode; // For bank transfer ID
 
@@ -51,21 +57,28 @@ public class FinancialTransaction {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "updated_at", insertable = false, updatable = false)
+    private LocalDateTime updatedAt;
+
     public FinancialTransaction() {
     }
 
     public FinancialTransaction(Integer id, BigDecimal amount, TransactionType type, PaymentMethod method,
-            String referenceCode, String note, RepairOrder order, Customer customer, User createdBy, LocalDateTime createdAt) {
+            TransactionStatus status, String referenceCode, String note, RepairOrder order, Customer customer,
+            User createdBy, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.amount = amount;
         this.type = type;
         this.method = method;
+        this.status = status;
         this.referenceCode = referenceCode;
         this.note = note;
         this.order = order;
         this.customer = customer;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public Integer getId() {
@@ -148,6 +161,22 @@ public class FinancialTransaction {
         this.createdAt = createdAt;
     }
 
+    public TransactionStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(TransactionStatus status) {
+        this.status = status;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
     public static FinancialTransactionBuilder builder() {
         return new FinancialTransactionBuilder();
     }
@@ -163,6 +192,8 @@ public class FinancialTransaction {
         private Customer customer;
         private User createdBy;
         private LocalDateTime createdAt;
+        private TransactionStatus status = TransactionStatus.COMPLETED;
+        private LocalDateTime updatedAt;
 
         public FinancialTransactionBuilder id(Integer id) {
             this.id = id;
@@ -214,8 +245,18 @@ public class FinancialTransaction {
             return this;
         }
 
+        public FinancialTransactionBuilder status(TransactionStatus status) {
+            this.status = status;
+            return this;
+        }
+
+        public FinancialTransactionBuilder updatedAt(LocalDateTime updatedAt) {
+            this.updatedAt = updatedAt;
+            return this;
+        }
+
         public FinancialTransaction build() {
-            return new FinancialTransaction(id, amount, type, method, referenceCode, note, order, customer, createdBy, createdAt);
+            return new FinancialTransaction(id, amount, type, method, status, referenceCode, note, order, customer, createdBy, createdAt, updatedAt);
         }
     }
 
@@ -228,5 +269,12 @@ public class FinancialTransaction {
     public enum PaymentMethod {
         CASH, // Tiền mặt
         TRANSFER // Chuyển khoản
+    }
+
+    public enum TransactionStatus {
+        PENDING,
+        COMPLETED,
+        FAILED,
+        CANCELLED
     }
 }

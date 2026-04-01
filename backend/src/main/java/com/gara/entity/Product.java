@@ -1,6 +1,8 @@
 package com.gara.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -59,7 +61,8 @@ public class Product {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "updated_at", insertable = false, updatable = false)
     private LocalDateTime updatedAt;
 
     @Version
@@ -76,7 +79,7 @@ public class Product {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        // Updated by DB Trigger
     }
 
     public Product() {

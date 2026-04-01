@@ -1,6 +1,8 @@
 package com.gara.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -29,13 +31,15 @@ public class RepairOrder {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "updated_at", insertable = false, updatable = false)
     private LocalDateTime updatedAt;
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
-    @Column(name = "paid_at", updatable = false)
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "paid_at", insertable = false, updatable = false)
     private LocalDateTime paidAt;
 
     @Enumerated(EnumType.STRING)
@@ -49,10 +53,12 @@ public class RepairOrder {
     @Column(name = "deposit_amount", nullable = false, precision = 18, scale = 2)
     private BigDecimal deposit = BigDecimal.ZERO;
 
-    @Column(name = "total_parts_amount", nullable = false, precision = 18, scale = 2, updatable = false)
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "total_parts_amount", nullable = false, precision = 18, scale = 2, insertable = false, updatable = false)
     private BigDecimal partsTotal = BigDecimal.ZERO;
 
-    @Column(name = "total_labor_amount", nullable = false, precision = 18, scale = 2, updatable = false)
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "total_labor_amount", nullable = false, precision = 18, scale = 2, insertable = false, updatable = false)
     private BigDecimal laborTotal = BigDecimal.ZERO;
 
     @Column(name = "total_discount", nullable = false, precision = 18, scale = 2)
@@ -64,16 +70,19 @@ public class RepairOrder {
     @Column(name = "vat_percentage", nullable = false, precision = 5, scale = 2)
     private BigDecimal vatPercentage = BigDecimal.ZERO;
 
-    @Column(name = "total_amount", nullable = false, precision = 18, scale = 2, updatable = false)
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "total_amount", nullable = false, precision = 18, scale = 2, insertable = false, updatable = false)
     private BigDecimal grandTotal = BigDecimal.ZERO;
 
     @Column(name = "is_warranty")
     private Boolean isWarrantyOrder = false;
 
-    @Column(name = "paid_amount", nullable = false, precision = 18, scale = 2, updatable = false)
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "paid_amount", nullable = false, precision = 18, scale = 2, insertable = false, updatable = false)
     private BigDecimal amountPaid = BigDecimal.ZERO;
 
-    @Column(name = "debt_amount", nullable = false, precision = 18, scale = 2, updatable = false)
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "debt_amount", nullable = false, precision = 18, scale = 2, insertable = false, updatable = false)
     private BigDecimal balanceDue = BigDecimal.ZERO;
 
     @Column(name = "payment_method", length = 50)
@@ -142,7 +151,7 @@ public class RepairOrder {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        // Updated by DB Trigger
     }
 
     public RepairOrder() {
