@@ -33,7 +33,6 @@ public class MechanicService {
     private final UserRepository userRepository;
     private final WarehouseService warehouseService;
     private final TaskAssignmentRepository taskAssignmentRepository;
-    private final OrderCalculationService orderCalculationService;
     private final AsyncNotificationService asyncNotificationService;
     private final AsyncAuditService asyncAuditService;
     private final TimelineService timelineService;
@@ -45,7 +44,6 @@ public class MechanicService {
             UserRepository userRepository,
             WarehouseService warehouseService,
             TaskAssignmentRepository taskAssignmentRepository,
-            OrderCalculationService orderCalculationService,
             AsyncNotificationService asyncNotificationService,
             AsyncAuditService asyncAuditService,
             TimelineService timelineService) {
@@ -56,7 +54,6 @@ public class MechanicService {
         this.userRepository = userRepository;
         this.warehouseService = warehouseService;
         this.taskAssignmentRepository = taskAssignmentRepository;
-        this.orderCalculationService = orderCalculationService;
         this.asyncNotificationService = asyncNotificationService;
         this.asyncAuditService = asyncAuditService;
         this.timelineService = timelineService;
@@ -366,7 +363,7 @@ public class MechanicService {
                 .userId(userId)
                 .build());
 
-        recalculateOrderTotals(order.getId(), items);
+        // recalculateOrderTotals(order.getId(), items); // Logic moved to DB Triggers
 
         asyncNotificationService.pushUniqueAsync(Notification.builder()
                 .role("SALE")
@@ -383,28 +380,7 @@ public class MechanicService {
                 null, null, false);
     }
 
-    private void recalculateOrderTotals(Integer orderId, List<ProposalItemDTO> items) {
-        BigDecimal deltaParts = items.stream()
-                .map(p -> {
-                    Product pr = productRepository.findById(p.productId()).orElseThrow();
-                    return pr.getIsService() ? BigDecimal.ZERO : pr.getRetailPrice().multiply(BigDecimal.valueOf(p.quantity()));
-                })
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal deltaLabor = items.stream()
-                .map(p -> {
-                    Product pr = productRepository.findById(p.productId()).orElseThrow();
-                    return pr.getIsService() ? pr.getRetailPrice().multiply(BigDecimal.valueOf(p.quantity())) : BigDecimal.ZERO;
-                })
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        if (deltaParts.compareTo(BigDecimal.ZERO) > 0) {
-            orderCalculationService.updateTotalsIncrementally(orderId, deltaParts, false);
-        }
-        if (deltaLabor.compareTo(BigDecimal.ZERO) > 0) {
-            orderCalculationService.updateTotalsIncrementally(orderId, deltaLabor, true);
-        }
-    }
+    // recalculateOrderTotals method removed as logic is now handled by database triggers.
 
     @Transactional
     public void reportTechnicalIssue(Integer orderId, List<ProposalItemDTO> items, Integer userId) {
@@ -435,7 +411,7 @@ public class MechanicService {
             orderItemRepository.save(item);
         }
 
-        recalculateOrderTotals(orderId, items);
+        // recalculateOrderTotals(orderId, items); // Logic moved to DB Triggers
         
         asyncAuditService.logAsync(AuditLog.builder()
                 .tableName("RepairOrder")

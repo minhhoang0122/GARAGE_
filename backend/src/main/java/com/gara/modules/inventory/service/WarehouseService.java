@@ -8,7 +8,6 @@ import com.gara.modules.inventory.repository.*;
 import com.gara.modules.service.repository.*;
 import com.gara.modules.auth.repository.*;
 import com.gara.modules.system.repository.*;
-import com.gara.modules.service.service.OrderCalculationService;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,7 +36,6 @@ public class WarehouseService {
     private final ImportDetailRepository importDetailRepository;
     private final ExportDetailRepository exportDetailRepository;
     private final com.gara.modules.support.service.AsyncAuditService asyncAuditService;
-    private final OrderCalculationService orderCalculationService;
     private final AsyncNotificationService asyncNotificationService;
     private final RealtimeService realtimeService;
 
@@ -51,7 +49,6 @@ public class WarehouseService {
             ImportDetailRepository importDetailRepository,
             ExportDetailRepository exportDetailRepository,
             com.gara.modules.support.service.AsyncAuditService asyncAuditService,
-            OrderCalculationService orderCalculationService,
             AsyncNotificationService asyncNotificationService,
             RealtimeService realtimeService) {
         this.productRepository = productRepository;
@@ -64,7 +61,6 @@ public class WarehouseService {
         this.importDetailRepository = importDetailRepository;
         this.exportDetailRepository = exportDetailRepository;
         this.asyncAuditService = asyncAuditService;
-        this.orderCalculationService = orderCalculationService;
         this.asyncNotificationService = asyncNotificationService;
         this.realtimeService = realtimeService;
     }
@@ -210,8 +206,8 @@ public class WarehouseService {
         }
         orderItemRepository.save(orderItem);
 
-        BigDecimal deltaValue = orderItem.getUnitPrice().multiply(new BigDecimal(quantity)).negate();
-        orderCalculationService.updateTotalsIncrementally(order.getId(), deltaValue, false);
+        // BigDecimal deltaValue = orderItem.getUnitPrice().multiply(new BigDecimal(quantity)).negate();
+        // orderCalculationService.updateTotalsIncrementally(order.getId(), deltaValue, false); // Logic moved to DB Triggers
 
         AuditLog log = AuditLog.builder()
                 .tableName("Warehouse")

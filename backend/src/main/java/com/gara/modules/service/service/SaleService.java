@@ -44,8 +44,6 @@ public class SaleService {
     private final com.gara.modules.support.service.AsyncAuditService asyncAuditService;
     private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
     private final jakarta.persistence.EntityManager entityManager;
-    private final OrderCalculationService orderCalculationService;
-
     private final com.gara.modules.inventory.service.WarehouseService warehouseService;
     private final com.gara.modules.support.service.RealtimeService realtimeService;
     private final TimelineService timelineService;
@@ -62,7 +60,6 @@ public class SaleService {
             com.gara.modules.support.service.AsyncAuditService asyncAuditService,
             com.gara.modules.support.service.AsyncNotificationService asyncNotificationService,
             jakarta.persistence.EntityManager entityManager,
-            OrderCalculationService orderCalculationService,
             com.gara.modules.inventory.service.WarehouseService warehouseService,
             com.gara.modules.support.service.RealtimeService realtimeService,
             TimelineService timelineService) {
@@ -79,7 +76,6 @@ public class SaleService {
         this.asyncNotificationService = asyncNotificationService;
         this.entityManager = entityManager;
         this.warehouseService = warehouseService;
-        this.orderCalculationService = orderCalculationService;
         this.realtimeService = realtimeService;
         this.timelineService = timelineService;
     }
@@ -429,7 +425,7 @@ public class SaleService {
         entityManager.flush();
         entityManager.refresh(order);
 
-        orderCalculationService.recalculateTotals(order);
+        // manual calculation removed; database triggers handle totals automatically.
 
         // Broadcast SSE
         Map<String, Object> sseData = new HashMap<>();
@@ -463,7 +459,7 @@ public class SaleService {
             }
         }
 
-        BigDecimal oldTotalAmount = item.getTotalAmount() != null ? item.getTotalAmount() : BigDecimal.ZERO;
+        // BigDecimal oldTotalAmount = item.getTotalAmount() != null ? item.getTotalAmount() : BigDecimal.ZERO;
         int oldQuantity = item.getQuantity();
         BigDecimal oldDiscount = item.getDiscountPercentage() != null ? item.getDiscountPercentage() : BigDecimal.ZERO;
 
@@ -487,7 +483,8 @@ public class SaleService {
         item.setTotalAmount(rawSubtotal);
         orderItemRepository.save(item);
 
-        // Only update order totals if item is NOT rejected
+        // Logic moved to DB Triggers
+        /*
         if (!ItemStatus.CUSTOMER_REJECTED.equals(item.getStatus())) {
             BigDecimal delta = rawSubtotal.subtract(oldTotalAmount);
             if (delta.compareTo(BigDecimal.ZERO) != 0) {
@@ -498,6 +495,7 @@ public class SaleService {
                 );
             }
         }
+        */
 
         // Broadcast SSE
         Map<String, Object> sseData = new HashMap<>();
@@ -541,31 +539,32 @@ public class SaleService {
             }
         }
 
-        BigDecimal oldThanhTien = item.getTotalAmount() != null ? item.getTotalAmount() : BigDecimal.ZERO;
+        // BigDecimal oldThanhTien = item.getTotalAmount() != null ? item.getTotalAmount() : BigDecimal.ZERO;
         ItemStatus oldStatus = item.getStatus();
 
         // Ensure thanhTien is correctly synced with price * qty before status toggle
         BigDecimal unitPrice = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
-        BigDecimal qty = BigDecimal.valueOf(item.getQuantity() != null ? item.getQuantity() : 0);
-        BigDecimal currentThanhTien = unitPrice.multiply(qty);
+        BigDecimal qtyValue = BigDecimal.valueOf(item.getQuantity() != null ? item.getQuantity() : 0);
+        BigDecimal currentThanhTien = unitPrice.multiply(qtyValue);
         item.setTotalAmount(currentThanhTien);
         
         item.setStatus(status);
         orderItemRepository.save(item);
 
         // Delta logic: Skip if status rejected by customer
-        BigDecimal delta = BigDecimal.ZERO;
+        // BigDecimal delta = BigDecimal.ZERO;
         boolean oldIsApproved = !ItemStatus.CUSTOMER_REJECTED.equals(oldStatus);
         boolean currentIsApproved = !ItemStatus.CUSTOMER_REJECTED.equals(status);
 
         if (oldIsApproved && !currentIsApproved) {
             // Subtract what was in the total (old value)
-            delta = oldThanhTien.negate();
+            // delta = oldThanhTien.negate();
         } else if (!oldIsApproved && currentIsApproved) {
             // Add what is now approved (new value)
-            delta = currentThanhTien;
+            // delta = currentThanhTien;
         }
 
+        /* 
         if (delta.compareTo(BigDecimal.ZERO) != 0) {
             orderCalculationService.updateTotalsIncrementally(
                 item.getRepairOrder().getId(), 
@@ -573,6 +572,7 @@ public class SaleService {
                 item.getProduct() != null && item.getProduct().getIsService()
             );
         }
+        */
 
         // Broadcast SSE
         Map<String, Object> sseData = new HashMap<>();
@@ -618,15 +618,17 @@ public class SaleService {
                 .build());
 
         order.getOrderItems().remove(item);
-        BigDecimal currentVal = item.getTotalAmount();
-        boolean isLabor = item.getProduct() != null && item.getProduct().getIsService();
-        boolean wasIncluded = !ItemStatus.CUSTOMER_REJECTED.equals(item.getStatus());
+        // BigDecimal currentVal = item.getTotalAmount();
+        // boolean isLabor = item.getProduct() != null && item.getProduct().getIsService();
+        // boolean wasIncluded = !ItemStatus.CUSTOMER_REJECTED.equals(item.getStatus());
 
         orderItemRepository.delete(item);
 
+        /* 
         if (wasIncluded) {
             orderCalculationService.updateTotalsIncrementally(order.getId(), currentVal.negate(), isLabor);
         }
+        */
 
         // Broadcast SSE
         Map<String, Object> sseData = new HashMap<>();
@@ -723,7 +725,7 @@ public class SaleService {
             order.setVatPercentage(vatPercent);
         }
 
-        orderCalculationService.recalculateTotals(order);
+        // manual recalculation removed; database triggers handle totals automatically.
         orderRepository.save(order);
 
         // Audit log
