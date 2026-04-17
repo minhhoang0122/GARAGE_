@@ -31,7 +31,12 @@ public record ReceptionDetailDTO(
         
         // Order Info
         Integer orderId,
-        String orderStatus
+        String orderStatus,
+        
+        // Foreman Info
+        Integer thoChanDoanId,
+        String thoChanDoanName,
+        String foremanAvatar
 ) {
     public static ReceptionDetailDTOBuilder builder() {
         return new ReceptionDetailDTOBuilder();
@@ -58,6 +63,9 @@ public record ReceptionDetailDTO(
         private String receptionistAvatar;
         private Integer orderId;
         private String orderStatus;
+        private Integer thoChanDoanId;
+        private String thoChanDoanName;
+        private String foremanAvatar;
 
         public ReceptionDetailDTOBuilder id(Integer id) { this.id = id; return this; }
         public ReceptionDetailDTOBuilder ngayGio(LocalDateTime ngayGio) { this.ngayGio = ngayGio; return this; }
@@ -79,11 +87,15 @@ public record ReceptionDetailDTO(
         public ReceptionDetailDTOBuilder receptionistAvatar(String receptionistAvatar) { this.receptionistAvatar = receptionistAvatar; return this; }
         public ReceptionDetailDTOBuilder orderId(Integer orderId) { this.orderId = orderId; return this; }
         public ReceptionDetailDTOBuilder orderStatus(String orderStatus) { this.orderStatus = orderStatus; return this; }
+        public ReceptionDetailDTOBuilder thoChanDoanId(Integer thoChanDoanId) { this.thoChanDoanId = thoChanDoanId; return this; }
+        public ReceptionDetailDTOBuilder thoChanDoanName(String thoChanDoanName) { this.thoChanDoanName = thoChanDoanName; return this; }
+        public ReceptionDetailDTOBuilder foremanAvatar(String foremanAvatar) { this.foremanAvatar = foremanAvatar; return this; }
 
         public ReceptionDetailDTO build() {
             return new ReceptionDetailDTO(id, ngayGio, mucXang, tinhTrangVoXe, yeuCauSoBo, hinhAnh, odo,
                     bienSo, nhanHieu, model, soKhung, soMay, tenKhach, sdtKhach, diaChiKhach, emailKhach,
-                    receptionistName, receptionistAvatar, orderId, orderStatus);
+                    receptionistName, receptionistAvatar, orderId, orderStatus,
+                    thoChanDoanId, thoChanDoanName, foremanAvatar);
         }
     }
 }

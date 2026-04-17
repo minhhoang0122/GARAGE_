@@ -9,8 +9,9 @@ import {
     Car, CarFront, LayoutDashboard, Users, BarChart3, Settings, History,
     ShoppingCart, Package, FileText, CreditCard, PackagePlus,
     PackageMinus, Boxes, ClipboardCheck, ClipboardList, LogOut,
-    Wrench, ShieldCheck, Component, Tag, Wallet, UserCog, Activity,
-    Megaphone, Truck
+    Megaphone, Truck, ChevronDown, ClipboardSignature,
+    Component as ComponentIcon, Tag, Wallet, UserCog, Wrench, ShieldCheck, Activity,
+    DollarSign
 } from 'lucide-react';
 import { ROLE_MENUS, ROLE_DISPLAY_NAMES, MenuGroup } from '@/config/menu';
 import { VaiTroType } from '@/lib/auth';
@@ -23,8 +24,9 @@ import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
 const ICON_MAP: Record<string, any> = {
     Car, CarFront, LayoutDashboard, Users, BarChart3, Settings, History,
     ShoppingCart, Package, FileText, CreditCard, PackagePlus,
-    PackageMinus, Boxes, ClipboardCheck, ClipboardList, LogOut, Component,
-    Tag, Wallet, UserCog, Wrench, ShieldCheck, Activity, Megaphone, Truck
+    PackageMinus, Boxes, ClipboardCheck, ClipboardList, LogOut, Component: ComponentIcon,
+    Tag, Wallet, UserCog, Wrench, ShieldCheck, Activity, Megaphone, Truck, ChevronDown, ClipboardSignature,
+    DollarSign
 };
 
 // --- PREMIUM ICON COMPONENT ---
@@ -53,6 +55,34 @@ const PREFETCH_MAP: Record<string, string[]> = {
 
 
 // Memoized menu item with prefetch
+// Collapsible menu group with smooth animation
+const CollapsibleGroup = memo(function CollapsibleGroup({
+    title,
+    isFirst = false,
+    children
+}: {
+    title?: string;
+    isFirst?: boolean;
+    children: ReactNode;
+}) {
+    // No title = always render children (top-level items)
+    if (!title) {
+        return <div className={isFirst ? '' : 'mt-2'}>{children}</div>;
+    }
+
+    return (
+        <div className={isFirst ? '' : 'mt-4'}>
+            <div className="px-2 mb-2 flex items-center gap-2 select-none">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider">{title}</span>
+                <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1 opacity-50"></div>
+            </div>
+            <div className="opacity-100">
+                {children}
+            </div>
+        </div>
+    );
+});
+
 const MenuItem = memo(function MenuItem({
     item,
     isActive,
@@ -124,26 +154,39 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
     // Group staff by online status
     const groupedStaff = useMemo(() => {
         const currentUserId = (session?.user as any)?.id;
+        
+        // Filter out anyone with KHACH_HANG role (Safety guardrail)
+        const staffOnly = allStaff.filter(u => {
+            const role = String(u.role || '').toUpperCase();
+            return role !== 'KHACH_HANG' && role !== 'CUSTOMER';
+        });
+
         // onlineUsers is a Map<number, any>, .has() works on keys (userIds)
-        const online = allStaff.filter(u => onlineUsers.has(Number(u.id)) && Number(u.id) !== currentUserId);
-        const offline = allStaff.filter(u => !onlineUsers.has(Number(u.id)) && Number(u.id) !== currentUserId);
+        const online = staffOnly.filter(u => onlineUsers.has(Number(u.id)) && Number(u.id) !== currentUserId);
+        const offline = staffOnly.filter(u => !onlineUsers.has(Number(u.id)) && Number(u.id) !== currentUserId);
         return { online, offline };
     }, [allStaff, onlineUsers, session?.user]);
 
-    const roles = (session?.user as any)?.roles || [];
+    const roles = session?.user?.roles || [];
     const [activeRole, setActiveRole] = useState<string | null>(null);
 
     // Xác định role thực tế ngay trong quá trình render để tránh flicker
     const currentRole = useMemo(() => {
         if (activeRole) return activeRole;
-        if (roles.length === 0) return null;
+        if (!roles || roles.length === 0) return null;
         
-        const savedRole = typeof window !== 'undefined' ? localStorage.getItem('active_role') : null;
+        // Ưu tiên role từ URL pathname
+        const segments = pathname.split('/').filter(Boolean);
+        const urlRole = segments[0]?.toUpperCase();
+        if (urlRole && roles.includes(urlRole)) return urlRole;
+
+        // Fallback: LocalStorage
+        const savedRole = typeof window !== 'undefined' ? localStorage.getItem('active_role')?.toUpperCase() : null;
         if (savedRole && roles.includes(savedRole)) return savedRole;
         
-        const priority = ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA'];
-        return priority.find(r => roles.includes(r)) || roles[0];
-    }, [activeRole, roles]);
+        // Mặc định: Role đầu tiên
+        return roles[0] || null;
+    }, [activeRole, roles, pathname]);
 
     // Đồng bộ ngược lại state để các component khác (như Workspace Switcher) có giá trị chuẩn
     useEffect(() => {
@@ -157,7 +200,7 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
         localStorage.setItem('active_role', role);
     };
 
-    const token = (session?.user as any)?.accessToken as string | undefined;
+    const token = session?.accessToken;
 
     const menuGroups: MenuGroup[] = useMemo(() => {
         return currentRole ? ROLE_MENUS[currentRole] || [] : [];
@@ -236,35 +279,38 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
                             ))}
                         </select>
                         <div className="absolute right-3 bottom-2.5 pointer-events-none text-slate-400">
-                            <Component className="w-3.5 h-3.5" />
+                            <ComponentIcon className="w-3.5 h-3.5" />
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Menu - Fixed Area */}
-            <nav className="relative z-10 flex-none px-1">
-                {menuGroups.map((group, groupIndex) => (
-                    <div key={groupIndex} className={groupIndex > 0 ? 'mt-6' : ''}>
-                        {group.title && (
-                            <div className="px-2 mb-2 flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider">{group.title}</span>
-                                <div className="h-px bg-slate-200 dark:bg-slate-800 flex-1"></div>
-                            </div>
-                        )}
-                        <ul className="space-y-0.5">
-                            {group.items.map((item) => (
-                                <MenuItem
-                                    key={item.href}
-                                    item={item}
-                                    isActive={activeItemHref === item.href}
-                                    token={token}
-                                    onNavigate={onNavigate}
-                                />
-                            ))}
-                        </ul>
-                    </div>
-                ))}
+            {/* Menu - Scrollable Area with Collapsible Groups */}
+            <nav className="relative z-10 flex-1 overflow-y-auto px-1 custom-sidebar-scroll">
+                {menuGroups.map((group, groupIndex) => {
+                    // Auto-expand group if it contains the active item
+                    const hasActiveItem = group.items.some(item => activeItemHref === item.href);
+
+                    return (
+                        <CollapsibleGroup
+                            key={groupIndex}
+                            title={group.title}
+                            isFirst={groupIndex === 0}
+                        >
+                            <ul className="space-y-0.5">
+                                {group.items.map((item) => (
+                                    <MenuItem
+                                        key={item.href}
+                                        item={item}
+                                        isActive={activeItemHref === item.href}
+                                        token={token}
+                                        onNavigate={onNavigate}
+                                    />
+                                ))}
+                            </ul>
+                        </CollapsibleGroup>
+                    );
+                })}
             </nav>
 
             {/* --- TEAM SECTION (Minimalist Contrast Card) --- */}
@@ -310,7 +356,7 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
                                             {staff.fullName}
                                         </span>
                                         <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5 font-medium">
-                                            {(ROLE_DISPLAY_NAMES as any)[staff.vaiTro] || staff.vaiTro || 'Nhân viên'}
+                                            {(ROLE_DISPLAY_NAMES as any)[staff.role] || staff.role || 'Nhân viên'}
                                         </span>
                                     </div>
                                 </div>
@@ -342,7 +388,7 @@ export default function Sidebar({ className, onNavigate }: SidebarProps) {
                                             {staff.fullName}
                                         </span>
                                         <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate mt-0.5 font-medium">
-                                            {(ROLE_DISPLAY_NAMES as any)[staff.vaiTro] || staff.vaiTro || 'Nhân viên'}
+                                            {(ROLE_DISPLAY_NAMES as any)[staff.role] || staff.role || 'Nhân viên'}
                                         </span>
                                     </div>
                                 </div>

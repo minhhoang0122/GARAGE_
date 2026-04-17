@@ -89,7 +89,13 @@ export const useRequestRevision = () => {
 export const useCreateBooking = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (data: { bienSoXe: string; ghiChu?: string | null; selectedServiceIds?: any[] }) =>
+        mutationFn: (data: { 
+            bienSoXe: string; 
+            ghiChu?: string | null; 
+            selectedServiceIds?: any[];
+            model?: string | null;
+            appointmentTime?: string | null;
+        }) =>
             customerService.createBooking(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.customer.me() });

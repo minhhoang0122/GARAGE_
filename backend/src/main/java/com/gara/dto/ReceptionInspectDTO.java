@@ -21,7 +21,8 @@ public record ReceptionInspectDTO(
                 String status,
                 List<ProposalItemDTO> existingItems,
                 Integer assignedMechanicId,
-                String assignedMechanicName) {
+                String assignedMechanicName,
+                String assignedMechanicAvatar) {
 
         public static ReceptionInspectDTOBuilder builder() {
                 return new ReceptionInspectDTOBuilder();
@@ -46,6 +47,7 @@ public record ReceptionInspectDTO(
                 private List<ProposalItemDTO> existingItems;
                 private Integer assignedMechanicId;
                 private String assignedMechanicName;
+                private String assignedMechanicAvatar;
 
                 public ReceptionInspectDTOBuilder id(Integer id) {
                         this.id = id;
@@ -137,10 +139,15 @@ public record ReceptionInspectDTO(
                         return this;
                 }
 
+                public ReceptionInspectDTOBuilder assignedMechanicAvatar(String assignedMechanicAvatar) {
+                        this.assignedMechanicAvatar = assignedMechanicAvatar;
+                        return this;
+                }
+
                 public ReceptionInspectDTO build() {
                         return new ReceptionInspectDTO(id, plate, customerName, customerPhone, vehicleBrand, vehicleModel, request,
                                         odo, fuelLevel, bodyCondition, createdAt, proposedItemsCount, imageUrl, orderId, status, 
-                                        existingItems, assignedMechanicId, assignedMechanicName);
+                                        existingItems, assignedMechanicId, assignedMechanicName, assignedMechanicAvatar);
                 }
         }
 }

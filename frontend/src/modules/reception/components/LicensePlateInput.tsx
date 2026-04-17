@@ -64,7 +64,9 @@ export const LicensePlateInput: React.FC<LicensePlateInputProps> = ({
             let s1 = clean.slice(0, 3);
             let s2 = clean.slice(3);
             
-            if (s2.length > 3) {
+            if (s2.length === 4) {
+                return `${s1}-${s2}`;
+            } else if (s2.length >= 5) {
                 return `${s1}-${s2.slice(0, 3)}.${s2.slice(3, 5)}`;
             }
             return `${s1}-${s2}`;
@@ -79,7 +81,9 @@ export const LicensePlateInput: React.FC<LicensePlateInputProps> = ({
             let s2 = rest.slice(0, 2);
             let s3 = rest.slice(2);
             
-            if (s3.length > 3) {
+            if (s3.length === 4) {
+                return `${s1}-${s2}-${s3}`;
+            } else if (s3.length >= 5) {
                 return `${s1}-${s2}-${s3.slice(0, 3)}.${s3.slice(3, 5)}`;
             }
             return `${s1}-${s2}-${s3}`;

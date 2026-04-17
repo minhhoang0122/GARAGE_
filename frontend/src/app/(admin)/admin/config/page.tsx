@@ -15,7 +15,7 @@ export default function ConfigurationPage() {
     );
 }
 
-function ConfigurationContent() {
+export function ConfigurationContent() {
     return (
         <div className="max-w-4xl mx-auto space-y-6 pb-20">
             {/* Notification Config Only */}

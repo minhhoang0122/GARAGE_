@@ -1,5 +1,7 @@
 package com.gara.config;
 
+import com.gara.modules.support.websocket.AuthHandshakeInterceptor;
+import com.gara.modules.support.websocket.WebSocketAuthInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -14,6 +16,14 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketBrokerConfig implements WebSocketMessageBrokerConfigurer {
+
+    private final WebSocketAuthInterceptor authInterceptor;
+    private final AuthHandshakeInterceptor handshakeInterceptor;
+
+    public WebSocketBrokerConfig(WebSocketAuthInterceptor authInterceptor, AuthHandshakeInterceptor handshakeInterceptor) {
+        this.authInterceptor = authInterceptor;
+        this.handshakeInterceptor = handshakeInterceptor;
+    }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -35,6 +45,13 @@ public class WebSocketBrokerConfig implements WebSocketMessageBrokerConfigurer {
         // Đăng ký endpoint kết nối chính
         registry.addEndpoint("/api/garage-ws")
                 .setAllowedOriginPatterns("*") // Cho phép Cross-Origin (CORS)
+                .addInterceptors(handshakeInterceptor)
                 .withSockJS(); // Kích hoạt SockJS Fallback
+    }
+
+    @Override
+    public void configureClientInboundChannel(org.springframework.messaging.simp.config.ChannelRegistration registration) {
+        // Thêm AuthInterceptor để trích xuất User từ Token ngay khi CONNECT
+        registration.interceptors(authInterceptor);
     }
 }

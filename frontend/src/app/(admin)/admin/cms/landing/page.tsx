@@ -7,7 +7,7 @@ import { RefreshCw, Save, AlertCircle, CheckCircle2, GripVertical, Power, Edit, 
 import { useToast } from '@/contexts/ToastContext';
 import { LandingSection } from '@/modules/landing/types/cms';
 
-export default function AdminLandingPage() {
+export function LandingContent() {
     const { showToast } = useToast();
     
     const { data: sections = [], isLoading, refetch } = useLandingSections();
@@ -20,72 +20,70 @@ export default function AdminLandingPage() {
     };
 
     return (
-        <DashboardLayout title="Thiết lập Trang chủ" subtitle="Tùy chỉnh các khối nội dung hiển thị bên ngoài">
-            <div className="max-w-4xl mx-auto space-y-6">
-                <div className="flex justify-between items-center bg-indigo-50 dark:bg-indigo-900/10 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800/30">
-                    <div className="flex items-start gap-4">
-                        <div className="p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm">
-                            <RefreshCw className={`text-indigo-600 ${isLoading ? 'animate-spin' : ''}`} />
+        <div className="max-w-4xl mx-auto space-y-6">
+            <div className="flex justify-between items-center bg-indigo-50 dark:bg-indigo-900/10 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800/30">
+                <div className="flex items-start gap-4">
+                    <div className="p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm">
+                        <RefreshCw className={`text-indigo-600 ${isLoading ? 'animate-spin' : ''}`} />
+                    </div>
+                    <div>
+                        <h4 className="font-bold text-slate-900 dark:text-white">Cấu trúc Trang chủ</h4>
+                        <p className="text-sm text-slate-500">Các khối nội dung được quản lý tập trung và cho phép bật/tắt linh hoạt.</p>
+                    </div>
+                </div>
+                <button onClick={() => refetch()} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm shadow-sm hover:bg-slate-50 transition-all">
+                    Làm mới dữ liệu
+                </button>
+            </div>
+
+            <div className="space-y-4">
+                {isLoading ? (
+                    <div className="p-10 text-center text-slate-400">Đang tải cấu trúc...</div>
+                ) : sections.length === 0 ? (
+                    <div className="p-10 text-center text-slate-400 bg-white border rounded-xl">Không tìm thấy section nào. Có lỗi trong việc seed dữ liệu hoặc API.</div>
+                ) : [...sections].sort((a: any, b: any) => a.orderIndex - b.orderIndex).map((section: LandingSection) => (
+                    <div 
+                        key={section.id} 
+                        className={`flex items-center justify-between p-5 bg-white dark:bg-slate-900 rounded-2xl border transition-all ${section.isActive ? 'border-slate-200 dark:border-slate-800 shadow-sm' : 'border-slate-100 dark:border-slate-800/50 opacity-60 grayscale'}`}
+                    >
+                        <div className="flex items-center gap-5">
+                            <div className="p-2 cursor-grab active:cursor-grabbing text-slate-300">
+                                <GripVertical size={20} />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <h5 className="font-bold text-slate-900 dark:text-slate-100">{section.title}</h5>
+                                    <span className="text-[10px] font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded uppercase tracking-tighter text-slate-500">ID: {section.sectionId}</span>
+                                </div>
+                                <p className="text-xs text-slate-500 max-w-md line-clamp-1">{section.content}</p>
+                            </div>
                         </div>
-                        <div>
-                            <h4 className="font-bold text-slate-900 dark:text-white">Cấu trúc Trang chủ</h4>
-                            <p className="text-sm text-slate-500">Các khối nội dung được quản lý tập trung và cho phép bật/tắt linh hoạt.</p>
+
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => setEditingSection(section)}
+                                className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all" 
+                                title="Chỉnh sửa nội dung"
+                            >
+                                <Edit size={18} />
+                            </button>
+                            <button 
+                                onClick={() => toggleActive(section)}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all border ${section.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200'}`}
+                            >
+                                <Power size={14} />
+                                {section.isActive ? 'Bật' : 'Tắt'}
+                            </button>
                         </div>
                     </div>
-                    <button onClick={() => refetch()} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm shadow-sm hover:bg-slate-50 transition-all">
-                        Làm mới dữ liệu
-                    </button>
-                </div>
+                ))}
+            </div>
 
-                <div className="space-y-4">
-                    {isLoading ? (
-                        <div className="p-10 text-center text-slate-400">Đang tải cấu trúc...</div>
-                    ) : sections.length === 0 ? (
-                        <div className="p-10 text-center text-slate-400 bg-white border rounded-xl">Không tìm thấy section nào. Có lỗi trong việc seed dữ liệu hoặc API.</div>
-                    ) : [...sections].sort((a: any, b: any) => a.orderIndex - b.orderIndex).map((section: LandingSection) => (
-                        <div 
-                            key={section.id} 
-                            className={`flex items-center justify-between p-5 bg-white dark:bg-slate-900 rounded-2xl border transition-all ${section.isActive ? 'border-slate-200 dark:border-slate-800 shadow-sm' : 'border-slate-100 dark:border-slate-800/50 opacity-60 grayscale'}`}
-                        >
-                            <div className="flex items-center gap-5">
-                                <div className="p-2 cursor-grab active:cursor-grabbing text-slate-300">
-                                    <GripVertical size={20} />
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <h5 className="font-bold text-slate-900 dark:text-slate-100">{section.title}</h5>
-                                        <span className="text-[10px] font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded uppercase tracking-tighter text-slate-500">ID: {section.sectionId}</span>
-                                    </div>
-                                    <p className="text-xs text-slate-500 max-w-md line-clamp-1">{section.content}</p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                                <button 
-                                    onClick={() => setEditingSection(section)}
-                                    className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all" 
-                                    title="Chỉnh sửa nội dung"
-                                >
-                                    <Edit size={18} />
-                                </button>
-                                <button 
-                                    onClick={() => toggleActive(section)}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all border ${section.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200'}`}
-                                >
-                                    <Power size={14} />
-                                    {section.isActive ? 'Bật' : 'Tắt'}
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-xl border border-amber-100 dark:border-amber-900/30 flex gap-3">
-                    <AlertCircle className="text-amber-600 shrink-0" size={20} />
-                    <p className="text-xs text-amber-700 leading-relaxed">
-                        <strong>Lưu ý:</strong> Việc thay đổi trạng thái các khối nội dung sẽ ảnh hưởng trực tiếp đến Trang chủ ngay lập tức. Hãy kiểm tra kỹ trước khi thực hiện.
-                    </p>
-                </div>
+            <div className="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-xl border border-amber-100 dark:border-amber-900/30 flex gap-3">
+                <AlertCircle className="text-amber-600 shrink-0" size={20} />
+                <p className="text-xs text-amber-700 leading-relaxed">
+                    <strong>Lưu ý:</strong> Việc thay đổi trạng thái các khối nội dung sẽ ảnh hưởng trực tiếp đến Trang chủ ngay lập tức. Hãy kiểm tra kỹ trước khi thực hiện.
+                </p>
             </div>
 
             {/* Edit Modal */}
@@ -153,6 +151,14 @@ export default function AdminLandingPage() {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+export default function AdminLandingPage() {
+    return (
+        <DashboardLayout title="Thiết lập Trang chủ" subtitle="Tùy chỉnh các khối nội dung hiển thị bên ngoài">
+            <LandingContent />
         </DashboardLayout>
     );
 }

@@ -64,16 +64,23 @@ public class NotificationController {
         List<String> userRoles = user.getRoles().stream()
                 .map(com.gara.entity.Role::getName)
                 .toList();
+        
+        System.out.println("[Notification] Marking all as read for user: " + user.getId() + ", roles: " + userRoles);
         notificationRepository.markAllAsRead(user.getId(), userRoles);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}/read")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> markAsRead(@PathVariable Integer id) {
+        System.out.println("[Notification] Marking as read ID: " + id);
         Notification notif = notificationRepository.findById(id).orElse(null);
         if (notif != null) {
             notif.setIsRead(true);
             notificationRepository.save(notif);
+            System.out.println("[Notification] SUCCESS: Marked ID " + id + " as read.");
+        } else {
+            System.err.println("[Notification] FAILED: Notification ID " + id + " not found!");
         }
         return ResponseEntity.ok().build();
     }

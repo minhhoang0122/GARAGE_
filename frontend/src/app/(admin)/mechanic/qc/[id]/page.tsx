@@ -43,7 +43,7 @@ export default function OrderTechnicalReviewPage() {
         if (!order || order.notFound) return;
         setSubmitting(true);
         try {
-            const itemIds = order.items.filter((i: any) => i.itemStatus === 'CHO_KY_THUAT_DUYET').map((i: any) => i.id);
+            const itemIds = order.items.filter((i: any) => i.itemStatus === 'WAITING_FOR_MANAGER_APPROVAL').map((i: any) => i.id);
             const res = await mechanicService.confirmTechnicalReview(Number(id), itemIds);
 
             if (res.success) {
@@ -63,7 +63,7 @@ export default function OrderTechnicalReviewPage() {
         return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={32} /></div>;
     }
 
-    const pendingItems = order?.items?.filter((i: any) => i.itemStatus === 'CHO_KY_THUAT_DUYET') || [];
+    const pendingItems = order?.items?.filter((i: any) => i.itemStatus === 'WAITING_FOR_MANAGER_APPROVAL') || [];
 
     return (
         <DashboardLayout title="Nghiệm thu kỹ thuật" subtitle={`Xe: ${order?.plateNumber || '...'}`}>
@@ -97,22 +97,45 @@ export default function OrderTechnicalReviewPage() {
 
                             <div className="grid gap-4">
                                 {pendingItems.map((item: any) => (
-                                    <div key={item.id} className="flex items-center justify-between bg-white border border-slate-200/60 rounded-2xl p-6 hover:shadow-md transition-all duration-300">
-                                        <div className="flex items-center gap-5">
-                                            <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg font-black text-slate-800">
-                                                {item.quantity}
-                                            </div>
-                                            <div>
-                                                <div className="text-slate-900 font-bold text-lg tracking-tight">{item.productName}</div>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kỹ thuật viên:</span>
-                                                    <span className="text-slate-600 text-[11px] font-bold uppercase">{item.proposedByName}</span>
+                                    <div key={item.id} className="flex flex-col bg-white border border-slate-200/60 rounded-2xl p-6 hover:shadow-md transition-all duration-300">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-5">
+                                                <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg font-black text-slate-800">
+                                                    {item.quantity}
+                                                </div>
+                                                <div>
+                                                    <div className="text-slate-900 font-bold text-lg tracking-tight">{item.productName}</div>
+                                                    <div className="flex items-center gap-3 mt-1.5">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Người báo:</span>
+                                                            <span className="text-blue-600 text-[11px] font-black uppercase bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                                                                {item.proposedByRole}: {item.proposedByName}
+                                                            </span>
+                                                        </div>
+                                                        {item.proposedAt && (
+                                                            <div className="flex items-center gap-1.5 text-slate-400">
+                                                                <Clock size={12} />
+                                                                <span className="text-[10px] font-bold">{new Date(item.proposedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
+                                            <div className="p-3 text-amber-500 bg-amber-50 rounded-xl border border-amber-100">
+                                                <AlertCircle size={22} />
+                                            </div>
                                         </div>
-                                        <div className="p-3 text-slate-300">
-                                            <AlertCircle size={22} />
-                                        </div>
+                                        
+                                        {item.notes && (
+                                            <div className="mt-4 pt-4 border-t border-slate-50">
+                                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                                                    <span className="w-1 h-1 bg-slate-400 rounded-full" /> Ghi chú từ thợ
+                                                </p>
+                                                <p className="text-slate-600 text-sm italic bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                                    "{item.notes}"
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

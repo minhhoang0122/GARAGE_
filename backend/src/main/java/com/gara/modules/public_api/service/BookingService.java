@@ -70,13 +70,24 @@ public class BookingService {
                         throw new RuntimeException("Biển số xe này đã được đăng ký bởi khách hàng khác. " +
                                 "Vui lòng kiểm tra lại hoặc liên hệ Gara để được hỗ trợ.");
                     }
-                    return v;
+                    
+                    // Cập nhật thông tin hãng/dòng xe nếu trước đó bị thiếu
+                    boolean updated = false;
+                    if (dto.brand() != null && (v.getBrand() == null || "Chưa xác định".equals(v.getBrand()))) {
+                        v.setBrand(dto.brand());
+                        updated = true;
+                    }
+                    if (dto.model() != null && (v.getModel() == null || v.getModel().isEmpty() || "Chưa xác định".equals(v.getModel()))) {
+                        v.setModel(dto.model());
+                        updated = true;
+                    }
+                    return updated ? vehicleRepository.save(v) : v;
                 })
                 .orElseGet(() -> {
                     Vehicle newVehicle = new Vehicle();
                     newVehicle.setLicensePlate(dto.licensePlate());
-                    newVehicle.setModel(dto.model());
-                    newVehicle.setBrand(dto.model() != null ? dto.model() : "Unknown");
+                    newVehicle.setModel(dto.model() != null ? dto.model() : "Chưa xác định");
+                    newVehicle.setBrand(dto.brand() != null ? dto.brand() : "Chưa xác định");
                     newVehicle.setCustomer(customer);
                     return vehicleRepository.save(newVehicle);
                 });

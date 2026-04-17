@@ -12,7 +12,7 @@ import { usePresence } from '@/hooks/usePresence';
 
 import { useQuery } from '@tanstack/react-query';
 
-export default function AdminDashboard() {
+export function DashboardContent() {
     const { data: stats = {
         waitingVehicles: 0,
         inProgressJobs: 0,
@@ -34,7 +34,7 @@ export default function AdminDashboard() {
     const { isOnline } = usePresence();
 
     return (
-        <DashboardLayout title="Dashboard" subtitle="Tổng quan hoạt động xưởng">
+        <div className="max-w-[1600px] mx-auto">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
                 <StatCard
@@ -121,6 +121,14 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+export default function AdminDashboardPage() {
+    return (
+        <DashboardLayout title="Dashboard" subtitle="Tổng quan hoạt động xưởng">
+            <DashboardContent />
         </DashboardLayout>
     );
 }

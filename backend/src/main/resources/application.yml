@@ -2,100 +2,99 @@ server:
   port: ${PORT:8081}
   address: 0.0.0.0
   shutdown: graceful
+  tomcat:
+    threads:
+      max: 500
+      min-spare: 50
+    accept-count: 200
+    max-connections: 10000
+  connection-timeout: 60000
   compression:
     enabled: true
-    mime-types: application/json,application/xml,text/html,text/plain
-    min-response-size: 1024
+    mime-types: application/json,text/html,text/xml,text/plain,application/javascript,text/css
+    min-response-size: 2048
+
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
 
 spring:
-  lifecycle:
-    timeout-per-shutdown-phase: 30s
+  application:
+    name: garage-management
+  
+  profiles:
+    active: dev
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:${DATABASE_URL}}
-    username: ${SPRING_DATASOURCE_USERNAME:${DATABASE_USERNAME:postgres}}
-    password: ${SPRING_DATASOURCE_PASSWORD:${DATABASE_PASSWORD:}}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:garamanagementsystem}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:talama123}
     driver-class-name: org.postgresql.Driver
     hikari:
-      minimum-idle: 2
-      maximum-pool-size: 10
-      idle-timeout: 60000
-      pool-name: GaraHikariPool
-      max-lifetime: 300000
+      maximum-pool-size: 50
+      minimum-idle: 10
+      idle-timeout: 300000
+      max-lifetime: 1800000
       connection-timeout: 30000
-      leak-detection-threshold: 2000
-      initialization-fail-timeout: -1
-      keepalive-time: 30000
-      validation-timeout: 5000
-      connection-test-query: SELECT 1
+      pool-name: GarageHikariCP
 
-  cloudinary:
-    cloud-name: ${CLOUDINARY_CLOUD_NAME}
-    api-key: ${CLOUDINARY_API_KEY}
-    api-secret: ${CLOUDINARY_API_SECRET}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
 
   servlet:
     multipart:
       max-file-size: 10MB
-      max-request-size: 11MB
+      max-request-size: 10MB
 
-  jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
-    generate-ddl: true
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-    open-in-view: false
-    properties:
-      hibernate:
-        format_sql: false
-        default_batch_fetch_size: 50
-        jdbc:
-          batch_size: 50
-          fetch_size: 50
-        order_inserts: true
-        order_updates: true
-        boot:
-          allow_jdbc_metadata_access: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        cache:
-          use_second_level_cache: true
-          use_query_cache: true
-          region:
-            factory_class: org.hibernate.cache.jcache.JCacheRegionFactory
-        temp:
-          use_jdbc_metadata_defaults: false
-        javax:
-          cache:
-            missing_cache_strategy: create
+  mvc:
+    async:
+      request-timeout: 60000
 
-  cache:
-    type: caffeine
-    caffeine:
-      spec: maximumSize=1000,expireAfterWrite=300s
-    cache-names:
-      - auth_user_status
-      - users_list
-      - system_configs
-      - products_list
-      - permissions_list
-      - roles_list
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Ho_Chi_Minh
 
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:dqo1j8heb}
+    api-key: ${CLOUDINARY_API_KEY:232314616123637}
+    api-secret: ${CLOUDINARY_API_SECRET:Ixfb9dW_AVyodjgis1O6Tj0ybb4}
+
+# Cấu hình bảo mật
 jwt:
-  secret: ${JWT_SECRET}
-  expiration: 86400000
+  secret: ${JWT_SECRET:mySecretKeyForJWTTokenGenerationMustBeAtLeast256BitsLong123456789}
+  expiration: 86400000 # 24 hours
 
 cors:
-  allowed-origins: http://localhost:[*],https://*.vercel.app,https://app.letanlex.id.vn,https://garage-lac.vercel.app,https://garage-pbqbmrpab-minhhoangprovjp123-gmailcoms-projects.vercel.app
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
 
-springdoc:
-  api-docs:
-    path: /api-docs
-  swagger-ui:
-    path: /swagger-ui.html
+# Biến môi trường bổ sung
+RESEND_API_KEY: ${RESEND_API_KEY:}
+RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:noreply@letanlex.id.vn}
+
+# Cấu hình thanh toán SePay / VietQR
+payment:
+  bank:
+    id: MB
+    account: "0945197256"
+    name: "LE TAN LEX"
 
 logging:
   level:
-    org.hibernate.SQL: WARN
+    root: INFO
+    com.gara: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: INFO
     org.hibernate.type.descriptor.sql: WARN
     com.zaxxer.hikari: INFO

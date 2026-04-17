@@ -6,14 +6,18 @@ import Link from 'next/link';
 import { ArrowLeft, QrCode, CreditCard, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useMyOrders } from '@/modules/customer/hooks/useCustomer';
-
+import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 
 export default function CustomerPaymentPage() {
     const router = useRouter();
+    const { status: authStatus } = useSession();
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
     const { data: allOrders = [], isLoading } = useMyOrders();
+
+    // Auth guard
+    if (authStatus === 'unauthenticated') { router.push('/customer/login'); return null; }
     const orders = allOrders.filter((o: any) => (o.debt || o.ConNo) > 0);
 
     // Sử dụng useQuery để lấy thông tin QR
@@ -38,7 +42,7 @@ export default function CustomerPaymentPage() {
         <div className="min-h-screen bg-stone-950">
             <header className="bg-stone-900 border-b border-stone-800 px-4 py-3">
                 <div className="max-w-2xl mx-auto flex items-center gap-3">
-                    <Link href="/customer/home" className="text-stone-500 hover:text-white transition-colors"><ArrowLeft size={20} /></Link>
+                    <Link href="/" className="text-stone-500 hover:text-white transition-colors"><ArrowLeft size={20} /></Link>
                     <h1 className="text-white font-bold">Thanh toán nhanh</h1>
                 </div>
             </header>
@@ -59,7 +63,7 @@ export default function CustomerPaymentPage() {
                                 className="w-full bg-stone-900 border border-stone-800 rounded-xl p-4 text-left hover:border-orange-700 transition-colors"
                             >
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className="text-white font-bold">{order.plate}</span>
+                                    <span className="text-white font-bold">{order.plate || order.plateNumber || '---'}</span>
                                     <span className="text-orange-400 font-bold">{Number(order.debt).toLocaleString('vi-VN')}đ</span>
                                 </div>
                                 <div className="text-stone-500 text-sm">Đơn #{order.id} • Bấm để hiện mã QR</div>

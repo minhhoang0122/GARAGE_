@@ -14,5 +14,8 @@ public record ReceptionListDTO(
         String trangThai,
         String hinhAnh,
         String receptionistName,
-        String receptionistAvatar) {
+        String receptionistAvatar,
+        Integer thoChanDoanId,
+        String thoChanDoanName,
+        String foremanAvatar) {
 }

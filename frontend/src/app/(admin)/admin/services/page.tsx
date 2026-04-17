@@ -17,6 +17,7 @@ import type { Product } from '@/modules/admin/services/admin';
 // Pending changes state structure
 type PendingChange = {
     price?: number;
+    vatRate?: number;
     warrantyMonths?: number;
     warrantyKm?: number;
 };
@@ -31,7 +32,7 @@ export default function ServicesPage() {
     );
 }
 
-function ServicesContent() {
+export function ServicesContent() {
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState<'service' | 'part'>('service');
@@ -72,6 +73,14 @@ function ServicesContent() {
         }));
     };
 
+    const handleVatChange = (id: number, val: string) => {
+        const num = parseFloat(val) || 0;
+        setPendingChanges(prev => ({
+            ...prev,
+            [id]: { ...prev[id], vatRate: num }
+        }));
+    };
+
     const hasChanges = Object.keys(pendingChanges).length > 0;
 
     const handleSave = async () => {
@@ -100,10 +109,11 @@ function ServicesContent() {
         const now = new Date();
         const dateStr = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
         const fileName = `BangGia_${activeTab}_${dateStr}.csv`;
-        const headers = ["Mã Hàng", "Tên Hàng", "Phân loại", "Tồn Kho", "Giá Vốn", "Giá Bán", "Lợi Nhuận (%)", "BH (Tháng)", "BH (Km)"];
+        const headers = ["Mã Hàng", "Tên Hàng", "Phân loại", "Tồn Kho", "Giá Vốn", "Giá Bán", "Thuế (%)", "Lợi Nhuận (%)", "BH (Tháng)", "BH (Km)"];
 
         const rows = filteredProducts.map((p: Product) => {
             const currentPrice = pendingChanges[p.id]?.price !== undefined ? pendingChanges[p.id].price! : (p.giaBanNiemYet || 0);
+            const currentVat = pendingChanges[p.id]?.vatRate !== undefined ? pendingChanges[p.id].vatRate! : (p.vatRate || 10.0);
             const costPrice = p.giaVon || 0;
             const profitPercent = costPrice > 0 ? ((currentPrice - costPrice) / costPrice) * 100 : 100;
 
@@ -114,6 +124,7 @@ function ServicesContent() {
                 p.soLuongTon,
                 costPrice,
                 currentPrice,
+                currentVat,
                 profitPercent.toFixed(2),
                 p.baoHanhSoThang,
                 p.baoHanhKm
@@ -274,6 +285,9 @@ function ServicesContent() {
                                     <>
                                         <th className="text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-[150px] whitespace-nowrap">Bảo Hành (Tháng)</th>
                                         <th className="text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-[150px] whitespace-nowrap">Bảo Hành (Km)</th>
+                                        {activeTab !== 'service' && (
+                                            <th className="text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-[100px] whitespace-nowrap">Thuế (%)</th>
+                                        )}
                                         <th className="text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-[180px] pr-8 whitespace-nowrap">Giá Niêm Yết</th>
                                     </>
                                 )}
@@ -297,6 +311,11 @@ function ServicesContent() {
                                         <th className="text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-[200px]">
                                             {activeTab === 'service' ? 'Phí Dịch Vụ' : 'Giá Bán (VNĐ)'}
                                         </th>
+                                        {activeTab !== 'service' && (
+                                            <th className="text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-[100px]">
+                                                Thuế (%)
+                                            </th>
+                                        )}
                                         <th className="text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-[120px] pr-6">
                                             <div className="flex items-center justify-end gap-1">
                                                 <Percent className="w-3 h-3 text-slate-400" />
@@ -320,7 +339,8 @@ function ServicesContent() {
                                     const isPriceChanged = changes.price !== undefined && changes.price !== p.giaBanNiemYet;
                                     const isMonthChanged = changes.warrantyMonths !== undefined && changes.warrantyMonths !== p.baoHanhSoThang;
                                     const isKmChanged = changes.warrantyKm !== undefined && changes.warrantyKm !== p.baoHanhKm;
-                                    const hasAnyChange = isPriceChanged || isMonthChanged || isKmChanged;
+                                    const isVatChanged = changes.vatRate !== undefined && changes.vatRate !== p.vatRate;
+                                    const hasAnyChange = isPriceChanged || isMonthChanged || isKmChanged || isVatChanged;
 
                                     const currentPrice = changes.price !== undefined ? changes.price : (p.giaBanNiemYet || 0);
                                     const costPrice = p.giaVon || 0;
@@ -358,6 +378,11 @@ function ServicesContent() {
                                                             />
                                                         </div>
                                                     </td>
+                                                    {activeTab !== 'service' && (
+                                                        <td className="px-4 py-3 text-center font-medium text-slate-600 dark:text-slate-400">
+                                                            {p.vatRate}%
+                                                        </td>
+                                                    )}
                                                     <td className="px-4 py-4 text-right font-medium text-slate-700 dark:text-slate-300 pr-8 whitespace-nowrap">
                                                         {formatCurrency(p.giaBanNiemYet)}
                                                     </td>
@@ -386,6 +411,20 @@ function ServicesContent() {
                                                             />
                                                         </div>
                                                     </td>
+                                                    {activeTab !== 'service' && (
+                                                        <td className="px-4 py-2">
+                                                            <div className="flex justify-center">
+                                                                <input
+                                                                    type="text"
+                                                                    className={`w-16 px-2 py-1.5 text-center font-bold text-sm border rounded-lg focus:outline-none focus:ring-2 transition-all ${isVatChanged
+                                                                        ? 'border-indigo-500 ring-1 ring-indigo-200 text-indigo-700 bg-white'
+                                                                        : 'border-slate-200 bg-slate-50/50 group-hover:bg-white group-hover:border-slate-300'}`}
+                                                                    value={changes.vatRate !== undefined ? changes.vatRate : p.vatRate}
+                                                                    onChange={(e) => handleVatChange(p.id, e.target.value)}
+                                                                />
+                                                            </div>
+                                                        </td>
+                                                    )}
                                                     <td className={`px-6 py-4 text-right font-mono font-bold text-xs pr-6 ${profitPercent < 15 ? "text-rose-500" : "text-emerald-600"}`}>
                                                         {profitPercent.toFixed(1)}%
                                                     </td>
@@ -436,8 +475,18 @@ function CreateProductModal({ isOpen, onClose, onSuccess, type }: { isOpen: bool
         laDichVu: type === 'service',
         baoHanhSoThang: 0,
         baoHanhKm: 0,
+        vatRate: type === 'service' ? 0.0 : 10.0,
         description: ''
     });
+
+    useEffect(() => {
+        if (type === 'service') {
+            setFormData(prev => ({ ...prev, vatRate: 0.0, laDichVu: true }));
+        } else {
+            setFormData(prev => ({ ...prev, laDichVu: false }));
+        }
+    }, [type]);
+
     const createMutation = useCreateProduct();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -525,12 +574,30 @@ function CreateProductModal({ isOpen, onClose, onSuccess, type }: { isOpen: bool
                             <input
                                 type="number"
                                 min="0"
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none dark:bg-slate-800 dark:border-slate-700 transition-all"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none dark:bg-slate-800 dark:border-slate-700 transition-all font-mono"
                                 value={formData.baoHanhKm}
                                 onChange={(e) => setFormData({ ...formData, baoHanhKm: parseInt(e.target.value) || 0 })}
                             />
                         </div>
                     </div>
+
+                    {!formData.laDichVu && (
+                        <div className="grid grid-cols-2 gap-5">
+                            <div className="space-y-1.5 font-bold">
+                                <label className="block text-xs font-semibold text-indigo-500 uppercase tracking-wider">Thuế suất VAT (%)</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    max="100"
+                                    required
+                                    className="w-full px-3 py-2 border border-indigo-100 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none dark:bg-slate-800 dark:border-indigo-900/30 transition-all font-bold text-indigo-700"
+                                    value={formData.vatRate}
+                                    onChange={(e) => setFormData({ ...formData, vatRate: parseFloat(e.target.value) || 0 })}
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     <div className="space-y-1.5">
                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Mô tả chi tiết</label>

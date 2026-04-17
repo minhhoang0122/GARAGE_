@@ -38,7 +38,7 @@ export const RealtimeProvider = ({ children }: { children: ReactNode }) => {
     const listenersRef = useRef<Map<string, Set<(data: any) => void>>>(new Map());
     const subscriptionsRef = useRef<Map<string, any>>(new Map());
 
-    const token = (session?.user as any)?.accessToken || getCookie('token');
+    const token = (session as any)?.accessToken || (session?.user as any)?.accessToken || getCookie('token');
 
     // Quản lý danh sách thông báo qua TanStack Query
     const { data: notifications = [], isLoading: loading, refetch: fetchNotifications } = useQuery<any[]>({
@@ -90,7 +90,7 @@ export const RealtimeProvider = ({ children }: { children: ReactNode }) => {
     const triggerListeners = React.useCallback((event: string, data: any) => {
         // Dispatch window event for legacy hooks like useRealtimeUpdate
         window.dispatchEvent(new CustomEvent('sse-update', { 
-            detail: { ...data, sseType: event } 
+            detail: { ...(data || {}), sseType: event } 
         }));
 
         listenersRef.current.get(event)?.forEach(cb => cb(data));
@@ -100,14 +100,26 @@ export const RealtimeProvider = ({ children }: { children: ReactNode }) => {
             queryClient.invalidateQueries({ queryKey: ['staff'] });
             queryClient.invalidateQueries({ queryKey: ['users'] });
         }
-        if (event === 'order_updated' || event === 'order_claimed') {
+        if (event === 'order_updated' || event === 'order_claimed' || event === 'job_claimed' || event === 'job_unclaimed' || event === 'reception_updated') {
             queryClient.invalidateQueries({ queryKey: ['orders'] });
+            queryClient.invalidateQueries({ queryKey: ['reception'] });
+            queryClient.invalidateQueries({ queryKey: ['mechanic'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
+
+            // Play sound for critical updates even if not a formal notification
+            if (event === 'reception_updated' || event === 'order_updated' || event === 'job_claimed') {
+                try {
+                    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+                    audio.volume = 0.5;
+                    audio.play().catch(() => {});
+                } catch (e) {}
+            }
         }
 
         if (event === 'notification') {
             // Play notification sound
             try {
-                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
                 audio.volume = 0.5;
                 audio.play().catch(() => {});
             } catch (e) {}
@@ -159,16 +171,38 @@ export const RealtimeProvider = ({ children }: { children: ReactNode }) => {
 
         // Initialize STOMP Client with SockJS
         // URL format: [BASE_URL]/api/garage-ws?token=[TOKEN]
-        const socketUrl = `${BASE_URL}/api/garage-ws?token=${token}`;
+        const getSocketUrl = (): string => {
+            let url = `${BASE_URL}/api/garage-ws?token=${token}`;
+            
+            if (typeof window === 'undefined') return url;
+
+            const isHttpsPage = window.location.protocol === 'https:';
+
+            // Always upgrade to secure protocol if the page is secure (Mandatory for browsers)
+            // Even for localhost, if your page is HTTPS, the connection MUST be secure or it'll be blocked (Mixed Content)
+            if (isHttpsPage && (url.startsWith('http:') || url.startsWith('ws:'))) {
+                const secureProtocol = url.startsWith('http:') ? 'https:' : 'wss:';
+                console.info(`[Realtime] Secure context detected. Upgrading ${url.split(':')[0]}: to ${secureProtocol}`);
+                return url.replace('http:', 'https:').replace('ws:', 'wss:');
+            }
+            
+            return url;
+        };
+
+        const socketUrl = getSocketUrl();
+        console.log(`[Realtime] Final Socket URL: ${socketUrl}`);
         
         const client = new Client({
             webSocketFactory: () => new SockJS(socketUrl),
+            connectHeaders: {
+                'Authorization': `Bearer ${token}`
+            },
             reconnectDelay: 5000,
             heartbeatIncoming: 4000,
             heartbeatOutgoing: 4000,
-            onConnect: () => {
+            onConnect: (frame) => {
                 setIsConnected(true);
-                console.log('[STOMP] Connected successfully via SockJS');
+                console.log('[STOMP] Connected successfully via SockJS', frame.headers['user-name'] || '');
 
                 // Subscribe to default topics
                 client.subscribe('/topic/global', (msg) => {
@@ -184,6 +218,7 @@ export const RealtimeProvider = ({ children }: { children: ReactNode }) => {
                 // User-specific queue (/user/queue/notifications)
                 client.subscribe('/user/queue/notifications', (msg) => {
                     const body = JSON.parse(msg.body);
+                    console.log(`[Realtime] Received private message: ${body.event}`, body.data);
                     triggerListeners(body.event, body.data);
                 });
 
@@ -200,9 +235,20 @@ export const RealtimeProvider = ({ children }: { children: ReactNode }) => {
                     subscriptionsRef.current.set(topic, sub);
                 });
 
-                // Auto re-subscribe to role topic if exists
+                // Auto re-subscribe to all roles from session (More robust than localStorage)
+                const userRoles = (session?.user as any)?.roles || [];
+                userRoles.forEach((role: string) => {
+                    console.log(`[STOMP] Subscribing to role topic: /topic/role:${role}`);
+                    client.subscribe(`/topic/role:${role}`, (msg) => {
+                        const body = JSON.parse(msg.body);
+                        console.log(`[Realtime] Received role message (${role}): ${body.event}`, body.data);
+                        triggerListeners(body.event, body.data);
+                    });
+                });
+
+                // Fallback for active_role from localStorage if not in session roles
                 const activeRole = localStorage.getItem('active_role');
-                if (activeRole) {
+                if (activeRole && !userRoles.includes(activeRole)) {
                     client.subscribe(`/topic/role:${activeRole}`, (msg) => {
                         const body = JSON.parse(msg.body);
                         triggerListeners(body.event, body.data);
@@ -216,6 +262,11 @@ export const RealtimeProvider = ({ children }: { children: ReactNode }) => {
             onStompError: (frame) => {
                 console.error('[STOMP] Broker error: ' + frame.headers['message']);
                 console.error('[STOMP] Additional details: ' + frame.body);
+                console.error('[STOMP] Full frame:', frame);
+            },
+            onWebSocketClose: (event) => {
+                console.log('[STOMP] WebSocket closed:', event.code, event.reason);
+                setIsConnected(false);
             }
         });
 

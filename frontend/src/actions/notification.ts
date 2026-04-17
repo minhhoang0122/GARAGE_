@@ -7,8 +7,11 @@ import { revalidatePath } from 'next/cache';
 // 1. Get Unread Notifications
 export async function getUnreadNotifications() {
     const session = await auth();
-    const token = (session?.user as any)?.accessToken;
-    if (!token) return [];
+    const token = (session as any)?.accessToken;
+    if (!token) {
+        console.warn("[getUnreadNotifications] No token found in session");
+        return [];
+    }
 
     try {
         const notifications = await api.get(`/notifications?t=${Date.now()}`, token);
@@ -30,31 +33,37 @@ export async function getUnreadNotifications() {
 // 3. Mark As Read
 export async function markAsRead(notificationId: number) {
     const session = await auth();
-    const token = (session?.user as any)?.accessToken;
-    if (!token) return { success: false };
+    const token = (session as any)?.accessToken;
+    if (!token) return { success: false, error: 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' };
 
     try {
         await api.put(`/notifications/${notificationId}/read`, {}, token);
+        // Clean cache for GET /api/notifications
         api.invalidateCache('/notifications');
         revalidatePath('/');
         return { success: true };
-    } catch (error) {
-        return { success: false };
+    } catch (error: any) {
+        // Trích xuất message một cách an toàn
+        const errorMessage = error?.message || error?.error || (typeof error === 'string' ? error : 'Lỗi không xác định khi đánh dấu đã đọc');
+        console.error(`[Server Action] markAsRead FAILED for ID ${notificationId}:`, error);
+        return { success: false, error: errorMessage };
     }
 }
 
 // 4. Mark All As Read
 export async function markAllAsRead() {
     const session = await auth();
-    const token = (session?.user as any)?.accessToken;
-    if (!token) return { success: false };
+    const token = (session as any)?.accessToken;
+    if (!token) return { success: false, error: 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' };
 
     try {
         await api.put('/notifications/read-all', {}, token);
         api.invalidateCache('/notifications');
         revalidatePath('/');
         return { success: true };
-    } catch (error) {
-        return { success: false };
+    } catch (error: any) {
+        const errorMessage = error?.message || error?.error || (typeof error === 'string' ? error : 'Lỗi không xác định khi đánh dấu tất cả đã đọc');
+        console.error(`[Server Action] markAllAsRead FAILED:`, error);
+        return { success: false, error: errorMessage };
     }
 }

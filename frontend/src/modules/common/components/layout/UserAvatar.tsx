@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProfileDrawer from './ProfileDrawer';
 import AvatarUploadModal from './AvatarUploadModal';
-import { usePresence, updateStaffMember } from '@/hooks/usePresence';
+import { usePresence } from '@/hooks/usePresence';
 import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
 import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -25,9 +25,9 @@ export default function UserAvatar() {
     const user = session?.user;
     const avatarUrl = user?.image;
     const initial = user?.name?.charAt(0).toUpperCase() || 'U';
-    const roleName = (user as any)?.vaiTro || (user as any)?.roles?.[0]?.name || (user as any)?.roles?.[0] || 'Chưa xác định';
-    const { isOnline } = usePresence();
-    const online = isOnline(user?.id || '');
+    const roleName = (user as any)?.role || (user as any)?.roles?.[0] || 'Chưa xác định';
+    const presence = usePresence();
+    const online = presence.isOnline(user?.id || '');
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -53,7 +53,7 @@ export default function UserAvatar() {
         },
         onSuccess: async (_, newAvatarUrl) => {
             // 1. Cập nhật state nội bộ của usePresence (đồng bộ Sidebar/Topbar ngay lập tức)
-            updateStaffMember(Number(user?.id), { avatar: newAvatarUrl });
+            presence.updateStaffMember(Number(user?.id), { avatar: newAvatarUrl });
             
             // 2. Cập nhật session của NextAuth
             await update({

@@ -1,22 +1,22 @@
 export interface Supplier {
     id: number;
-    maNcc: string;
-    tenNcc: string;
+    supplierCode: string;
+    name: string;
     phone?: string;
     email?: string;
-    diaChi?: string;
-    maSoThue?: string;
-    ghiChu?: string;
+    address?: string;
+    taxCode?: string;
+    notes?: string;
     active: boolean;
-    ngayTao?: string;
+    createdAt?: string;
 }
 
 export interface CreateSupplierDto {
-    maNcc: string;
-    tenNcc: string;
+    supplierCode: string;
+    name: string;
     phone?: string;
     email?: string;
-    diaChi?: string;
-    maSoThue?: string;
-    ghiChu?: string;
+    address?: string;
+    taxCode?: string;
+    notes?: string;
 }

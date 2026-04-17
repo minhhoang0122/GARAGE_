@@ -17,41 +17,33 @@ export interface MenuGroup {
 export const ROLE_MENUS: Record<string, MenuGroup[]> = {
     ADMIN: [
         {
+            title: 'Hệ thống Quản trị',
             items: [
-                { label: 'Tổng quan', href: '/admin', icon: 'LayoutDashboard' },
-                { label: 'Dịch vụ & Giá', href: '/admin/services', icon: 'Tag' },
-                { label: 'Tài chính', href: '/admin/finance', icon: 'Wallet' },
+                { label: 'Tổng quan', href: '/admin/overview', icon: 'LayoutDashboard' },
+                { label: 'Kinh doanh', href: '/admin/business-ops', icon: 'DollarSign' },
                 { label: 'Khách hàng', href: '/sale/customers', icon: 'Users' },
-                { label: 'Nhà cung cấp', href: '/warehouse/suppliers', icon: 'Truck' },
-                { label: 'Tài khoản khách', href: '/admin/customers/accounts', icon: 'Users' },
-                { label: 'Nhân sự', href: '/admin/users', icon: 'UserCog' },
-                { label: 'Báo cáo', href: '/dashboard', icon: 'BarChart3' },
-                { label: 'Cấu hình', href: '/admin/config', icon: 'Settings' },
-                { label: 'Nhật ký', href: '/admin/logs', icon: 'History' },
-                { label: 'Tiến trình đơn', href: '/admin/order-timelines', icon: 'Activity' },
-                { label: 'Hồ sơ Xe', href: '/admin/vehicle-histories', icon: 'CarFront' },
             ],
         },
         {
-            title: 'Quản lý Nội dung',
+            title: 'Vận hành & Kho',
             items: [
-                { label: 'Landing Page', href: '/admin/cms/landing', icon: 'Component' },
-                { label: 'Bài viết Blog', href: '/admin/cms/blog', icon: 'FileText' },
-                { label: 'Thông báo', href: '/admin/cms/announcements', icon: 'Megaphone' },
+                { label: 'Vận hành', href: '/admin/operations', icon: 'Activity' },
+                { label: 'Kho vận', href: '/admin/warehouse-ops', icon: 'Boxes' },
+                { label: 'Nhân sự', href: '/admin/personnel', icon: 'UserCog' },
+            ],
+        },
+        {
+            title: 'Tài nguyên',
+            items: [
+                { label: 'Nội dung CMS', href: '/admin/cms', icon: 'Component' },
+                { label: 'Hệ thống', href: '/admin/system', icon: 'Settings' },
             ],
         },
     ],
     SALE: [
         {
             items: [
-                { label: 'Tổng quan', href: '/sale', icon: 'LayoutDashboard' },
-                { label: 'Tiếp nhận xe', href: '/sale/reception', icon: 'Car' },
-                { label: 'Đơn hàng', href: '/sale/orders', icon: 'FileText' },
-                { label: 'Khách hàng', href: '/sale/customers', icon: 'Users' },
-                { label: 'Thu ngân', href: '/sale/checkout', icon: 'CreditCard' },
-                { label: 'Bảo hành', href: '/sale/warranty-claims', icon: 'ShieldCheck' },
-                { label: 'Lịch hẹn', href: '/sale/bookings', icon: 'ClipboardCheck' },
-                { label: 'Hồ sơ Xe', href: '/admin/vehicle-histories', icon: 'CarFront' },
+                { label: 'Khoang Bán hàng', href: '/sale', icon: 'ShoppingCart' },
             ],
         },
     ],
@@ -63,6 +55,7 @@ export const ROLE_MENUS: Record<string, MenuGroup[]> = {
                 { label: 'Quản lý nhập', href: '/warehouse/import/management', icon: 'ClipboardCheck' },
                 { label: 'Xuất kho', href: '/warehouse/export', icon: 'PackageMinus' },
                 { label: 'Tồn kho', href: '/warehouse/inventory', icon: 'Boxes' },
+                { label: 'Kiểm kê kho', href: '/warehouse/inventory-check', icon: 'ClipboardSignature' },
                 { label: 'Lịch sử', href: '/warehouse/history', icon: 'History' },
                 { label: 'Nhà cung cấp', href: '/warehouse/suppliers', icon: 'Truck' },
             ],

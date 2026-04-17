@@ -1,6 +1,6 @@
 'use client';
 
-import { useFinalizeOrder, useSubmitQuote, useCancelOrder, useCloseOrder } from '@/modules/sale/hooks/useSale';
+import { useFinalizeOrder, useSubmitQuote, useCancelOrder } from '@/modules/sale/hooks/useSale';
 import { FileCheck, Printer, Loader2, Send, XCircle, CheckCircle, PlusCircle, AlertTriangle, DollarSign, Wrench } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -61,7 +61,6 @@ export default function OrderActions({ orderId, status, hasProposedItems = false
     const { mutate: finalizeMatch, isPending: isFinalizing } = useFinalizeOrder();
     const { mutate: submitQuoteMatch, isPending: isSubmitting } = useSubmitQuote();
     const { mutate: cancelMatch, isPending: isCanceling } = useCancelOrder();
-
 
     const isPending = isFinalizing || isSubmitting || isCanceling;
     const isActionDisabled = isPending || isItemUpdating;

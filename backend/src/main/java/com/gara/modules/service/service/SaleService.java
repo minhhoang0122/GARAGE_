@@ -29,8 +29,12 @@ import java.util.HashMap;
 import java.util.stream.Collectors;
 import com.gara.entity.enums.OrderStatus;
 import com.gara.entity.enums.ItemStatus;
+import com.gara.entity.enums.OldPartAction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
+@Transactional
 public class SaleService {
     private static final Logger log = LoggerFactory.getLogger(SaleService.class);
 
@@ -143,6 +147,8 @@ public class SaleService {
                     String plate = "N/A";
                     String customer = "N/A";
                     String receptionist = "N/A";
+                    String brand = "";
+                    String model = "";
                     int odo = 0;
 
                     if (o.getReception() != null) {
@@ -151,6 +157,8 @@ public class SaleService {
                         }
                         if (o.getReception().getVehicle() != null) {
                             plate = o.getReception().getVehicle().getLicensePlate() != null ? o.getReception().getVehicle().getLicensePlate() : "N/A";
+                            brand = o.getReception().getVehicle().getBrand() != null ? o.getReception().getVehicle().getBrand() : "";
+                            model = o.getReception().getVehicle().getModel() != null ? o.getReception().getVehicle().getModel() : "";
                             if (o.getReception().getVehicle().getCustomer() != null) {
                                 customer = o.getReception().getVehicle().getCustomer().getFullName() != null ? o.getReception().getVehicle().getCustomer().getFullName() : "Khách vãng lai";
                             }
@@ -167,6 +175,8 @@ public class SaleService {
                             .time(o.getCreatedAt())
                             .odo(odo)
                             .receptionistName(receptionist)
+                            .vehicleBrand(brand)
+                            .vehicleModel(model)
                             .build();
                 })
                 .toList();
@@ -176,8 +186,30 @@ public class SaleService {
         List<DashboardStatsDTO.DashboardOrderDTO> recentOrders = recentOrdersList.stream()
                 .map(o -> {
                     String plate = "N/A";
-                    if (o.getReception() != null && o.getReception().getVehicle() != null && o.getReception().getVehicle().getLicensePlate() != null) {
-                        plate = o.getReception().getVehicle().getLicensePlate();
+                    String customer = "N/A";
+                    String brand = "";
+                    String model = "";
+                    String receptionist = "N/A";
+                    int itemCount = 0;
+
+                    if (o.getReception() != null) {
+                        if (o.getReception().getVehicle() != null) {
+                            plate = o.getReception().getVehicle().getLicensePlate() != null ? o.getReception().getVehicle().getLicensePlate() : "N/A";
+                            brand = o.getReception().getVehicle().getBrand() != null ? o.getReception().getVehicle().getBrand() : "";
+                            model = o.getReception().getVehicle().getModel() != null ? o.getReception().getVehicle().getModel() : "";
+                            if (o.getReception().getVehicle().getCustomer() != null) {
+                                customer = o.getReception().getVehicle().getCustomer().getFullName() != null ? o.getReception().getVehicle().getCustomer().getFullName() : "Khách vãng lai";
+                            }
+                        }
+                        if (o.getReception().getReceptionist() != null) {
+                            receptionist = o.getReception().getReceptionist().getFullName() != null ? o.getReception().getReceptionist().getFullName() : "N/A";
+                        }
+                    } else if (o.getServiceAdvisor() != null) {
+                        receptionist = o.getServiceAdvisor().getFullName();
+                    }
+
+                    if (o.getOrderItems() != null) {
+                        itemCount = o.getOrderItems().size();
                     }
 
                     return DashboardStatsDTO.DashboardOrderDTO.builder()
@@ -185,6 +217,12 @@ public class SaleService {
                             .plate(plate)
                             .total(o.getGrandTotal())
                             .status(o.getStatus().name())
+                            .customerName(customer)
+                            .time(o.getCreatedAt())
+                            .receptionistName(receptionist)
+                            .vehicleBrand(brand)
+                            .vehicleModel(model)
+                            .itemCount(itemCount)
                             .build();
                 })
                 .toList();
@@ -232,9 +270,13 @@ public class SaleService {
                                         a.getId(),
                                         a.getMechanic().getId(),
                                         a.getMechanic().getFullName(),
+                                        a.getMechanic().getAvatar(),
                                         a.getIsMainMechanic()))
                                 .collect(java.util.stream.Collectors.toList()) : new java.util.ArrayList<>())
                         .version(i.getVersion())
+                        .vatPercentage(i.getVatPercentage())
+                        .vatAmount(i.getVatAmount())
+                        .oldPartAction(i.getOldPartAction() != null ? i.getOldPartAction().name() : null)
                         .build())
                 .toList();
 
@@ -272,15 +314,18 @@ public class SaleService {
                 .vatPercent(order.getVatPercentage())
                 .totalAmount((order.getPartsTotal() != null ? order.getPartsTotal() : BigDecimal.ZERO)
                         .add(order.getLaborTotal() != null ? order.getLaborTotal() : BigDecimal.ZERO))
+                .partsAmount(order.getPartsTotal() != null ? order.getPartsTotal() : BigDecimal.ZERO)
+                .laborAmount(order.getLaborTotal() != null ? order.getLaborTotal() : BigDecimal.ZERO)
                 .finalAmount(finalAmount)
                 .paidAmount(totalPaid)
                 .deposit(deposit)
-                .thoChanDoanId(order.getDiagnosticMechanic() != null ? order.getDiagnosticMechanic().getId() : null)
+                .thoChanDoanId(order.getDiagnosticMechanic() != null ? order.getDiagnosticMechanic().getId() : (order.getAssignedMechanic() != null ? order.getAssignedMechanic().getId() : null))
                 .receptionId(order.getReception() != null ? order.getReception().getId() : null)
-                .advisorName(order.getServiceAdvisor() != null ? (order.getServiceAdvisor().getFullName() != null ? order.getServiceAdvisor().getFullName() : order.getServiceAdvisor().getUsername()) : "N/A")
-                .advisorAvatar(order.getServiceAdvisor() != null ? order.getServiceAdvisor().getAvatar() : null)
-                .foremanName(order.getDiagnosticMechanic() != null ? (order.getDiagnosticMechanic().getFullName() != null ? order.getDiagnosticMechanic().getFullName() : order.getDiagnosticMechanic().getUsername()) : "N/A")
-                .foremanAvatar(order.getDiagnosticMechanic() != null ? order.getDiagnosticMechanic().getAvatar() : null)
+                .advisorName(order.getServiceAdvisor() != null ? (order.getServiceAdvisor().getFullName() != null ? order.getServiceAdvisor().getFullName() : order.getServiceAdvisor().getUsername()) : (order.getReception() != null && order.getReception().getReceptionist() != null ? (order.getReception().getReceptionist().getFullName() != null ? order.getReception().getReceptionist().getFullName() : order.getReception().getReceptionist().getUsername()) : "N/A"))
+                .advisorAvatar(order.getServiceAdvisor() != null ? order.getServiceAdvisor().getAvatar() : (order.getReception() != null && order.getReception().getReceptionist() != null ? order.getReception().getReceptionist().getAvatar() : null))
+                .foremanName(order.getDiagnosticMechanic() != null ? (order.getDiagnosticMechanic().getFullName() != null ? order.getDiagnosticMechanic().getFullName() : order.getDiagnosticMechanic().getUsername()) : (order.getAssignedMechanic() != null ? (order.getAssignedMechanic().getFullName() != null ? order.getAssignedMechanic().getFullName() : order.getAssignedMechanic().getUsername()) : "N/A"))
+                .foremanAvatar(order.getDiagnosticMechanic() != null ? order.getDiagnosticMechanic().getAvatar() : (order.getAssignedMechanic() != null ? order.getAssignedMechanic().getAvatar() : null))
+                .uuid(order.getUuid() != null ? order.getUuid().toString() : null)
                 .build();
     }
 
@@ -301,37 +346,96 @@ public class SaleService {
                         .code(p.getSku())
                         .name(p.getName())
                         .price(p.getRetailPrice())
+                        .retailPrice(p.getRetailPrice())
                         .costPrice(p.getCostPrice())
+                        .vatRate(p.getVatRate())
                         .isService(p.getIsService())
-                        .stock(p.getStockQuantity())
+                        .stock(p.getIsService() ? 0 : reservationService.getAvailableStock(p.getId()))
                         .build())
                 .toList();
     }
 
+    @Transactional
+    public ProductDTO createProduct(ProductDTO dto) {
+        log.info("Creating new product/service: {}", dto.name());
+        
+        // Generate SKU if missing
+        String sku = dto.sku() != null ? dto.sku() : dto.code();
+        if (sku == null || sku.isBlank()) {
+            sku = "GEN-" + System.currentTimeMillis();
+        }
+        
+        Product product = Product.builder()
+                .sku(sku)
+                .name(dto.name())
+                .retailPrice(dto.retailPrice() != null ? dto.retailPrice() : (dto.price() != null ? dto.price() : BigDecimal.ZERO))
+                .costPrice(dto.costPrice() != null ? dto.costPrice() : BigDecimal.ZERO)
+                .isService(dto.isService() != null ? dto.isService() : false)
+                .stockQuantity(dto.stock() != null ? dto.stock() : 0)
+                .vatRate((dto.isService() != null && dto.isService()) ? BigDecimal.ZERO : (dto.vatRate() != null ? dto.vatRate() : new BigDecimal("10.00")))
+                .isWarrantyEligible(dto.allowWarranty() != null ? dto.allowWarranty() : true)
+                .build();
+                
+        Product saved = productRepository.save(product);
+        
+        return ProductDTO.builder()
+                .id(saved.getId())
+                .sku(saved.getSku())
+                .name(saved.getName())
+                .retailPrice(saved.getRetailPrice())
+                .costPrice(saved.getCostPrice())
+                .isService(saved.getIsService())
+                .stock(saved.getStockQuantity())
+                .vatRate(saved.getVatRate())
+                .allowWarranty(saved.getIsWarrantyEligible())
+                .build();
+    }
+
     // 3. Add Item
-    public List<Customer> searchCustomers(String keyword) {
+    public List<CustomerDTO> searchCustomers(String keyword) {
         log.info("Searching customers with keyword: '{}'", keyword);
         try {
-            if (keyword == null || keyword.isBlank()) {
-                // Optimized: Return only recent 50 customers instead of all
-                List<Customer> recent = customerRepository.findRecentCustomers();
-                log.debug("Found {} recent customers", recent != null ? recent.size() : 0);
-                return recent != null ? recent : new ArrayList<>();
+            List<Customer> customers;
+            if (keyword == null || keyword.trim().isEmpty()) {
+                customers = customerRepository.findRecentCustomers();
+            } else {
+                customers = customerRepository.searchByKeyword(keyword);
             }
-            List<Customer> results = customerRepository.searchByKeyword(keyword);
-            log.debug("Found {} customers for keyword '{}'", results != null ? results.size() : 0, keyword);
-            return results != null ? results : new ArrayList<>();
+            return customers.stream().map(this::mapToCustomerDTO).collect(java.util.stream.Collectors.toList());
         } catch (Exception e) {
             log.error("Error searching customers for keyword '{}': {}", keyword, e.getMessage(), e);
             return new ArrayList<>();
         }
     }
 
-    public Customer createCustomer(Customer customer) {
+    private CustomerDTO mapToCustomerDTO(Customer customer) {
+        List<String> plates = new ArrayList<>();
+        if (customer.getVehicles() != null) {
+            plates = customer.getVehicles().stream()
+                    .map(Vehicle::getLicensePlate)
+                    .collect(java.util.stream.Collectors.toList());
+        }
+
+        return CustomerDTO.builder()
+                .id(customer.getId())
+                .fullName(customer.getFullName())
+                .phone(customer.getPhone())
+                .email(customer.getEmail())
+                .address(customer.getAddress())
+                .notes(customer.getNotes())
+                .customerGroup(customer.getCustomerGroup())
+                .lastVisit(customer.getCreatedAt())
+                .vehicleCount(plates.size())
+                .licensePlates(plates)
+                .build();
+    }
+
+    public CustomerDTO createCustomer(Customer customer) {
         if (customerRepository.findByPhone(customer.getPhone()).isPresent()) {
             throw new RuntimeException("Số điện thoại đã tồn tại");
         }
-        return customerRepository.save(customer);
+        Customer saved = customerRepository.save(customer);
+        return mapToCustomerDTO(saved);
     }
 
     @Transactional
@@ -358,17 +462,26 @@ public class SaleService {
         reception.setRepairOrder(savedOrder);
         receptionRepository.save(reception);
 
+        // Broadcast Real-time
+        Map<String, Object> sseData = new HashMap<>();
+        sseData.put("orderId", savedOrder.getId());
+        sseData.put("receptionId", receptionId);
+        sseData.put("claimedBy", user.getFullName());
+        realtimeService.broadcast("order_claimed", sseData);
+
         return savedOrder;
     }
 
-    public Customer getCustomerById(Integer id) {
-        return customerRepository.findById(id)
+    public CustomerDTO getCustomerById(Integer id) {
+        Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy khách hàng với ID: " + id, HttpStatus.NOT_FOUND));
+        return mapToCustomerDTO(customer);
     }
 
     @Transactional
-    public Customer updateCustomer(Integer id, Customer customerData) {
-        Customer existing = getCustomerById(id);
+    public CustomerDTO updateCustomer(Integer id, Customer customerData) {
+        Customer existing = customerRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy khách hàng với ID: " + id, HttpStatus.NOT_FOUND));
 
         if (customerData.getFullName() != null) existing.setFullName(customerData.getFullName());
         if (customerData.getPhone() != null) existing.setPhone(customerData.getPhone());
@@ -377,7 +490,8 @@ public class SaleService {
         if (customerData.getNotes() != null) existing.setNotes(customerData.getNotes());
         if (customerData.getCustomerGroup() != null) existing.setCustomerGroup(customerData.getCustomerGroup());
 
-        return customerRepository.save(existing);
+        Customer updated = customerRepository.save(existing);
+        return mapToCustomerDTO(updated);
     }
 
     @Transactional
@@ -399,6 +513,9 @@ public class SaleService {
         OrderItem item = new OrderItem();
         item.setRepairOrder(order);
         item.setProduct(product);
+        item.setWarrantyMonths(product.getWarrantyMonths() != null ? product.getWarrantyMonths() : 0);
+        item.setWarrantyKm(product.getWarrantyKm() != null ? product.getWarrantyKm() : 0);
+        
         if (product.getIsService()) {
             quantity = 1;
         } else if (quantity <= 0) {
@@ -406,12 +523,15 @@ public class SaleService {
         }
 
         BigDecimal unitPrice = product.getRetailPrice();
+        // Services have NO TAX (0%) regardless of product configuration
+        BigDecimal vatRate = product.getIsService() ? BigDecimal.ZERO : (product.getVatRate() != null ? product.getVatRate() : BigDecimal.ZERO);
         BigDecimal rawTotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
+        BigDecimal vatAmount = rawTotal.multiply(vatRate).divide(new BigDecimal("100"), 0, java.math.RoundingMode.HALF_UP);
 
         item.setQuantity(quantity);
         item.setUnitPrice(unitPrice);
-        item.setVatPercentage(BigDecimal.ZERO);
-        item.setVatAmount(BigDecimal.ZERO);
+        item.setVatPercentage(vatRate);
+        item.setVatAmount(vatAmount);
         item.setTotalAmount(rawTotal);
 
         // Handle Arising Issues (Rule 3.3)
@@ -427,17 +547,21 @@ public class SaleService {
 
         orderItemRepository.save(item);
 
+        // CRITICAL: Synchronize Inventory Reservations for real-time stock availability
+        if (!product.getIsService()) {
+            reservationService.createReservation(orderId, user.getId());
+        }
+
         // CRITICAL: Force refresh order from DB to synchronize collection
         entityManager.flush();
         entityManager.refresh(order);
 
-        // manual calculation removed; database triggers handle totals automatically.
-
-        // Broadcast SSE
+        // Broadcast SSE for Order Table UI refresh
         Map<String, Object> sseData = new HashMap<>();
         sseData.put("orderId", orderId);
+        sseData.put("receptionId", order.getReception().getId());
         sseData.put("type", "ADD_ITEM");
-        realtimeService.broadcast("order_item_status_changed", sseData);
+        realtimeService.broadcastToTopic("reception:" + order.getReception().getId(), "order_item_status_changed", sseData);
 
         // Timeline Log
         timelineService.recordEvent(order.getReception().getId(), user, "ADD_ITEM",
@@ -448,7 +572,7 @@ public class SaleService {
     // 4. Update Item
     @Transactional
     @CacheEvict(value = "dashboard_stats", allEntries = true)
-    public void updateItem(Integer itemId, Integer quantity, Double discountPercent, Integer version, User user) {
+    public void updateItem(Integer itemId, Integer quantity, Double discountPercent, String oldPartAction, Integer version, User user) {
         OrderItem item = orderItemRepository.findById(itemId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy hạng mục công việc", HttpStatus.NOT_FOUND));
 
@@ -461,14 +585,18 @@ public class SaleService {
         // Rule 10.2: Cannot edit approved items, only Arising (DE_XUAT) items
         OrderStatus orderStatus = item.getRepairOrder().getStatus();
         if (OrderStatus.APPROVED.equals(orderStatus) || OrderStatus.IN_PROGRESS.equals(orderStatus)) {
-            if (!ItemStatus.PROPOSAL.equals(item.getStatus())) {
-                throw new BusinessException("Không thể chỉnh sửa hạng mục đã được duyệt (Báo giá gốc).", HttpStatus.BAD_REQUEST);
+            // Exceptions: Always allow updating oldPartAction even if approved
+            if (oldPartAction == null) {
+                if (!ItemStatus.PROPOSAL.equals(item.getStatus())) {
+                    throw new BusinessException("Không thể chỉnh sửa hạng mục đã được duyệt (Báo giá gốc).", HttpStatus.BAD_REQUEST);
+                }
             }
         }
 
         // BigDecimal oldTotalAmount = item.getTotalAmount() != null ? item.getTotalAmount() : BigDecimal.ZERO;
         int oldQuantity = item.getQuantity();
         BigDecimal oldDiscount = item.getDiscountPercentage() != null ? item.getDiscountPercentage() : BigDecimal.ZERO;
+        OldPartAction oldOldPartAction = item.getOldPartAction();
 
         if (item.getProduct().getIsService()) {
             item.setQuantity(1);
@@ -483,32 +611,34 @@ public class SaleService {
             item.setDiscountPercentage(BigDecimal.valueOf(discountPercent));
         }
 
-        // Calculations are handled centrally in OrderCalculationService.recalculateTotals
-        BigDecimal rawSubtotal = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
-        
-        // Clear per-item tax/discount complexity for now as logic moved to global
-        item.setTotalAmount(rawSubtotal);
-        orderItemRepository.save(item);
-
-        // Logic moved to DB Triggers
-        /*
-        if (!ItemStatus.CUSTOMER_REJECTED.equals(item.getStatus())) {
-            BigDecimal delta = rawSubtotal.subtract(oldTotalAmount);
-            if (delta.compareTo(BigDecimal.ZERO) != 0) {
-                orderCalculationService.updateTotalsIncrementally(
-                    item.getRepairOrder().getId(), 
-                    delta, 
-                    item.getProduct() != null && item.getProduct().getIsService()
-                );
+        if (oldPartAction != null) {
+            try {
+                item.setOldPartAction(OldPartAction.valueOf(oldPartAction));
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException("Trạng thái xử lý đồ cũ không hợp lệ: " + oldPartAction, HttpStatus.BAD_REQUEST);
             }
         }
-        */
 
-        // Broadcast SSE
+        // Calculations are handled centrally in OrderCalculationService.recalculateTotals
+        BigDecimal rawSubtotal = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+        BigDecimal vatRate = item.getVatPercentage() != null ? item.getVatPercentage() : BigDecimal.ZERO;
+        BigDecimal vatAmount = rawSubtotal.multiply(vatRate).divide(new BigDecimal("100"), 0, java.math.RoundingMode.HALF_UP);
+        
+        item.setTotalAmount(rawSubtotal);
+        item.setVatAmount(vatAmount);
+        orderItemRepository.save(item);
+
+        // CRITICAL: Update Inventory Reservations
+        if (!item.getProduct().getIsService()) {
+            reservationService.createReservation(item.getRepairOrder().getId(), user.getId());
+        }
+
+        // Broadcast SSE for Order Table UI refresh
         Map<String, Object> sseData = new HashMap<>();
         sseData.put("orderId", item.getRepairOrder().getId());
+        sseData.put("receptionId", item.getRepairOrder().getReception().getId());
         sseData.put("type", "UPDATE_ITEM");
-        realtimeService.broadcast("order_item_status_changed", sseData);
+        realtimeService.broadcastToTopic("reception:" + item.getRepairOrder().getReception().getId(), "order_item_status_changed", sseData);
 
         // Timeline Log - chi tiết giá trị cũ → mới
         StringBuilder logContent = new StringBuilder();
@@ -519,6 +649,9 @@ public class SaleService {
         BigDecimal newDiscount = item.getDiscountPercentage() != null ? item.getDiscountPercentage() : BigDecimal.ZERO;
         if (oldDiscount.compareTo(newDiscount) != 0) {
             logContent.append(" | CK: ").append(oldDiscount).append("% → ").append(newDiscount).append("%");
+        }
+        if (oldPartAction != null && (oldOldPartAction == null || !oldOldPartAction.name().equals(oldPartAction))) {
+             logContent.append(" | Đồ cũ: ").append(oldOldPartAction != null ? oldOldPartAction.name() : "N/A").append(" → ").append(oldPartAction);
         }
         timelineService.recordEvent(item.getRepairOrder().getReception().getId(), user, "UPDATE_ITEM",
                 logContent.toString(),
@@ -585,10 +718,11 @@ public class SaleService {
         // Broadcast SSE
         Map<String, Object> sseData = new HashMap<>();
         sseData.put("orderId", item.getRepairOrder().getId());
+        sseData.put("receptionId", item.getRepairOrder().getReception().getId());
         sseData.put("itemId", itemId);
         sseData.put("status", status.name());
         sseData.put("type", "STATUS_CHANGE");
-        realtimeService.broadcast("order_item_status_changed", sseData);
+        realtimeService.broadcastToTopic("reception:" + item.getRepairOrder().getReception().getId(), "order_item_status_changed", sseData);
 
         // Timeline Log
         String statusLabel = ItemStatus.CUSTOMER_APPROVED.equals(status) ? "ĐỒNG Ý" : "TỪ CHỐI";
@@ -639,11 +773,17 @@ public class SaleService {
         }
         */
 
-        // Broadcast SSE
+        // CRITICAL: Update Inventory Reservations
+        if (!item.getProduct().getIsService()) {
+            reservationService.createReservation(order.getId(), user.getId());
+        }
+
+        // Broadcast SSE for Order Table UI refresh
         Map<String, Object> sseData = new HashMap<>();
         sseData.put("orderId", order.getId());
+        sseData.put("receptionId", order.getReception().getId());
         sseData.put("type", "REMOVE_ITEM");
-        realtimeService.broadcast("order_item_status_changed", sseData);
+        realtimeService.broadcastToTopic("reception:" + order.getReception().getId(), "order_item_status_changed", sseData);
 
         // Timeline Log
         timelineService.recordEvent(order.getReception().getId(), user, "DELETE_ITEM",
@@ -651,7 +791,48 @@ public class SaleService {
                 null, null, false);
     }
 
-    // 6. Send Quote to Customer
+    @Transactional
+    public void requestDiagnosis(Integer orderId, User user) {
+        RepairOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND));
+
+        checkOwnership(order, user);
+        OrderStatus oldStatus = order.getStatus();
+
+        // Allowed transitions to Diagnosis
+        if (!OrderStatus.RECEIVED.equals(oldStatus)) {
+            throw new BusinessException("Chỉ có thể yêu cầu chẩn đoán cho đơn hàng mới tiếp nhận.", HttpStatus.BAD_REQUEST);
+        }
+
+        order.setStatus(OrderStatus.WAITING_FOR_DIAGNOSIS);
+        orderRepository.save(order);
+
+        // Timeline Log
+        timelineService.recordEvent(order.getReception().getId(), user, "REQUEST_DIAGNOSIS",
+                "Đã yêu cầu chẩn đoán kỹ thuật cho xe. Chờ Quản lý xưởng phân công thợ.",
+                oldStatus.name(), OrderStatus.WAITING_FOR_DIAGNOSIS.name(), false);
+
+        // Notify Workshop Manager
+        asyncNotificationService.pushUniqueAsync(Notification.builder()
+                .role("QUAN_LY_XUONG")
+                .title("Yêu cầu chẩn đoán mới: " + order.getReception().getVehicle().getLicensePlate())
+                .content("Cố vấn dịch vụ " + user.getFullName() + " yêu cầu chẩn đoán cho xe " + order.getReception().getVehicle().getLicensePlate())
+                .type("INFO")
+                .link("/manager/reception")
+                .refId(order.getId())
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
+                .build());
+
+        // Broadcast SSE
+        realtimeService.broadcast("order_updated", Map.of(
+                "orderId", orderId,
+                "status", OrderStatus.WAITING_FOR_DIAGNOSIS.name(),
+                "receptionId", order.getReception().getId()
+        ));
+    }
+
+    // 6a. Submit Quote to Customer
     @Transactional
     @CacheEvict(value = "dashboard_stats", allEntries = true)
     public void submitToCustomer(Integer orderId, User user) {
@@ -711,6 +892,13 @@ public class SaleService {
                     .isRead(false)
                     .build());
         }
+
+        // Broadast update for Real-time Dashboards (Sale, Manager)
+        realtimeService.broadcast("order_updated", Map.of(
+            "orderId", orderId,
+            "status", OrderStatus.WAITING_FOR_CUSTOMER_APPROVAL.name(),
+            "receptionId", order.getReception().getId()
+        ));
     }
 
     /**
@@ -751,8 +939,9 @@ public class SaleService {
         // Broadcast SSE để frontend cập nhật realtime
         Map<String, Object> sseData = new HashMap<>();
         sseData.put("orderId", orderId);
+        sseData.put("receptionId", order.getReception().getId());
         sseData.put("type", "UPDATE_TOTALS");
-        realtimeService.broadcast("order_item_status_changed", sseData);
+        realtimeService.broadcastToTopic("reception:" + order.getReception().getId(), "order_item_status_changed", sseData);
 
         // Timeline Log - chi tiết
         StringBuilder logContent = new StringBuilder();
@@ -830,6 +1019,13 @@ public class SaleService {
 
         // Create reservations for these new items
         reservationService.createReservation(orderId, user.getId());
+
+        // Broadast update for Real-time Dashboards
+        realtimeService.broadcast("order_updated", Map.of(
+            "orderId", orderId,
+            "status", OrderStatus.RE_QUOTATION.name(),
+            "receptionId", order.getReception().getId()
+        ));
     }
 
     // 6b. Finalize Order (Customer Approved)
@@ -849,12 +1045,19 @@ public class SaleService {
         }
 
         // Bug 98 Fix: Ensure at least one item is approved/active
+        // Added ItemStatus.PROPOSAL and ItemStatus.WAITING_FOR_CUSTOMER_APPROVAL to allow finalizing re-quotations
         boolean hasApprovedItems = order.getOrderItems().stream()
-                .anyMatch(i -> List.of(ItemStatus.CUSTOMER_APPROVED, ItemStatus.WAITING_FOR_PARTS, ItemStatus.IN_PROGRESS, ItemStatus.COMPLETED)
-                        .contains(i.getStatus()));
+                .anyMatch(i -> List.of(
+                        ItemStatus.CUSTOMER_APPROVED, 
+                        ItemStatus.WAITING_FOR_PARTS, 
+                        ItemStatus.IN_PROGRESS, 
+                        ItemStatus.COMPLETED,
+                        ItemStatus.PROPOSAL,
+                        ItemStatus.WAITING_FOR_CUSTOMER_APPROVAL
+                ).contains(i.getStatus()));
 
         if (!hasApprovedItems) {
-            throw new RuntimeException("Đơn hàng phải có ít nhất một hạng mục được duyệt để tiếp tục.");
+            throw new RuntimeException("Đơn hàng phải có ít nhất một hạng mục được duyệt hoặc đang báo phát sinh để tiếp tục.");
         }
 
         if (user.getId() == null) {
@@ -872,6 +1075,18 @@ public class SaleService {
         // Force transition from WAITING_FOR_CUSTOMER_APPROVAL or RE_QUOTATION
         order.setStatus(OrderStatus.APPROVED);
         order.setApprovedAt(LocalDateTime.now());
+
+        // Bug Fix: Transition all proposed/waiting items to CUSTOMER_APPROVED
+        // This ensures they appear in Warehouse Export pending list
+        if (order.getOrderItems() != null) {
+            order.getOrderItems().forEach(item -> {
+                if (ItemStatus.PROPOSAL.equals(item.getStatus()) || 
+                    ItemStatus.WAITING_FOR_CUSTOMER_APPROVAL.equals(item.getStatus())) {
+                    item.setStatus(ItemStatus.CUSTOMER_APPROVED);
+                }
+            });
+        }
+
         orderRepository.save(order);
 
         // Timeline Log
@@ -942,6 +1157,12 @@ public class SaleService {
                     .build());
         }
 
+        // Broadast update for Real-time Dashboards
+        realtimeService.broadcast("order_updated", Map.of(
+            "orderId", orderId,
+            "status", OrderStatus.APPROVED.name(),
+            "receptionId", order.getReception().getId()
+        ));
     }
 
     // 8. Cancel Order
@@ -1057,17 +1278,99 @@ public class SaleService {
                 .reason(riskPrefix + "Hủy đơn hàng: " + reason)
                 .userId(user.getId())
                 .build());
+
+        // Broadast update for Real-time Dashboards
+        realtimeService.broadcast("order_updated", Map.of(
+            "orderId", orderId,
+            "status", OrderStatus.CANCELLED.name(),
+            "receptionId", order.getReception().getId()
+        ));
     }
 
-    // 8b. Update Deposit (Rule 10.4) -> Update to use Transaction
+    @Transactional
+    public void addTransaction(Integer orderId, FinancialTransactionRequest request, User user) {
+        // Map String to Enums safely
+        com.gara.entity.FinancialTransaction.TransactionType type = 
+            com.gara.entity.FinancialTransaction.TransactionType.valueOf(request.getType().toUpperCase());
+        com.gara.entity.FinancialTransaction.PaymentMethod method = 
+            com.gara.entity.FinancialTransaction.PaymentMethod.valueOf(request.getMethod().toUpperCase());
+
+        transactionService.createTransaction(
+            orderId, 
+            request.getAmount(),
+            type,
+            method,
+            request.getReferenceCode(),
+            request.getNote(),
+            user.getId()
+        );
+    }
+
     @Transactional
     public void updateDeposit(Integer orderId, BigDecimal amount, User user) {
-        // Delegate to Transaction Service for DEPOSIT with default CASH method (can be
-        // improved later)
-        transactionService.createTransaction(orderId, amount,
-                com.gara.entity.FinancialTransaction.TransactionType.DEPOSIT,
-                com.gara.entity.FinancialTransaction.PaymentMethod.CASH,
-                null, "Cập nhật cọc nhanh", user.getId());
+        FinancialTransactionRequest request = new FinancialTransactionRequest(
+            amount,
+            "DEPOSIT",
+            "CASH",
+            null,
+            "Cập nhật cọc nhanh"
+        );
+        addTransaction(orderId, request, user);
+    }
+
+    /**
+     * Xử lý thông báo thanh toán từ SePay (Ngân hàng)
+     * @param webhookData Dữ liệu từ SePay
+     */
+    @Transactional
+    public void processSepayWebhook(SepayWebhookDTO webhookData) {
+        String content = webhookData.getContent();
+        if (content == null || content.isEmpty()) {
+             log.warn("SePay Webhook received with empty content.");
+             return;
+        }
+
+        // Tìm mã đơn hàng DHxxxxx trong nội dung chuyển khoản
+        Pattern pattern = Pattern.compile("DH(\\d+)", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(content);
+        
+        if (matcher.find()) {
+            Integer orderId = Integer.parseInt(matcher.group(1));
+            log.info("Found Order ID {} in SePay content: {}", orderId, content);
+
+            // Ghi nhận giao dịch
+            FinancialTransactionRequest request = new FinancialTransactionRequest(
+                webhookData.getTransferAmount(),
+                "PAYMENT",
+                "TRANSFER",
+                webhookData.getId(),
+                "SePay Auto Sync: " + content
+            );
+
+            // Sử dụng ID 1 (Admin/System) để ghi nhận giao dịch tự động
+            transactionService.createTransaction(
+                orderId, 
+                request.getAmount(),
+                com.gara.entity.FinancialTransaction.TransactionType.PAYMENT,
+                com.gara.entity.FinancialTransaction.PaymentMethod.TRANSFER,
+                request.getReferenceCode(),
+                request.getNote(),
+                1 // Default System User ID
+            );
+
+            // Gửi thông báo realtime để POS tự reload
+            if (realtimeService != null) {
+                realtimeService.broadcastToTopic("pos/payment", "PAYMENT_SYNC", Map.of(
+                    "orderId", orderId,
+                    "amount", webhookData.getTransferAmount(),
+                    "message", "Đã nhận thanh toán chuyển khoản cho đơn hàng #" + orderId
+                ));
+            }
+            
+            log.info("Successfully synchronized payment for Order #{} via SePay", orderId);
+        } else {
+            log.warn("No Order ID (DHxxxx) found in SePay content: {}", content);
+        }
     }
 
     public void validateDeposit(RepairOrder order) {
@@ -1292,9 +1595,26 @@ public class SaleService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getOrders(String status) {
+    public List<Map<String, Object>> getOrders(String status, String plate) {
         List<RepairOrder> orders;
-        if (status != null && !status.isEmpty()) {
+        
+        // Priority 1: Filter by Plate if provided
+        if (plate != null && !plate.trim().isEmpty()) {
+            if (status != null && !status.isEmpty()) {
+                List<OrderStatus> statuses = List.of(status.split(",")).stream()
+                        .map(s -> {
+                            try { return OrderStatus.valueOf(s.trim()); }
+                            catch (Exception e) { return null; }
+                        })
+                        .filter(java.util.Objects::nonNull)
+                        .toList();
+                orders = orderRepository.findByReception_Vehicle_LicensePlateAndStatusIn(plate.trim(), statuses);
+            } else {
+                orders = orderRepository.findTop5ByReception_Vehicle_LicensePlateOrderByCreatedAtDesc(plate.trim());
+            }
+        }
+        // Priority 2: Filter by Status
+        else if (status != null && !status.isEmpty()) {
             // Support special aliases for Debt/Payment filtering
             if (status.equalsIgnoreCase("PENDING_PAYMENT") || 
                 status.equalsIgnoreCase("WAITING_PAYMENT") || 
@@ -1358,7 +1678,22 @@ public class SaleService {
             m.put("customerName", o.getReception().getVehicle().getCustomer().getFullName());
             m.put("status", o.getStatus().name());
             m.put("grandTotal", finalAmount);
+            m.put("finalAmount", finalAmount);
+            m.put("paidAmount", totalPaid);
             m.put("debt", debt);
+
+            // Add Foreman info
+            User foreman = o.getDiagnosticMechanic() != null ? o.getDiagnosticMechanic() : o.getAssignedMechanic();
+            m.put("thoChanDoanId", foreman != null ? foreman.getId() : null);
+            m.put("thoChanDoanName", foreman != null ? (foreman.getFullName() != null ? foreman.getFullName() : foreman.getUsername()) : null);
+            m.put("foremanAvatar", foreman != null ? foreman.getAvatar() : null);
+
+            // Add Sale info (Fallback to Receptionist if no advisor assigned yet)
+            User advisor = o.getServiceAdvisor() != null ? o.getServiceAdvisor() : (o.getReception() != null ? o.getReception().getReceptionist() : null);
+            m.put("nguoiPhuTrachId", advisor != null ? advisor.getId() : null);
+            m.put("saleName", advisor != null ? (advisor.getFullName() != null ? advisor.getFullName() : advisor.getUsername()) : null);
+            m.put("saleAvatar", advisor != null ? advisor.getAvatar() : null);
+
             return m;
         }).toList();
     }
@@ -1509,6 +1844,13 @@ public class SaleService {
         order.setStatus(OrderStatus.CANCELLED);
         orderRepository.save(order);
 
+        // Release reservations immediately when rejected
+        try {
+            reservationService.releaseReservation(orderId, "Khách hàng từ chối báo giá: " + actualReason, user.getId());
+        } catch (Exception e) {
+            log.warn("Could not release reservation for order {}: {}", orderId, e.getMessage());
+        }
+
         // Audit log
         asyncAuditService.logAsync(AuditLog.builder()
                 .tableName("RepairOrder")
@@ -1578,5 +1920,57 @@ public class SaleService {
                     .isRead(false)
                     .build());
         }
+    }
+
+    @Transactional
+    public Map<String, Object> createBooking(Map<String, Object> payload, User receptionist) {
+        String customerName = (String) payload.get("customerName");
+        String customerPhone = (String) payload.get("customerPhone");
+        String plateNumber = (String) payload.get("plateNumber");
+        String appointmentTimeStr = (String) payload.get("appointmentTime");
+        String note = (String) payload.get("note");
+
+        Customer customer = customerRepository.findByPhone(customerPhone)
+            .orElseGet(() -> {
+                Customer newCust = new Customer();
+                newCust.setFullName(customerName);
+                newCust.setPhone(customerPhone);
+                return customerRepository.save(newCust);
+            });
+        
+        String brand = (String) payload.getOrDefault("brand", "Chưa xác định");
+        String model = (String) payload.get("model");
+        
+        Vehicle vehicle = vehicleRepository.findByLicensePlate(plateNumber)
+            .map(v -> v)
+            .orElseGet(() -> {
+                Vehicle newVeh = new Vehicle();
+                newVeh.setLicensePlate(plateNumber);
+                newVeh.setBrand(brand != null ? brand : "Chưa xác định");
+                newVeh.setModel(model); 
+                newVeh.setCustomer(customer);
+                return vehicleRepository.save(newVeh);
+            });
+
+        Reception reception = new Reception();
+        reception.setVehicle(vehicle);
+        try {
+            if (appointmentTimeStr != null) {
+                reception.setReceptionDate(LocalDateTime.parse(appointmentTimeStr));
+            } else {
+                reception.setReceptionDate(LocalDateTime.now());
+            }
+        } catch(Exception e) {
+            reception.setReceptionDate(LocalDateTime.now());
+        }
+        reception.setReceptionist(receptionist);
+        reception.setPreliminaryRequest("Sale đặt lịch trực tiếp: " + (note != null ? note : ""));
+        reception.setShellStatus("Đã xác nhận"); // Sale tự tạo → auto CONFIRMED, không cần duyệt
+        
+        Reception saved = receptionRepository.save(reception);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", saved.getId());
+        return result;
     }
 }

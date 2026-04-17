@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,7 +32,6 @@ const statusConfig: Record<string, { label: string; color: string; icon: any; bg
 };
 
 export default function CustomerWarrantyPage() {
-    const router = useRouter();
     const [successMsg, setSuccessMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
 
@@ -94,7 +92,7 @@ export default function CustomerWarrantyPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent"></div>
                 
                 <div className="container mx-auto px-6 h-full flex flex-col justify-end pb-8 relative z-10">
-                    <Link href="/customer/home" className="flex items-center gap-2 text-stone-400 hover:text-white mb-4 transition-colors w-fit group">
+                    <Link href="/" className="flex items-center gap-2 text-stone-400 hover:text-white mb-4 transition-colors w-fit group">
                         <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
                         <span className="text-xs font-bold uppercase tracking-widest">Trở về</span>
                     </Link>

@@ -12,6 +12,7 @@ interface DashboardLayoutProps {
     children: ReactNode;
     title?: string;
     subtitle?: string;
+    fullWidth?: boolean;
 }
 
 // Memoize to prevent re-renders when children change
@@ -92,7 +93,12 @@ function DashboardShellContent({
     closeMobileMenu: () => void; 
 }) {
     const pathname = usePathname();
-    const { title, subtitle } = useLayoutContext();
+    const { title, subtitle, isFullWidth, isImmersive } = useLayoutContext();
+
+    // Immersive mode = no sidebar, no topbar, children fill entire viewport
+    if (isImmersive) {
+        return <div className="h-screen w-screen overflow-hidden">{children}</div>;
+    }
 
     return (
         <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative overflow-hidden">
@@ -134,7 +140,8 @@ function DashboardShellContent({
                     subtitle={subtitle}
                     onMenuClick={toggleMobileMenu}
                 />
-                <main className="flex-1 p-4 lg:p-6 overflow-y-auto overflow-x-hidden custom-scrollbar animate-fade-in text-slate-900 dark:text-slate-100">
+                
+                <main className={`flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar animate-fade-in text-slate-900 dark:text-slate-100 ${isFullWidth ? 'p-0' : 'p-4 lg:p-6'}`}>
                     {children}
                 </main>
             </div>
@@ -147,14 +154,20 @@ function DashboardShellContent({
  * Component bọc ở mỗi trang con. Bây giờ nó chỉ làm nhiệm vụ cập nhật Title/Subtitle lên Shell.
  * Nó KHÔNG vẽ lại Sidebar/Topbar, nên tuyệt đối không gây flicker.
  */
-export default function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
-    const { setTitle, setSubtitle } = useLayoutContext();
+export default function DashboardLayout({ children, title, subtitle, fullWidth }: DashboardLayoutProps) {
+    const { setTitle, setSubtitle, setIsFullWidth } = useLayoutContext();
     
     // Cập nhật thông tin tiêu đề khi trang mount hoặc props thay đổi
     useEffect(() => {
         setTitle(title || '');
         setSubtitle(subtitle || '');
-    }, [title, subtitle, setTitle, setSubtitle]);
+        setIsFullWidth(!!fullWidth);
+
+        // Reset fullWidth when leaving page
+        return () => {
+            setIsFullWidth(false);
+        };
+    }, [title, subtitle, fullWidth, setTitle, setSubtitle, setIsFullWidth]);
 
     return <>{children}</>;
 }

@@ -8,6 +8,11 @@ import { ApiClient } from '@/api/ApiClient';
 import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 
+const CAR_BRANDS = [
+    'Toyota', 'Mazda', 'Honda', 'Hyundai', 'Kia', 'Ford', 'Mitsubishi', 'VinFast', 
+    'Chevrolet', 'Nissan', 'Suzuki', 'Isuzu', 'Mercedes-Benz', 'BMW', 'Audi', 'Lexus', 'Volvo'
+].sort();
+
 export default function BookingPage() {
     const { data: session, status } = useSession();
     const { showToast } = useToast();
@@ -24,6 +29,7 @@ export default function BookingPage() {
         phone: '',
         email: '',
         address: '',
+        brand: '',
         licensePlate: '',
         model: '',
         appointmentTime: '',
@@ -107,6 +113,11 @@ export default function BookingPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!formData.brand) {
+            showToast('error', 'Vui lòng chọn hãng xe');
+            return;
+        }
 
         // Validate biển số xe Việt Nam
         const plateRegex = /^([1-9]{2}[A-Z]{1}[1-9A-Z]{1})[-. ]?([0-9]{4,5})$/;
@@ -238,11 +249,26 @@ export default function BookingPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-stone-700 mb-2">Dòng xe / Đời xe</label>
+                                    <label className="block text-sm font-medium text-stone-700 mb-2">Hãng xe <span className="text-red-500">*</span></label>
+                                    <select
+                                        required
+                                        className="w-full px-4 py-2.5 rounded border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-stone-800 bg-white"
+                                        value={formData.brand}
+                                        onChange={e => setFormData({ ...formData, brand: e.target.value })}
+                                    >
+                                        <option value="">-- Chọn hãng xe --</option>
+                                        {CAR_BRANDS.map(brand => (
+                                            <option key={brand} value={brand}>{brand}</option>
+                                        ))}
+                                        <option value="Khác">Khác</option>
+                                    </select>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-stone-700 mb-2">Dòng xe / Đời xe (Ví dụ: CX-5 2020)</label>
                                     <input
                                         type="text"
                                         className="w-full px-4 py-2.5 rounded border border-stone-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-stone-800"
-                                        placeholder="VD: Mazda CX-5 2020"
+                                        placeholder="Nhập dòng xe và đời xe"
                                         value={formData.model}
                                         onChange={e => setFormData({ ...formData, model: e.target.value })}
                                     />

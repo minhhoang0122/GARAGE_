@@ -162,16 +162,16 @@ export default function WarehouseHistoryPage() {
                                     }}
                                 >
                                 <table className="w-full border-collapse">
-                                    <thead className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                                        <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                            <th className="text-left px-6 py-4 w-[200px]">Mã / Thời gian</th>
-                                            <th className="text-left px-6 py-4">
+                                    <thead className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 hidden lg:block">
+                                        <tr className="grid grid-cols-[180px_1fr_1fr_150px_150px_80px] text-[10px] font-black text-slate-400 uppercase tracking-widest px-6">
+                                            <th className="text-left py-4 flex items-center">Mã / Thời gian</th>
+                                            <th className="text-left py-4 flex items-center">
                                                 {activeTab === 'import' ? 'Nhà cung cấp' : 'Xe / Khách hàng'}
                                             </th>
-                                            <th className="text-left px-6 py-4">Thủ kho</th>
-                                            <th className="text-right px-6 py-4 w-[150px]">Tổng giá trị</th>
-                                            <th className="text-center px-6 py-4 w-[150px]">Trạng thái</th>
-                                            <th className="w-[80px]"></th>
+                                            <th className="text-left py-4 flex items-center">Thủ kho</th>
+                                            <th className="text-right py-4 flex items-center justify-end">Tổng giá trị</th>
+                                            <th className="text-center py-4 flex items-center justify-center">Trạng thái</th>
+                                            <th className="py-4"></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -191,9 +191,9 @@ export default function WarehouseHistoryPage() {
                                                         height: `${virtualRow.size}px`,
                                                         transform: `translateY(${virtualRow.start + 48}px)`,
                                                     }}
-                                                    className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors border-b border-slate-50 dark:border-slate-800/50 cursor-pointer group ${isExpanded ? 'bg-slate-50/50 dark:bg-slate-800/20' : ''}`}
+                                                    className={`grid grid-cols-[180px_1fr_1fr_150px_150px_80px] px-6 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors border-b border-slate-50 dark:border-slate-800/50 cursor-pointer group items-center ${isExpanded ? 'bg-slate-50/50 dark:bg-slate-800/20' : ''}`}
                                                 >
-                                                    <td className="px-6 py-3">
+                                                    <td className="py-3 flex flex-col justify-center">
                                                         <div className="font-mono text-sm font-bold text-slate-800 dark:text-slate-100">
                                                             {activeTab === 'import' ? item.code : `XK${item.id.toString().padStart(6, '0')}`}
                                                         </div>
@@ -202,8 +202,8 @@ export default function WarehouseHistoryPage() {
                                                             {formatDate(item.date)}
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-3">
-                                                        <div className="flex items-center gap-2">
+                                                    <td className="py-3 flex items-center overflow-hidden">
+                                                        <div className="flex items-center gap-2 w-full">
                                                             {activeTab === 'import' ? (
                                                                 <>
                                                                     <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center flex-shrink-0">
@@ -223,21 +223,21 @@ export default function WarehouseHistoryPage() {
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-3">
-                                                        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                                                            <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold">
+                                                    <td className="py-3 flex items-center">
+                                                        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 overflow-hidden">
+                                                            <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
                                                                 {item.creator?.charAt(0)}
                                                             </div>
-                                                            <span className="font-medium">{item.creator}</span>
+                                                            <span className="font-medium truncate">{item.creator}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-3 text-right">
+                                                    <td className="py-3 text-right flex items-center justify-end">
                                                         <div className="font-mono font-black text-slate-900 dark:text-white">
                                                             {formatCurrency(item.total)}
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-3">
-                                                        <div className="flex justify-center">
+                                                    <td className="py-3 flex items-center justify-center">
+                                                        <div className="flex justify-center w-full">
                                                             {activeTab === 'import' ? (
                                                                 <>
                                                                     {isCompleted(item.status) && (
@@ -258,7 +258,7 @@ export default function WarehouseHistoryPage() {
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-3 text-right">
+                                                    <td className="py-3 text-right flex items-center justify-end">
                                                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             {activeTab === 'import' && (
                                                                 <Button

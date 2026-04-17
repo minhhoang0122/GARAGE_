@@ -73,7 +73,7 @@ DialogFooter.displayName = "DialogFooter"
 
 const DialogTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
     ({ className, ...props }, ref) => (
-        <h3 ref={ref} className={cn("text-lg font-semibold leading-none tracking-tight text-slate-900 dark:text-slate-100", className)} {...props} />
+        <h3 ref={ref} className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props} />
     )
 )
 DialogTitle.displayName = "DialogTitle"

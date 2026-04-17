@@ -294,7 +294,7 @@ function Row({
                                 </div>
                             </button>
                         )}
-                        {!readOnly && item.proposedByRole === 'SALE' && (
+                        {!readOnly && (
                             <button
                                 onClick={async () => {
                                     const confirmed = await confirm({
@@ -337,14 +337,18 @@ function Row({
                         Đề xuất: {item.proposedByRole === 'AI' ? 'AI Chẩn đoán' : item.proposedByName}
                     </div>
                 )}
-                {(item.warrantyMonths > 0 || item.warrantyKm > 0) && (
-                    <div className="flex items-center gap-1.5 text-[9.5px] font-bold text-blue-500/80 bg-blue-50/50 dark:bg-blue-900/10 w-fit px-1.5 py-0.5 rounded border border-blue-100/50 dark:border-blue-800/30">
-                        <ShieldCheck size={10} className="shrink-0" />
-                        <span>
-                            Bảo hành: {item.warrantyMonths > 0 ? `${item.warrantyMonths}T` : ''} 
-                            {item.warrantyMonths > 0 && item.warrantyKm > 0 ? ' / ' : ''}
-                            {item.warrantyKm > 0 ? `${item.warrantyKm.toLocaleString()}km` : ''}
-                        </span>
+                {(item.warrantyMonths > 0 || item.warrantyKm > 0 || item.vatPercentage > 0) && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {(item.warrantyMonths > 0 || item.warrantyKm > 0) && (
+                            <div className="flex items-center gap-1.5 text-[9.5px] font-bold text-blue-500/80 bg-blue-50/50 dark:bg-blue-900/10 w-fit px-1.5 py-0.5 rounded border border-blue-100/50 dark:border-blue-800/30">
+                                <ShieldCheck size={10} className="shrink-0" />
+                                <span>
+                                    Bảo hành: {item.warrantyMonths > 0 ? `${item.warrantyMonths}T` : ''} 
+                                    {item.warrantyMonths > 0 && item.warrantyKm > 0 ? ' / ' : ''}
+                                    {item.warrantyKm > 0 ? `${item.warrantyKm.toLocaleString()}km` : ''}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -384,6 +388,7 @@ function Row({
                     </span>
                 </div>
 
+
                 {/* Thành tiền */}
                 <div className="flex flex-col items-end md:flex-row md:items-center px-0 md:px-6 py-0 md:py-3.5 md:w-[160px] md:justify-end gap-0.5 md:gap-0 pt-2 border-t border-slate-200/50 dark:border-slate-800 md:border-t-0 md:pt-0">
                     <span className="md:hidden text-[10px] text-slate-400 font-medium tracking-wide uppercase">Thành tiền</span>
@@ -395,7 +400,7 @@ function Row({
 
             {/* Desktop: Delete Action (Right aligned) */}
             <div className="hidden md:flex px-6 py-3.5 w-[60px] items-center justify-end shrink-0">
-                {!readOnly && item.proposedByRole === 'SALE' && (
+                {!readOnly && (
                     <button
                         onClick={async () => {
                             const confirmed = await confirm({

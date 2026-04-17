@@ -75,7 +75,7 @@ export default function CustomerProgressPage() {
             <header className="sticky top-0 z-50 bg-stone-950/80 backdrop-blur-md border-b border-white/5 px-4 py-4">
                 <div className="max-w-2xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Link href="/customer/home" className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/5 transition-colors">
+                        <Link href="/" className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/5 transition-colors">
                             <ArrowLeft size={18} />
                         </Link>
                         <div>

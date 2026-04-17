@@ -31,6 +31,7 @@ public class ReceptionService {
     private final com.gara.modules.support.service.AsyncNotificationService asyncNotificationService;
     private final AsyncAuditService asyncAuditService;
     private final TimelineService timelineService;
+    private final com.gara.modules.support.service.RealtimeService realtimeService;
 
     public ReceptionService(VehicleRepository vehicleRepository,
             CustomerRepository customerRepository,
@@ -38,7 +39,8 @@ public class ReceptionService {
             RepairOrderRepository orderRepository,
             com.gara.modules.support.service.AsyncNotificationService asyncNotificationService,
             AsyncAuditService asyncAuditService,
-            TimelineService timelineService) {
+            TimelineService timelineService,
+            com.gara.modules.support.service.RealtimeService realtimeService) {
         this.vehicleRepository = vehicleRepository;
         this.customerRepository = customerRepository;
         this.receptionRepository = receptionRepository;
@@ -46,6 +48,7 @@ public class ReceptionService {
         this.asyncNotificationService = asyncNotificationService;
         this.asyncAuditService = asyncAuditService;
         this.timelineService = timelineService;
+        this.realtimeService = realtimeService;
     }
 
     private long countActiveWarranties(String plate) {
@@ -56,7 +59,14 @@ public class ReceptionService {
 
     @Transactional(readOnly = true)
     public VehicleSearchResultDTO searchVehicle(String plate) {
-        Optional<Vehicle> vehicleOpt = vehicleRepository.findByLicensePlate(plate);
+        String formattedPlate = formatLicensePlate(plate, "CAR");
+        Optional<Vehicle> vehicleOpt = vehicleRepository.findByLicensePlate(formattedPlate);
+        
+        // Nếu không thấy bằng biển định dạng, thử tìm bằng biển thô (phòng trường hợp DB lưu kiểu cũ)
+        if (vehicleOpt.isEmpty() && !formattedPlate.equals(plate)) {
+            vehicleOpt = vehicleRepository.findByLicensePlate(plate);
+        }
+
         if (vehicleOpt.isEmpty()) {
             return null;
         }
@@ -103,19 +113,28 @@ public class ReceptionService {
     @Transactional
     @CacheEvict(value = "dashboard_stats", allEntries = true)
     public Integer createReception(ReceptionFormData data, User user) {
+        String originalPlate = data.bienSo();
+        String formattedPlate = formatLicensePlate(originalPlate, "CAR");
+        
         try {
             // 1. Find or Create Vehicle & Customer
             // Use pessimistic lock to prevent race conditions for existing vehicles
-            Vehicle vehicle = vehicleRepository.findByLicensePlateWithLock(data.bienSo()).orElse(null);
+            Vehicle vehicle = vehicleRepository.findByLicensePlateWithLock(formattedPlate).orElse(null);
+            
+            // Tìm lại bằng biển thô nếu không thấy biển định dạng
+            if (vehicle == null && !formattedPlate.equals(originalPlate)) {
+                vehicle = vehicleRepository.findByLicensePlateWithLock(originalPlate).orElse(null);
+            }
 
             // Check for active orders to prevent double reception
             if (vehicle != null) {
+                String currentPlate = vehicle.getLicensePlate();
                 List<OrderStatus> activeStatuses = java.util.Arrays.asList(
                         OrderStatus.RECEIVED, OrderStatus.WAITING_FOR_DIAGNOSIS, OrderStatus.QUOTING,
                         OrderStatus.RE_QUOTATION, OrderStatus.WAITING_FOR_CUSTOMER_APPROVAL, OrderStatus.APPROVED,
                         OrderStatus.WAITING_FOR_PARTS, OrderStatus.IN_PROGRESS,
                         OrderStatus.WAITING_FOR_QC, OrderStatus.WAITING_FOR_PAYMENT);
-                List<RepairOrder> activeOrders = orderRepository.findByReception_Vehicle_LicensePlateAndStatusIn(data.bienSo(),
+                List<RepairOrder> activeOrders = orderRepository.findByReception_Vehicle_LicensePlateAndStatusIn(currentPlate,
                         activeStatuses);
                 if (!activeOrders.isEmpty()) {
                     throw new RuntimeException("Xe đang có phiếu sửa chữa chưa hoàn thành.");
@@ -126,7 +145,7 @@ public class ReceptionService {
                 String normalizedExistingPhone = normalizePhone(vehicle.getCustomer().getPhone());
                 
                 if (!normalizedExistingPhone.equals(normalizedProvidedPhone)) {
-                    throw new RuntimeException("Biển số này (" + data.bienSo() + ") đã được đăng ký với số điện thoại khác (" + vehicle.getCustomer().getPhone() + "). Vui lòng kiểm tra lại.");
+                    throw new RuntimeException("Biển số này (" + currentPlate + ") đã được đăng ký với số điện thoại khác (" + vehicle.getCustomer().getPhone() + "). Vui lòng kiểm tra lại.");
                 }
 
                 // Bug 72 Fix: ODO Consistency Check
@@ -155,19 +174,25 @@ public class ReceptionService {
 
             } else {
                 // Check if existing Customer by phone to prevent fragmentation (Bug 80)
-                Customer customer = customerRepository.findByPhone(data.sdtKhach()).orElse(null);
+                String normalizedPhone = normalizePhone(data.sdtKhach());
+                Customer customer = customerRepository.findByPhone(normalizedPhone).orElse(null);
+                
+                // Thử tìm bằng số thô nếu không thấy bằng số chuẩn hóa
+                if (customer == null && !normalizedPhone.equals(data.sdtKhach())) {
+                    customer = customerRepository.findByPhone(data.sdtKhach()).orElse(null);
+                }
 
                 if (customer == null) {
                     customer = new Customer();
                     customer.setFullName(data.tenKhach());
-                    customer.setPhone(data.sdtKhach());
+                    customer.setPhone(normalizedPhone); // Lưu số đã chuẩn hóa
                     customer.setAddress(data.diaChiKhach());
                     customer.setEmail(data.emailKhach());
                     customer = customerRepository.save(customer);
                 }
 
                 vehicle = new Vehicle();
-                vehicle.setLicensePlate(data.bienSo());
+                vehicle.setLicensePlate(formattedPlate); // Sử dụng biển đã định dạng
                 vehicle.setCustomer(customer);
                 vehicle.setBrand(data.nhanHieu());
                 vehicle.setModel(data.model());
@@ -181,7 +206,9 @@ public class ReceptionService {
             Reception reception = new Reception();
             reception.setVehicle(vehicle);
             reception.setReceptionist(user);
-            reception.setFuelLevel(data.mucXang() != null ? BigDecimal.valueOf(data.mucXang()) : BigDecimal.ZERO);
+            // Chia cho 100 để lưu dưới dạng tỷ lệ (0.00 - 1.00), tránh Numeric overflow do DB là numeric(3,2)
+            BigDecimal fuel = data.mucXang() != null ? BigDecimal.valueOf(data.mucXang() * 0.01) : BigDecimal.ZERO;
+            reception.setFuelLevel(fuel);
             // Bug 104 Fix: Basic XSS Sanitation
             reception.setShellStatus(sanitizeHtml(data.tinhTrangVo()));
             reception.setPreliminaryRequest(sanitizeHtml(data.yeuCauKhach()));
@@ -242,11 +269,22 @@ public class ReceptionService {
                     .isRead(false)
                     .build());
 
+            // Realtime Sync (Global Broadcast)
+            realtimeService.broadcast("reception_updated", null);
+
             return reception.getId();
 
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            // Bug 105 Fix: Handle race condition for duplicate license plate
-            throw new RuntimeException("Lỗi: Xe với biển số " + data.bienSo() + " đã được tạo bởi một yêu cầu khác. Vui lòng thử lại.");
+            String msg = e.getRootCause() != null ? e.getRootCause().getMessage() : e.getMessage();
+            
+            // Phân tích lỗi thực sự
+            if (msg != null && msg.contains("idx_vehicles_license_plate")) {
+                throw new RuntimeException("Lỗi: Xe với biển số " + data.bienSo() + " đã tồn tại trong hệ thống (có thể do trùng lặp dữ liệu đồng thời).");
+            } else if (msg != null && msg.contains("idx_customers_phone")) {
+                throw new RuntimeException("Lỗi: Số điện thoại " + data.sdtKhach() + " đã được sử dụng bởi một khách hàng khác.");
+            }
+            
+            throw new RuntimeException("Lỗi dữ liệu: " + (msg != null ? msg : "Vi phạm ràng buộc hệ thống."));
         }
     }
 
@@ -277,11 +315,16 @@ public class ReceptionService {
             String hinhAnh = (String) row[9];
             String receptionistName = (String) row[10];
             String receptionistAvatar = (String) row[11];
+            
+            Integer thoChanDoanId = (Integer) row[12];
+            String thoChanDoanName = (String) row[13];
+            String foremanAvatar = (String) row[14];
 
             return new ReceptionListDTO(
                 id, ngayGio, xeBienSo, khachHangName, khachHangPhone, 
                 xeNhanHieu, xeModel, orderId, statusStr, hinhAnh,
-                receptionistName, receptionistAvatar
+                receptionistName, receptionistAvatar,
+                thoChanDoanId, thoChanDoanName, foremanAvatar
             );
         }).toList();
     }
@@ -289,13 +332,16 @@ public class ReceptionService {
     @Transactional(readOnly = true)
     public java.util.Optional<ReceptionDetailDTO> getReceptionById(Integer id) {
         return receptionRepository.findByIdWithDetails(id).map(reception -> {
+            RepairOrder repairOrder = reception.getRepairOrder();
+            User sa = (repairOrder != null) ? repairOrder.getServiceAdvisor() : null;
             User r = reception.getReceptionist();
-            String name = (r != null) ? (r.getFullName() != null ? r.getFullName() : r.getUsername()) : "N/A";
-            String avatar = (r != null) ? r.getAvatar() : null;
+            
+            User activeAdvisor = (sa != null) ? sa : r;
+            String name = (activeAdvisor != null) ? (activeAdvisor.getFullName() != null ? activeAdvisor.getFullName() : activeAdvisor.getUsername()) : "N/A";
+            String avatar = (activeAdvisor != null) ? activeAdvisor.getAvatar() : null;
 
             var vehicle = reception.getVehicle();
             var customer = (vehicle != null) ? vehicle.getCustomer() : null;
-            var repairOrder = reception.getRepairOrder();
 
             var builder = ReceptionDetailDTO.builder()
                 .id(reception.getId())
@@ -323,6 +369,16 @@ public class ReceptionService {
             if (repairOrder != null) {
                 builder.orderId(repairOrder.getId())
                        .orderStatus(repairOrder.getStatus() != null ? repairOrder.getStatus().name() : null);
+                
+                User dm = repairOrder.getDiagnosticMechanic();
+                User am = repairOrder.getAssignedMechanic();
+                User foreman = (dm != null) ? dm : am;
+                
+                if (foreman != null) {
+                    builder.thoChanDoanId(foreman.getId())
+                           .thoChanDoanName(foreman.getFullName() != null ? foreman.getFullName() : foreman.getUsername())
+                           .foremanAvatar(foreman.getAvatar());
+                }
             }
 
             return builder.build();
@@ -345,5 +401,33 @@ public class ReceptionService {
             digits = "0" + digits.substring(2);
         }
         return digits;
+    }
+
+    private String formatLicensePlate(String licensePlate, String vehicleType) {
+        if (licensePlate == null || licensePlate.isBlank()) return licensePlate;
+
+        // Xóa ký tự đặc biệt và viết hoa
+        String raw = licensePlate.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+
+        if (raw.length() < 7 || raw.length() > 9) {
+            return raw;
+        }
+
+        String type = (vehicleType != null) ? vehicleType : "CAR";
+
+        if ("CAR".equalsIgnoreCase(type)) {
+            if (raw.length() == 8) {
+                return raw.substring(0, 3) + "-" + raw.substring(3, 6) + "." + raw.substring(6);
+            } else if (raw.length() == 7) {
+                return raw.substring(0, 3) + "-" + raw.substring(3);
+            }
+        } else if ("MOTO".equalsIgnoreCase(type)) {
+            if (raw.length() == 9) {
+                return raw.substring(0, 2) + "-" + raw.substring(2, 4) + " " + raw.substring(4, 7) + "." + raw.substring(7);
+            } else if (raw.length() == 8) {
+                return raw.substring(0, 2) + "-" + raw.substring(2, 4) + " " + raw.substring(4);
+            }
+        }
+        return raw;
     }
 }

@@ -8,7 +8,7 @@ import { Card } from '@/modules/shared/components/ui/card';
 import { RealtimeRefresh } from '@/modules/common/components/layout/RealtimeRefresh';
 import { useRevenueReport, useMechanicPerformance, useInventoryReport } from '@/modules/report/hooks/useReport';
 
-export default function DashboardPage() {
+export function ReportsContent() {
     // Default to current month
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
@@ -24,16 +24,14 @@ export default function DashboardPage() {
 
     if (isRevLoading || isMechLoading || isInvLoading) {
         return (
-            <DashboardLayout title="Tổng quan" subtitle="Đang tải dữ liệu...">
-                <div className="flex items-center justify-center min-h-[400px]">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 dark:border-white"></div>
-                </div>
-            </DashboardLayout>
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 dark:border-white"></div>
+            </div>
         );
     }
 
     return (
-        <DashboardLayout title="Tổng quan" subtitle="Báo cáo hoạt động kinh doanh">
+        <div className="space-y-6">
             <RealtimeRefresh events={['payment_updated', 'reception_created', 'order_updated', 'inventory_updated']} />
             
             <div className="space-y-6">
@@ -113,6 +111,14 @@ export default function DashboardPage() {
                     </Card>
                 </div>
             </div>
+        </div>
+    );
+}
+
+export default function ReportsPage() {
+    return (
+        <DashboardLayout title="Báo cáo" subtitle="Báo cáo hoạt động kinh doanh">
+            <ReportsContent />
         </DashboardLayout>
     );
 }

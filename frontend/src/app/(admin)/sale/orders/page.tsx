@@ -27,7 +27,7 @@ function OrderListPageContent() {
     // Status Tabs definition
     const tabs = [
         { id: 'Tất cả', label: 'Tất cả' },
-        { id: 'NEW', label: 'Mới' },
+        { id: 'NEW', label: 'Tiếp Nhận' },
         { id: 'IN_PROGRESS', label: 'Đang sửa' },
         { id: 'WAITING_FOR_PAYMENT', label: 'Chờ thanh toán' },
         { id: 'COMPLETED', label: 'Hoàn thành' },
@@ -141,8 +141,19 @@ function OrderListPageContent() {
             header: 'Còn nợ',
             accessorKey: 'debt',
             className: 'text-right',
-            render: (value: any) => {
+            render: (value: any, row: any) => {
                 const debt = Number(value);
+                const total = Number(row.grandTotal);
+
+                // Nếu tổng tiền là 0 (đơn chưa có báo giá hoặc chưa duyệt), không hiển thị PAID
+                if (total === 0) {
+                    return (
+                        <div className="flex flex-col items-end">
+                            <span className="text-slate-300 italic text-[11px]">-</span>
+                        </div>
+                    );
+                }
+
                 if (debt > 0) {
                     return (
                         <div className="flex flex-col items-end">

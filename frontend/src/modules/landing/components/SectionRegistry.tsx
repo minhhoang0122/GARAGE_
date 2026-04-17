@@ -36,6 +36,7 @@ interface SectionRegistryProps {
     // Shared Global Data
     status: string;
     isStaff: boolean;
+    roles: string[];
     hotServices: any[];
     recentPosts: BlogPost[];
     announcements: Announcement[];

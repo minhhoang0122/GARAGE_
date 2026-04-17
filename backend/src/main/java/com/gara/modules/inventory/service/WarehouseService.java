@@ -38,6 +38,7 @@ public class WarehouseService {
     private final com.gara.modules.support.service.AsyncAuditService asyncAuditService;
     private final AsyncNotificationService asyncNotificationService;
     private final RealtimeService realtimeService;
+    private final InventoryReservationService reservationService;
 
     public WarehouseService(ProductRepository productRepository,
             OrderItemRepository orderItemRepository,
@@ -50,7 +51,8 @@ public class WarehouseService {
             ExportDetailRepository exportDetailRepository,
             com.gara.modules.support.service.AsyncAuditService asyncAuditService,
             AsyncNotificationService asyncNotificationService,
-            RealtimeService realtimeService) {
+            RealtimeService realtimeService,
+            InventoryReservationService reservationService) {
         this.productRepository = productRepository;
         this.orderItemRepository = orderItemRepository;
         this.exportNoteRepository = exportNoteRepository;
@@ -63,6 +65,7 @@ public class WarehouseService {
         this.asyncAuditService = asyncAuditService;
         this.asyncNotificationService = asyncNotificationService;
         this.realtimeService = realtimeService;
+        this.reservationService = reservationService;
     }
 
     public List<ProductDTO> getProducts(String search) {
@@ -147,6 +150,15 @@ public class WarehouseService {
 
         exportNoteRepository.save(exportNote);
 
+        // Convert reservations to avoid double deduction in availability calculations
+        try {
+            List<Integer> productIds = items.stream().map(i -> i.getProduct().getId()).toList();
+            reservationService.convertReservation(orderId, productIds);
+        } catch (Exception e) {
+            // Log error but don't fail the export transaction
+            System.err.println("Warning: Could not convert reservations for Order #" + orderId + ": " + e.getMessage());
+        }
+
         if (OrderStatus.APPROVED.equals(order.getStatus()) || OrderStatus.WAITING_FOR_PARTS.equals(order.getStatus())) {
             order.setStatus(OrderStatus.IN_PROGRESS);
             orderRepository.save(order);
@@ -160,6 +172,11 @@ public class WarehouseService {
                 .userId(userId)
                 .build());
                 
+        realtimeService.broadcast("inventory_updated", java.util.Map.of(
+            "action", "EXPORT_ORDER", 
+            "message", "Xuất kho thành công"
+        ));
+
         return exportNote.getId();
     }
 
@@ -218,6 +235,12 @@ public class WarehouseService {
                 .userId(userId)
                 .build();
         auditLogRepository.save(log);
+
+        realtimeService.broadcast("inventory_updated", java.util.Map.of(
+            "action", "RETURN_STOCK", 
+            "productId", productId,
+            "message", "Hoàn trả hàng từ thợ"
+        ));
     }
 
     private ProductDTO mapToDTO(Product p) {
@@ -453,7 +476,7 @@ public class WarehouseService {
                 .title("Có phiếu nhập kho mới chờ duyệt")
                 .content("Phiếu nhập " + note.getImportCode() + " từ " + req.supplierName() + " cần được phê duyệt.")
                 .type("INFO")
-                .link("/admin/inventory/import/" + note.getId())
+                .link("/warehouse/import/management")
                 .refId(note.getId())
                 .createdAt(LocalDateTime.now())
                 .isRead(false)
@@ -490,6 +513,12 @@ public class WarehouseService {
                 .reason(reason)
                 .userId(userId)
                 .build());
+
+        realtimeService.broadcast("inventory_updated", java.util.Map.of(
+            "action", "ADJUST_STOCK", 
+            "productId", productId,
+            "message", "Đã điều chỉnh kiểm kê kho"
+        ));
     }
 
     @Transactional(readOnly = true)
@@ -530,11 +559,13 @@ public class WarehouseService {
             map.put("date", note.getExportDate());
 
             String vehicleInfo = "N/A (Hủy/Khác)";
-            if (note.getExportType() != null && note.getExportType().equals("REPAIR")) {
-                if (note.getRepairOrder() != null && note.getRepairOrder().getReception() != null) {
+            if (note.getExportType() != null && (note.getExportType().equals("REPAIR") || note.getExportType().equals("SUA_CHUA"))) {
+                if (note.getRepairOrder() != null && 
+                    note.getRepairOrder().getReception() != null && 
+                    note.getRepairOrder().getReception().getVehicle() != null) {
                     vehicleInfo = note.getRepairOrder().getReception().getVehicle().getLicensePlate();
                 } else {
-                    vehicleInfo = "N/A (Lỗi dữ liệu)";
+                    vehicleInfo = "N/A (Thiếu dữ liệu xe)";
                 }
             }
             map.put("vehicle", vehicleInfo);
@@ -614,6 +645,11 @@ public class WarehouseService {
 
         batch.setRemainingQuantity(0);
         importDetailRepository.save(batch);
+
+        realtimeService.broadcast("inventory_updated", java.util.Map.of(
+            "action", "DISPOSE_BATCH", 
+            "message", "Đã thanh lý lô hàng"
+        ));
     }
 
     @Transactional(readOnly = true)
@@ -797,6 +833,11 @@ public class WarehouseService {
                 .newData("Approved by User ID: " + userId)
                 .userId(userId)
                 .build());
+
+        realtimeService.broadcast("inventory_updated", java.util.Map.of(
+            "action", "APPROVE_IMPORT", 
+            "message", "Đã duyệt phiếu nhập kho"
+        ));
     }
 
     @Transactional
@@ -900,5 +941,10 @@ public class WarehouseService {
                     .userId(userId)
                     .build());
         }
+
+        realtimeService.broadcast("inventory_updated", java.util.Map.of(
+            "action", "CANCEL_ORDER_RESTORE", 
+            "message", "Hoàn kho do hủy đơn"
+        ));
     }
 }

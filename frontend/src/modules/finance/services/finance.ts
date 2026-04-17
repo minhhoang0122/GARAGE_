@@ -112,5 +112,9 @@ export const financeService = {
 
     processPayment: async (orderId: number, data: { amount: number; method: PaymentMethod }) => {
         return api.post(`/payment/${orderId}/process`, data);
+    },
+
+    getDebtDetails: async (customerId: number): Promise<any[]> => {
+        return api.get(`/debts/${customerId}`);
     }
 };

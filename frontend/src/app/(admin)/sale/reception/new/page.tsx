@@ -116,7 +116,7 @@ export default function ReceptionPage() {
                 sdtKhach: (data.sdtKhach || searchResult?.customerPhone || '').replace(/[\s.-]/g, ''),
                 diaChiKhach: data.diaChiKhach || searchResult?.customerAddress || '',
                 emailKhach: data.emailKhach || searchResult?.customerEmail || '',
-                mucXang: (fuel || 0) / 100,
+                mucXang: fuel || 0,
                 tinhTrangVo: bodyStatusText || 'Nguyên vẹn',
                 yeuCauKhach: data.request || '',
                 hinhAnh: finalImageUrl || null

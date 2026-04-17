@@ -19,15 +19,17 @@ export const ROLE_ROUTES: Record<string, string> = {
     KHO: '/warehouse',
     QUAN_LY_XUONG: '/mechanic',
     THO_SUA_CHUA: '/mechanic',
-    KHACH_HANG: '/customer/home',
+    KHACH_HANG: '/',
+    CUVAN: '/sale',
+    THO: '/mechanic',
 };
 
 // Quyền truy cập cho từng tiền tố route
 export const ROUTE_PERMISSIONS: Record<string, string[]> = {
     '/admin': ['ADMIN'],
-    '/sale': ['ADMIN', 'SALE'],
+    '/sale': ['ADMIN', 'SALE', 'CUVAN'],
     '/warehouse': ['ADMIN', 'KHO'],
-    '/mechanic': ['QUAN_LY_XUONG', 'THO_SUA_CHUA'],
+    '/mechanic': ['QUAN_LY_XUONG', 'THO_SUA_CHUA', 'CUVAN', 'THO'],
     '/customer': ['KHACH_HANG'],
 };
 
@@ -35,17 +37,26 @@ export const ROUTE_PERMISSIONS: Record<string, string[]> = {
  * Lấy trang chủ mặc định của người dùng dựa trên danh sách vai trò
  */
 export function getHomeRoute(roles: string[]): string {
-    if (!roles || roles.length === 0) return '/';
+    console.log("[Route] getHomeRoute called with roles:", roles);
+    if (!roles || roles.length === 0) {
+        console.warn("[Route] No roles found, returning root '/'");
+        return '/';
+    }
     
-    // Ưu tiên ADMIN
-    if (roles.includes(VaiTro.ADMIN)) return ROLE_ROUTES.ADMIN;
+    // Ưu tiên cao nhất cho ADMIN
+    if (roles.includes(VaiTro.ADMIN)) {
+        console.log("[Route] Role matched: ADMIN ->", ROLE_ROUTES.ADMIN);
+        return ROLE_ROUTES.ADMIN;
+    }
     
-    // Theo vai trò đầu tiên có trong danh sách cấu hình
+    // Kiểm tra từng vai trò trong danh sách roles của người dùng
     for (const role of roles) {
         if (ROLE_ROUTES[role]) {
+            console.log(`[Route] Role matched: ${role} ->`, ROLE_ROUTES[role]);
             return ROLE_ROUTES[role];
         }
     }
     
+    console.warn("[Route] No matching role route found in ROLE_ROUTES for roles:", roles);
     return '/';
 }

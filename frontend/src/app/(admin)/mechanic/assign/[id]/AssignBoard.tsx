@@ -14,6 +14,7 @@ import { isInProgress } from '@/lib/status';
 import { useSSEContext } from '@/modules/common/contexts/RealtimeContext';
 import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
 import { toast } from '@/modules/shared/components/ui/use-toast';
+import BaseAvatar from '@/modules/shared/components/common/BaseAvatar';
 
 // Portal wrapper to fix drag offset in scrollable containers
 function PortalAwareDraggable({ provided, snapshot, children }: { provided: DraggableProvided, snapshot: DraggableStateSnapshot, children: React.ReactNode }) {
@@ -57,17 +58,20 @@ function MechanicDropdown({ itemId, mechanics, existingIds, onAssign, disabled }
                         {availableMechanics.map(m => (
                             <button
                                 key={m.id}
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors flex items-center justify-between gap-2"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors flex items-center justify-between gap-2 group/item"
                                 onClick={() => {
                                     onAssign(itemId, m.id);
                                     setIsOpen(false);
                                 }}
                             >
-                                <span className="font-medium text-slate-700">{m.fullName}</span>
+                                <div className="flex items-center gap-2">
+                                    <BaseAvatar name={m.fullName} src={m.avatar} id={m.id} size="xs" showStatus={false} />
+                                    <span className="font-medium text-slate-700 group-hover/item:text-blue-700 transition-colors">{m.fullName}</span>
+                                </div>
                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                    m.soViecDangLam === 0 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                                    m.soViecDangLam === 0 ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-amber-50 text-amber-700 border border-amber-100'
                                 }`}>
-                                    {m.soViecDangLam} việc
+                                    {m.soViecDangLam} VIỆC
                                 </span>
                             </button>
                         ))}
@@ -82,7 +86,7 @@ export default function AssignBoard({ initialJob, mechanics: initialMechanics }:
     const router = useRouter();
     const { data: session } = useSession();
     // @ts-ignore
-    const token = session?.user?.accessToken || '';
+    const token = (session as any)?.accessToken || (session?.user as any)?.accessToken || '';
     const queryClient = useQueryClient();
     const { addListener, removeListener, subscribeToTopic, unsubscribeFromTopic } = useSSEContext();
 
@@ -262,7 +266,7 @@ export default function AssignBoard({ initialJob, mechanics: initialMechanics }:
                                     <Wrench className="h-4 w-4 text-blue-600" />
                                     Hạng mục sửa chữa
                                 </h3>
-                                <p className="text-[12px] text-slate-500 font-medium ml-6">Tổng số {(job?.items || []).length} hạng mục cần điều phối</p>
+                                <div className="text-[12px] text-slate-500 font-medium ml-6">Tổng số {(job?.items || []).length} hạng mục cần điều phối</div>
                             </div>
                             <span className="text-[10px] font-bold text-slate-400 tracking-widest hidden sm:inline bg-white px-3 py-1 rounded-full border border-slate-100 shadow-sm">Kéo thả để gán thợ</span>
                         </div>
@@ -284,14 +288,18 @@ export default function AssignBoard({ initialJob, mechanics: initialMechanics }:
                                                     <div className="flex items-center gap-2">
                                                         <h4 className="font-bold text-slate-800 text-sm leading-tight">{item.productName}</h4>
                                                         {item.isTechnicalAddition && (
-                                                            <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 text-[9px] font-black uppercase tracking-widest rounded border border-purple-100">Phát sinh</span>
+                                                            <span className="px-2.5 py-0.5 bg-purple-50 text-purple-600 text-[9px] font-black uppercase tracking-widest rounded-full border border-purple-100 shadow-sm">Phát sinh</span>
                                                         )}
                                                     </div>
-                                                    <p className="text-[11px] font-semibold text-slate-500 mt-1 uppercase tracking-widest">Mã: {item.productCode} • SL: {item.quantity}</p>
+                                                    <div className="text-[11px] font-semibold text-slate-500 mt-1 uppercase tracking-widest">Mã: {item.productCode} • SL: {item.quantity}</div>
                                                 </div>
                                                 {item.isCompleted ? (
                                                     <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 shadow-sm">
                                                         <CheckCircle2 className="h-3 w-3" /> Hoàn thành
+                                                    </span>
+                                                ) : (item.assignments || []).length === 0 ? (
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-red-700 bg-red-100 px-3 py-1 rounded-full border border-red-200 shadow-sm animate-pulse">
+                                                        Chưa gán thợ
                                                     </span>
                                                 ) : (
                                                     <span className="text-[9px] font-black uppercase tracking-widest text-blue-700 bg-blue-100/80 px-3 py-1 rounded-full border border-blue-200 shadow-sm">
@@ -325,9 +333,14 @@ export default function AssignBoard({ initialJob, mechanics: initialMechanics }:
                                                                     : 'hover:border-blue-200 hover:shadow-md cursor-grab active:scale-95'
                                                                 }`}>
                                                                     <GripVertical className="h-3.5 w-3.5 text-slate-300 mr-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                                    <div className="h-6 w-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mr-1.5 shadow-inner">
-                                                                        <User className="h-3 w-3 text-slate-500" />
-                                                                    </div>
+                                                                    <BaseAvatar 
+                                                                        name={assignment.mechanicName} 
+                                                                        src={assignment.mechanicAvatar}
+                                                                        id={assignment.mechanicId} 
+                                                                        size="xs" 
+                                                                        showStatus={false}
+                                                                        className="mr-1.5"
+                                                                    />
                                                                     <span className="text-[11px] font-bold text-slate-700 mr-2">{assignment.mechanicName}</span>
                                                                     <button
                                                                         onClick={(e) => {
@@ -371,20 +384,27 @@ export default function AssignBoard({ initialJob, mechanics: initialMechanics }:
 
                     {/* === CỘT PHẢI: Nguồn Lực === */}
                     <div className="bg-white rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] xl:sticky xl:top-4 xl:self-start overflow-hidden border border-slate-100/50">
-                                <div className="p-6 bg-slate-900 flex items-center justify-between">
-                                    <div>
-                                        <h3 className="font-black text-white flex items-center gap-3 text-xs uppercase tracking-[0.2em]">
-                                            <Users className="h-4 w-4 text-blue-400" />
-                                            Nguồn Lực
-                                            <span className="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-md font-black">{(mechanics || []).length}</span>
+                                <div className="p-6 bg-gradient-to-r from-slate-900 to-slate-800 flex items-center justify-between relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-blue-500/20 transition-all duration-700" />
+                                    <div className="relative z-10">
+                                        <h3 className="font-black flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] text-white underline-offset-4">
+                                            <span className="p-2 bg-blue-500 rounded-xl shadow-[0_0_15px_rgba(59,130,246,0.5)] inline-flex ring-1 ring-blue-400/50">
+                                                <Users className="h-4 w-4 text-white" />
+                                            </span>
+                                            <span className="drop-shadow-md">Nguồn Lực</span>
+                                            <span className="bg-white/10 backdrop-blur-md text-white text-[10px] px-2.5 py-1 rounded-full font-black border border-white/20">{(mechanics || []).length}</span>
                                         </h3>
-                                        <p className="text-[10px] text-blue-200/60 mt-2 font-bold uppercase tracking-wider">
-                                            {isAlreadySubmitted ? 'Dữ liệu đã khóa' : 'Kéo thợ để gán việc'}
-                                        </p>
+                                        <div className="text-[10px] text-blue-200/70 mt-3 font-bold uppercase tracking-widest flex items-center gap-2">
+                                            <span className="flex h-1.5 w-1.5 relative">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-500"></span>
+                                            </span>
+                                            {isAlreadySubmitted ? 'Hồ sơ đã chốt' : 'Kéo thợ để gán việc'}
+                                        </div>
                                     </div>
                                     {isAlreadySubmitted && (
-                                        <div className="bg-amber-500/20 p-2 rounded-lg" title="Đã khóa phân công">
-                                            <ShieldAlert className="h-4 w-4 text-amber-500" />
+                                        <div className="bg-amber-500/20 p-2.5 rounded-xl border border-amber-500/30 shadow-inner group transition-all duration-300 hover:bg-amber-500/30" title="Đã khóa phân công">
+                                            <ShieldAlert className="h-5 w-5 text-amber-500" />
                                         </div>
                                     )}
                                 </div>
@@ -428,27 +448,36 @@ export default function AssignBoard({ initialJob, mechanics: initialMechanics }:
                                                                 : 'border-slate-100 shadow-sm hover:border-blue-500/30 hover:shadow-xl hover:-translate-y-1'
                                                             } ${mechanic.soViecDangLam === 0 ? 'ring-1 ring-emerald-500/10 bg-emerald-50/5' : ''}`}
                                                         >
-                                                            <div className="flex justify-between items-start">
-                                                                <div className="flex gap-3">
-                                                                    <div className="relative">
-                                                                        <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-blue-500 transition-colors">
-                                                                            <User size={18} />
-                                                                        </div>
-                                                                        <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm ${
-                                                                            mechanic.soViecDangLam === 0 ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
-                                                                        }`} />
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="relative">
+                                                                    <BaseAvatar 
+                                                                        name={mechanic.fullName || 'Nhân viên'} 
+                                                                        src={mechanic.avatar}
+                                                                        id={mechanic.id} 
+                                                                        size="md" 
+                                                                        showStatus={false}
+                                                                        className="ring-2 ring-white shadow-md"
+                                                                    />
+                                                                    <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white shadow-sm transition-colors duration-500 z-10 ${
+                                                                        mechanic.soViecDangLam === 0 ? 'bg-emerald-500' : 'bg-amber-500'
+                                                                    }`}>
+                                                                        {mechanic.soViecDangLam === 0 && <div className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-20" />}
                                                                     </div>
-                                                                    <div>
-                                                                        <h4 className="font-black text-slate-900 text-sm tracking-tight group-hover:text-blue-600 transition-colors">{mechanic.fullName}</h4>
-                                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{mechanic.chuyenMonLabel}</span>
-                                                                            <div className="w-1 h-1 rounded-full bg-slate-200" />
-                                                                            <span className={`text-[10px] font-black uppercase ${
-                                                                                mechanic.soViecDangLam === 0 ? 'text-emerald-600' : 'text-amber-600'
-                                                                            }`}>
-                                                                                {mechanic.soViecDangLam === 0 ? 'Sẵn sàng' : `${mechanic.soViecDangLam} VIỆC`}
-                                                                            </span>
-                                                                        </div>
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <h4 className="font-bold text-slate-900 text-sm tracking-tight truncate group-hover:text-blue-600 transition-colors">
+                                                                        {mechanic.fullName || 'Kỹ thuật viên'}
+                                                                    </h4>
+                                                                    <div className="flex items-center gap-2 mt-1">
+                                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight bg-slate-100 px-2 py-0.5 rounded">
+                                                                            {mechanic.chuyenMonLabel || 'Kỹ thuật'}
+                                                                        </span>
+                                                                        <div className="w-1 h-1 rounded-full bg-slate-300" />
+                                                                        <span className={`text-[10px] font-black uppercase tracking-tighter ${
+                                                                            mechanic.soViecDangLam === 0 ? 'text-emerald-600' : 'text-amber-600'
+                                                                        }`}>
+                                                                            {mechanic.soViecDangLam === 0 ? 'Rảnh' : `${mechanic.soViecDangLam} việc`}
+                                                                        </span>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -488,7 +517,7 @@ export default function AssignBoard({ initialJob, mechanics: initialMechanics }:
                                     </div>
                                     <div>
                                         <h4 className="text-sm font-black text-emerald-900 tracking-tight">Quy trình đang vận hành</h4>
-                                        <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest">Đã xác nhận phân công và bàn giao kỹ thuật</p>
+                                        <div className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest">Đã xác nhận phân công và bàn giao kỹ thuật</div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 bg-white/60 px-4 py-2 rounded-xl border border-emerald-100 italic transition-all hover:bg-white/80">
@@ -510,12 +539,12 @@ export default function AssignBoard({ initialJob, mechanics: initialMechanics }:
                                         <Users className="w-5 h-5" />
                                     </div>
                                     <div className="flex flex-col">
-                                        <p className={`text-sm font-black ${allAssigned ? 'text-emerald-700' : 'text-slate-800'}`}>
+                                        <div className={`text-sm font-black ${allAssigned ? 'text-emerald-700' : 'text-slate-800'}`}>
                                             {assignedItemCount}/{totalItems} hạng mục
-                                        </p>
-                                        <p className="text-[11px] text-slate-500">
+                                        </div>
+                                        <div className="text-[11px] text-slate-500">
                                             {uniqueCount} Kỹ thuật viên được phân công
-                                        </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -523,19 +552,19 @@ export default function AssignBoard({ initialJob, mechanics: initialMechanics }:
                             {/* Nút chính */}
                             <button
                                 onClick={() => {
-                                    if (!hasAny) {
+                                    if (!allAssigned) {
                                         toast({
-                                            title: "Lỗi",
-                                            description: "Chưa phân công thợ cho hạng mục nào!",
+                                            title: "Chưa đủ điều kiện",
+                                            description: "Vui lòng gán thợ cho TẤT CẢ các hạng mục trước khi xác nhận bàn giao kỹ thuật.",
                                             variant: "destructive"
                                         });
                                         return;
                                     }
                                     submitMutation.mutate();
                                 }}
-                                disabled={!hasAny || isWorking}
+                                disabled={!allAssigned || isWorking}
                                 className={`w-full md:w-auto flex items-center justify-center gap-3 px-6 md:px-8 py-3 md:py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-                                    !hasAny || submitMutation.isPending
+                                    !allAssigned || submitMutation.isPending
                                     ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50'
                                     : 'bg-slate-900 hover:bg-slate-800 text-white shadow-xl shadow-slate-200 hover:shadow-slate-300'
                                 }`}
@@ -547,7 +576,7 @@ export default function AssignBoard({ initialJob, mechanics: initialMechanics }:
                                     </>
                                 ) : (
                                     <>
-                                        {allAssigned ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Send className="w-4 h-4 border-slate-400" />}
+                                        {allAssigned ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <ShieldAlert className="w-4 h-4 text-amber-500" />}
                                         Xác nhận
                                     </>
                                 )}

@@ -43,12 +43,14 @@ public class UserService {
     public List<User> getStaffOnly() {
         return userRepository.findAll().stream()
                 .filter(u -> u.getUserType() == com.gara.entity.enums.UserType.STAFF)
+                .filter(u -> u.getRoles().stream().noneMatch(r -> r.getName().equals("KHACH_HANG")))
                 .collect(java.util.stream.Collectors.toList());
     }
 
     public List<User> getCustomersOnly() {
         return userRepository.findAll().stream()
-                .filter(u -> u.getUserType() == com.gara.entity.enums.UserType.CUSTOMER)
+                .filter(u -> u.getUserType() == com.gara.entity.enums.UserType.CUSTOMER || 
+                            u.getRoles().stream().anyMatch(r -> r.getName().equals("KHACH_HANG")))
                 .collect(java.util.stream.Collectors.toList());
     }
 
@@ -80,13 +82,17 @@ public class UserService {
         user.setRoles(roles);
 
         // Tự động gán UserType dựa trên Roles
-        if (roles.stream().anyMatch(r -> r.getName().equals("KHACH_HANG"))) {
+        updateUserTypeBasedOnRoles(user);
+
+        return userRepository.save(user);
+    }
+
+    private void updateUserTypeBasedOnRoles(User user) {
+        if (user.getRoles().stream().anyMatch(r -> r.getName().equals("KHACH_HANG"))) {
             user.setUserType(com.gara.entity.enums.UserType.CUSTOMER);
         } else {
             user.setUserType(com.gara.entity.enums.UserType.STAFF);
         }
-
-        return userRepository.save(user);
     }
 
     @Transactional
@@ -111,6 +117,9 @@ public class UserService {
                 roleRepository.findByName(code).ifPresent(roles::add);
             }
             user.setRoles(roles);
+            
+            // QUAN TRỌNG: Cập nhật lại UserType khi Role thay đổi để tránh lệch dữ liệu (Fix bug hiển thị Khách trong Đội ngũ)
+            updateUserTypeBasedOnRoles(user);
         }
 
         // Update password if provided

@@ -10,6 +10,7 @@ export interface User {
     avatar?: string;
     lastLogin?: string;
     userType?: 'STAFF' | 'CUSTOMER';
+    roles?: Array<{ name: string, description: string }>;
 }
 
 export const identityService = {

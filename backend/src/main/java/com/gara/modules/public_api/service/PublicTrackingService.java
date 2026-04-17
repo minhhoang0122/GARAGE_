@@ -37,6 +37,15 @@ public class PublicTrackingService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public Optional<PublicTrackingDTO> getTrackingByPlate(String bienSo) {
+        if (bienSo == null || bienSo.trim().isEmpty()) return Optional.empty();
+        
+        // Find the latest order for this license plate
+        return repairOrderRepository.findLatestByVehiclePlate(bienSo.trim().toUpperCase())
+                .map(this::mapToDto);
+    }
+
     private PublicTrackingDTO mapToDto(RepairOrder order) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         
@@ -79,7 +88,9 @@ public class PublicTrackingService {
                 currentLabel,
                 order.getReception() != null ? order.getReception().getPreliminaryRequest() : null,
                 items,
-                timeline
+                timeline,
+                order.getGrandTotal() != null ? order.getGrandTotal().doubleValue() : 0.0,
+                order.getAmountPaid() != null ? order.getAmountPaid().doubleValue() : 0.0
         );
     }
 

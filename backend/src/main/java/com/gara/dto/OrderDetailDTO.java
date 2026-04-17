@@ -20,13 +20,17 @@ public record OrderDetailDTO(
         BigDecimal finalAmount,
         BigDecimal paidAmount,
         BigDecimal deposit,
+        BigDecimal partsAmount,
+        BigDecimal laborAmount,
         Integer thoChanDoanId,
         String advisorName,
         String advisorAvatar,
         String foremanName,
         String foremanAvatar,
         Integer receptionId,
-        List<OrderItemDTO> items) {
+        String uuid,
+        List<OrderItemDTO> items,
+        List<FinancialTransactionDTO> transactions) {
 
     public static OrderDetailDTOBuilder builder() {
         return new OrderDetailDTOBuilder();
@@ -48,13 +52,17 @@ public record OrderDetailDTO(
         private BigDecimal finalAmount;
         private BigDecimal paidAmount;
         private BigDecimal deposit;
+        private BigDecimal partsAmount;
+        private BigDecimal laborAmount;
         private Integer thoChanDoanId;
         private String advisorName;
         private String advisorAvatar;
         private String foremanName;
         private String foremanAvatar;
         private Integer receptionId;
+        private String uuid;
         private List<OrderItemDTO> items;
+        private List<FinancialTransactionDTO> transactions;
 
         public OrderDetailDTOBuilder id(Integer id) {
             this.id = id;
@@ -131,6 +139,16 @@ public record OrderDetailDTO(
             return this;
         }
 
+        public OrderDetailDTOBuilder partsAmount(BigDecimal partsAmount) {
+            this.partsAmount = partsAmount;
+            return this;
+        }
+
+        public OrderDetailDTOBuilder laborAmount(BigDecimal laborAmount) {
+            this.laborAmount = laborAmount;
+            return this;
+        }
+
         public OrderDetailDTOBuilder thoChanDoanId(Integer thoChanDoanId) {
             this.thoChanDoanId = thoChanDoanId;
             return this;
@@ -161,15 +179,26 @@ public record OrderDetailDTO(
             return this;
         }
 
+        public OrderDetailDTOBuilder uuid(String uuid) {
+            this.uuid = uuid;
+            return this;
+        }
+
         public OrderDetailDTOBuilder items(List<OrderItemDTO> items) {
             this.items = items;
+            return this;
+        }
+        
+        public OrderDetailDTOBuilder transactions(List<FinancialTransactionDTO> transactions) {
+            this.transactions = transactions;
             return this;
         }
 
         public OrderDetailDTO build() {
             return new OrderDetailDTO(id, status, createdAt, customerName, customerPhone, plateNumber, carBrand,
-                    carModel, totalAmount, discount, tax, vatPercent, finalAmount, paidAmount, deposit, thoChanDoanId, 
-                    advisorName, advisorAvatar, foremanName, foremanAvatar, receptionId, items);
+                    carModel, totalAmount, discount, tax, vatPercent, finalAmount, paidAmount, deposit, 
+                    partsAmount, laborAmount, thoChanDoanId, 
+                    advisorName, advisorAvatar, foremanName, foremanAvatar, receptionId, uuid, items, transactions);
         }
     }
 }

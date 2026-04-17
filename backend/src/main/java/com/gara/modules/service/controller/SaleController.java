@@ -47,8 +47,10 @@ public class SaleController {
     }
 
     @GetMapping("/orders")
-    public ResponseEntity<?> getOrders(@RequestParam(required = false) String status) {
-        return ResponseEntity.ok(saleService.getOrders(status));
+    public ResponseEntity<?> getOrders(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String plate) {
+        return ResponseEntity.ok(saleService.getOrders(status, plate));
     }
 
     @PostMapping("/orders")
@@ -103,9 +105,14 @@ public class SaleController {
         return ResponseEntity.ok(saleService.getOrderDetails(id));
     }
 
-    @GetMapping("/products")
-    public ResponseEntity<List<ProductDTO>> searchProducts(@RequestParam(required = false) String search) {
-        return ResponseEntity.ok(saleService.searchProducts(search));
+    @PostMapping("/products")
+    public ResponseEntity<ProductDTO> createProduct(@RequestBody ProductDTO productDTO) {
+        try {
+            return ResponseEntity.ok(saleService.createProduct(productDTO));
+        } catch (Exception e) {
+            log.error("Error creating product: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @PostMapping("/orders/{id}/claim")
@@ -152,8 +159,9 @@ public class SaleController {
                     ? Double.parseDouble(body.get("discountPercent").toString())
                     : null;
             Integer version = body.containsKey("version") ? Integer.parseInt(body.get("version").toString()) : null;
+            String oldPartAction = body.containsKey("oldPartAction") ? body.get("oldPartAction").toString() : null;
 
-            saleService.updateItem(id, quantity, discountPercent, version, user);
+            saleService.updateItem(id, quantity, discountPercent, oldPartAction, version, user);
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -213,6 +221,21 @@ public class SaleController {
         }
     }
 
+    @PostMapping("/orders/{id}/request-diagnosis")
+    public ResponseEntity<?> requestDiagnosis(@PathVariable Integer id,
+            @AuthenticationPrincipal Object principal) {
+        try {
+            User user = userService.getCurrentUser();
+            if (user == null)
+                return handleUnauthorized();
+
+            saleService.requestDiagnosis(id, user);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/orders/{id}/submit-replenishment")
     public ResponseEntity<?> submitReplenishment(@PathVariable Integer id,
             @AuthenticationPrincipal Object principal) {
@@ -259,6 +282,22 @@ public class SaleController {
         }
     }
 
+    @PostMapping("/orders/{id}/transactions")
+    public ResponseEntity<?> addTransaction(@PathVariable Integer id, @RequestBody FinancialTransactionRequest request,
+            @AuthenticationPrincipal Object principal) {
+        try {
+            User user = userService.getCurrentUser();
+            if (user == null)
+                return handleUnauthorized();
+
+            saleService.addTransaction(id, request, user);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            log.error("Error adding transaction: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/orders/{id}/deposit")
     public ResponseEntity<?> updateDeposit(@PathVariable Integer id, @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal Object principal) {
@@ -268,7 +307,16 @@ public class SaleController {
                 return handleUnauthorized();
 
             java.math.BigDecimal amount = new java.math.BigDecimal(body.get("amount").toString());
-            saleService.updateDeposit(id, amount, user);
+            
+            FinancialTransactionRequest request = new FinancialTransactionRequest(
+                amount,
+                "DEPOSIT",
+                "CASH",
+                null,
+                "Cập nhật cọc nhanh"
+            );
+                
+            saleService.addTransaction(id, request, user);
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
@@ -361,7 +409,7 @@ public class SaleController {
             // Simple item summary
             String items = order.getOrderItems().stream()
                     .filter(i -> Boolean.TRUE.equals(i.getIsWarranty()))
-                    .map(i -> i.getProduct() != null ? i.getProduct().getName() : "Unknown")
+                    .map(i -> i.getProduct() != null ? i.getProduct().getName() : "Sản phẩm không xác định")
                     .collect(Collectors.joining(", "));
             map.put("warrantyItems", items);
 
@@ -383,20 +431,57 @@ public class SaleController {
             map.put("orderId", r.getRepairOrder() != null ? r.getRepairOrder().getId() : null);
             map.put("orderStatus", r.getRepairOrder() != null ? r.getRepairOrder().getStatus() : null);
 
-            if (r.getVehicle() != null) {
-                map.put("licensePlate", r.getVehicle().getLicensePlate());
-                map.put("customerName", r.getVehicle().getCustomer().getFullName());
-                map.put("customerPhone", r.getVehicle().getCustomer().getPhone());
+            // Derive booking status from shellStatus field
+            String shell = r.getShellStatus();
+            if ("Đã xác nhận".equals(shell) || "CONFIRMED".equals(shell) || "Chờ khách đến".equals(shell)) {
+                map.put("status", "CONFIRMED");
+            } else if ("Đã hủy".equals(shell) || "CANCELLED".equals(shell)) {
+                map.put("status", "CANCELLED");
+            } else if ("Đã đến".equals(shell) || "ARRIVED".equals(shell)) {
+                map.put("status", "ARRIVED");
+            } else {
+                map.put("status", "PENDING");
             }
 
-            // Parse booking info if present in request
+            if (r.getVehicle() != null) {
+                map.put("licensePlate", r.getVehicle().getLicensePlate());
+                map.put("plateNumber", r.getVehicle().getLicensePlate());
+                map.put("vehicleBrand", r.getVehicle().getBrand());
+                map.put("vehicleModel", r.getVehicle().getModel());
+                if (r.getVehicle().getCustomer() != null) {
+                    map.put("customerName", r.getVehicle().getCustomer().getFullName());
+                    map.put("customerPhone", r.getVehicle().getCustomer().getPhone());
+                }
+            }
+
+            // Parse note from preliminaryRequest
             String req = r.getPreliminaryRequest();
-            if (req != null && req.startsWith("BOOKING ONLINE")) {
-                map.put("isOnline", true);
+            if (req != null) {
+                if (req.startsWith("BOOKING ONLINE")) {
+                    map.put("isOnline", true);
+                    map.put("note", req.replaceFirst("BOOKING ONLINE\\s*:\\s*", "").trim());
+                } else if (req.startsWith("Sale đặt lịch trực tiếp:")) {
+                    map.put("isOnline", false);
+                    map.put("note", req.replaceFirst("Sale đặt lịch trực tiếp:\\s*", "").trim());
+                } else {
+                    map.put("note", req);
+                }
             }
 
             return map;
         }).collect(Collectors.toList());
+    }
+
+    @PostMapping("/bookings")
+    public ResponseEntity<?> createBooking(@RequestBody Map<String, Object> payload) {
+        try {
+            User user = userService.getCurrentUser();
+            if (user == null) return handleUnauthorized();
+            return ResponseEntity.ok(saleService.createBooking(payload, user));
+        } catch (Exception e) {
+            log.error("Error creating booking", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PutMapping("/bookings/{id}")
@@ -473,6 +558,45 @@ public class SaleController {
             return ResponseEntity.ok(Map.of("success", true, "newDate", newDate));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @PatchMapping("/bookings/{id}/confirm")
+    public ResponseEntity<?> confirmBooking(@PathVariable Integer id) {
+        try {
+            Reception reception = receptionRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Booking not found: " + id));
+            reception.setShellStatus("Đã xác nhận");
+            receptionRepository.save(reception);
+            return ResponseEntity.ok(Map.of("success", true, "id", id, "status", "CONFIRMED"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PatchMapping("/bookings/{id}/cancel")
+    public ResponseEntity<?> cancelBooking(@PathVariable Integer id) {
+        try {
+            Reception reception = receptionRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Booking not found: " + id));
+            reception.setShellStatus("Đã hủy");
+            receptionRepository.save(reception);
+            return ResponseEntity.ok(Map.of("success", true, "id", id, "status", "CANCELLED"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PatchMapping("/bookings/{id}/arrive")
+    public ResponseEntity<?> arriveBooking(@PathVariable Integer id) {
+        try {
+            Reception reception = receptionRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Booking not found: " + id));
+            reception.setShellStatus("Đã đến");
+            receptionRepository.save(reception);
+            return ResponseEntity.ok(Map.of("success", true, "id", id, "status", "ARRIVED"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 }

@@ -170,6 +170,7 @@ public class CustomerController {
                         customer.getPhone(),
                         customer.getEmail(), // use stored email
                         customer.getAddress(), // use stored address
+                        bookingDto.brand(),
                         bookingDto.licensePlate(),
                         bookingDto.model(),
                         bookingDto.appointmentTime(),

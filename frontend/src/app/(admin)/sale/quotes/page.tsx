@@ -4,6 +4,9 @@ import { FileText, Search, ArrowRight } from 'lucide-react';
 import { api } from '@/lib/api';
 import { getStatusBadge } from '@/lib/status';
 import { RealtimeRefresh } from '@/modules/common/components/layout/RealtimeRefresh';
+
+export const dynamic = 'force-dynamic';
+
 export default async function QuotesListPage() {
     let quotes = [];
     try {

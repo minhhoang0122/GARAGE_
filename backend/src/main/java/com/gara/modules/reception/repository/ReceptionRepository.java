@@ -22,12 +22,16 @@ public interface ReceptionRepository extends JpaRepository<Reception, Integer> {
 
         @org.springframework.data.jpa.repository.Query("SELECT " +
                         "r.id, r.receptionDate, v.licensePlate, c.fullName, c.phone, v.brand, v.model, o.id, o.status, r.images, " +
-                        "u.fullName, u.avatar " +
+                        "COALESCE(sa.fullName, u.fullName), COALESCE(sa.avatar, u.avatar), " +
+                        "COALESCE(dm.id, am.id), COALESCE(dm.fullName, am.fullName), COALESCE(dm.avatar, am.avatar) " +
                         "FROM Reception r " +
                         "JOIN r.vehicle v " +
                         "JOIN v.customer c " +
                         "LEFT JOIN r.receptionist u " +
                         "LEFT JOIN r.repairOrder o " +
+                        "LEFT JOIN o.serviceAdvisor sa " +
+                        "LEFT JOIN o.diagnosticMechanic dm " +
+                        "LEFT JOIN o.assignedMechanic am " +
                         "ORDER BY r.receptionDate DESC")
         List<Object[]> findAllReceptionsRaw(org.springframework.data.domain.Pageable pageable);
 
@@ -35,6 +39,7 @@ public interface ReceptionRepository extends JpaRepository<Reception, Integer> {
                         "LEFT JOIN FETCH r.vehicle v " +
                         "LEFT JOIN FETCH v.customer c " +
                         "LEFT JOIN FETCH r.repairOrder o " +
+                        "LEFT JOIN FETCH o.serviceAdvisor sa " +
                         "WHERE r.id = :id")
         java.util.Optional<Reception> findByIdWithDetails(
                         @org.springframework.data.repository.query.Param("id") Integer id);
@@ -43,7 +48,8 @@ public interface ReceptionRepository extends JpaRepository<Reception, Integer> {
                         "LEFT JOIN FETCH r.vehicle v " +
                         "LEFT JOIN FETCH v.customer c " +
                         "LEFT JOIN FETCH r.repairOrder o " +
-                        "WHERE r.preliminaryRequest LIKE '%BOOKING ONLINE%' " +
+                        "WHERE r.repairOrder IS NULL " +
+                        "AND (r.shellStatus IS NULL OR r.shellStatus NOT IN ('\u0110\u00e3 \u0111\u1ebfn', '\u0110\u00e3 h\u1ee7y')) " +
                         "ORDER BY r.receptionDate DESC")
         List<Reception> findAllBookings();
 }

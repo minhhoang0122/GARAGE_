@@ -25,10 +25,20 @@ export const axiosInstance: AxiosInstance = axios.create({
     timeout: 15000,
 });
 
-// Session Caching to prevent spamming /api/auth/session
+// Singleton promise to handle concurrent session requests
+let ongoingSessionPromise: Promise<any> | null = null;
 let cachedSession: any = null;
 let lastFetchTime = 0;
 const SESSION_CACHE_TTL = 10000; // 10 seconds
+
+/**
+ * Lấy token từ cookie (dùng regex để an toàn và nhanh hơn)
+ */
+const getCookie = (name: string): string | null => {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? decodeURIComponent(match[2]) : null;
+};
 
 const getFastSession = async () => {
     const now = Date.now();
@@ -36,15 +46,26 @@ const getFastSession = async () => {
         return cachedSession;
     }
     
-    // Fetch new session
-    try {
-        cachedSession = await getSession();
-        lastFetchTime = Date.now();
-        return cachedSession;
-    } catch (error) {
-        console.error('Failed to get session:', error);
-        return null;
+    // If there's already an ongoing request, return that promise
+    if (ongoingSessionPromise) {
+        return ongoingSessionPromise;
     }
+
+    // Start a new fetch
+    ongoingSessionPromise = getSession()
+        .then(session => {
+            cachedSession = session;
+            lastFetchTime = Date.now();
+            ongoingSessionPromise = null;
+            return session;
+        })
+        .catch(error => {
+            console.error('[API] Failed to get session:', error);
+            ongoingSessionPromise = null;
+            return null;
+        });
+
+    return ongoingSessionPromise;
 };
 
 // Request Interceptor: Auto-attach Token
@@ -59,20 +80,37 @@ axiosInstance.interceptors.request.use(
         if (typeof window !== 'undefined') {
             try {
                 const session = await getFastSession();
-                const token = session?.user?.accessToken;
+                
+                // Priority 1: NextAuth Session
+                let token = (session as any)?.accessToken || (session as any)?.user?.accessToken;
+                
+                // Priority 2: Cookie fallback (useful for browser refresh or legacy components)
+                if (!token) {
+                    token = getCookie('token') || getCookie('next-auth.session-token');
+                }
+
                 if (token) {
                     if (config.headers) {
                         config.headers.set('Authorization', `Bearer ${token}`);
                     }
+                } else {
+                    // Check if endpoint is not public
+                    const isPublic = config.url?.includes('/auth/') || config.url?.includes('/public/');
+                    if (!isPublic) {
+                        console.warn(`[API Interceptor] No Token found for secure endpoint: ${config.url}`);
+                    }
                 }
             } catch (error) {
-                console.error('API Request Interceptor Error:', error);
+                console.error('[API Interceptor] Error:', error);
             }
         }
         return config;
     },
     (error) => Promise.reject(error)
 );
+
+// Guard to prevent multiple simultaneous signOut calls
+let isLoggingOut = false;
 
 // Response Interceptor: Centralized Error Handling
 // CRITICAL: Normalize responses to maintain {success: true, ...} format
@@ -101,24 +139,38 @@ axiosInstance.interceptors.response.use(
         if (error.response) {
             const { status, data } = error.response;
 
-            // Auto Logout on 401
-            if (status === 401 && typeof window !== 'undefined') {
+            // Auto Logout on 401 (with guard to prevent multiple calls)
+            if (status === 401 && typeof window !== 'undefined' && !isLoggingOut) {
+                isLoggingOut = true;
+                console.warn('[API] Session expired, redirecting to login...');
                 await signOut({ callbackUrl: '/login?error=SessionExpired' });
                 return Promise.reject({ success: false, message: 'Phiên đăng nhập hết hạn' });
             }
 
+            // If already logging out, just reject silently
+            if (status === 401 && isLoggingOut) {
+                return Promise.reject({ success: false, message: 'Đang chuyển hướng...' });
+            }
+
             // Handling 403
             if (status === 403) {
-                return Promise.reject({ success: false, message: 'Bạn không có quyền thực hiện hành động này' });
+                console.error(`[API 403] Forbidden at ${error.config?.url}. Data:`, data);
+                return Promise.reject({ 
+                    success: false, 
+                    message: data?.message || 'Bạn không có quyền thực hiện hành động này',
+                    status: 403,
+                    url: error.config?.url 
+                });
             }
 
             if (status === 404) {
                 return Promise.reject({ success: false, message: 'Không tìm thấy dữ liệu (404)' });
             }
 
-            // Return error data from server, ensure {success: false} format
+            // Return error data from server, ensure {success: false, message: ...} format
             if (data && typeof data === 'object') {
-                return Promise.reject({ success: false, ...data });
+                const message = data.message || data.error || data.detail || `Lỗi ${status}`;
+                return Promise.reject({ success: false, message, ...data });
             }
             return Promise.reject({ success: false, message: data || `Lỗi ${status}` });
         } else if (error.request) {

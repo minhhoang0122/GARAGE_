@@ -31,15 +31,15 @@ export default function OrderPaymentSection({
     const subtotal = totalParts + totalLabor - (order.totalDiscount || 0);
     const finalSubtotal = subtotal > 0 ? subtotal : 0;
     
-    // Thuế VAT
+    // Thuế VAT được cộng dồn từ từng mặt hàng thay vì tính theo % tổng quát
     const vat = workspace
-        ? Math.round(finalSubtotal * (order.vatPercent || 0) / 100)
-        : order.vat;
+        ? activeItems.reduce((sum, item) => sum + (item.vatAmount || 0), 0)
+        : (order.totalVat || order.vat || 0);
 
     // Thành tiền được tính toán trực tiếp thay vì chờ SSR để UI mượt mà hơn
     const grandTotal = workspace
         ? finalSubtotal + vat
-        : order.grandTotal;
+        : (order.grandTotal || 0);
 
     const debt = grandTotal - (order.amountPaid || 0);
     

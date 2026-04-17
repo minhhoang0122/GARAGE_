@@ -6,6 +6,7 @@ import org.hibernate.generator.EventType;
 import java.math.BigDecimal;
 import java.util.List;
 import com.gara.entity.enums.ItemStatus;
+import com.gara.entity.enums.OldPartAction;
 
 @Entity
 @Table(name = "order_items", indexes = {
@@ -40,7 +41,7 @@ public class OrderItem {
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
     @Column(name = "vat_percentage", nullable = false, precision = 5, scale = 2)
-    private BigDecimal vatPercentage = new BigDecimal("10.00");
+    private BigDecimal vatPercentage = BigDecimal.ZERO;
 
     @Column(name = "vat_amount", nullable = false, precision = 18, scale = 2)
     private BigDecimal vatAmount = BigDecimal.ZERO;
@@ -57,6 +58,10 @@ public class OrderItem {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 30)
     private ItemStatus status = ItemStatus.PROPOSAL; // PROPOSAL, CUSTOMER_APPROVED, CUSTOMER_REJECTED
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "old_part_action", length = 30)
+    private OldPartAction oldPartAction = OldPartAction.RETURN_TO_CUSTOMER; // Mặc định trả đồ cũ cho khách
 
     @Column(name = "is_warranty")
     private Boolean isWarranty = false;
@@ -75,6 +80,12 @@ public class OrderItem {
 
     @Column(name = "is_emergency")
     private Boolean isEmergency = false;
+
+    @Column(name = "warranty_months")
+    private Integer warrantyMonths = 0;
+
+    @Column(name = "warranty_km")
+    private Integer warrantyKm = 0;
 
     @Column(name = "suggested_at")
     private java.time.LocalDateTime suggestedAt;
@@ -125,19 +136,21 @@ public class OrderItem {
             Boolean isWarranty, String warrantyNotes, Boolean isCompleted, Integer maxMechanics,
             Integer repairOrderId, Integer productId, RepairOrder repairOrder, Product product,
             Integer mechanicId, User mechanic, List<TaskAssignment> taskAssignments,
-            Boolean isEmergency, java.time.LocalDateTime suggestedAt, User suggestedBy) {
+            Boolean isEmergency, java.time.LocalDateTime suggestedAt, User suggestedBy, OldPartAction oldPartAction,
+            Integer warrantyMonths, Integer warrantyKm) {
         this.id = id;
         this.quantity = quantity;
         this.unitPrice = unitPrice;
         this.discountAmount = discountAmount != null ? discountAmount : BigDecimal.ZERO;
         this.discountPercentage = discountPercentage != null ? discountPercentage : BigDecimal.ZERO;
         this.totalAmount = totalAmount;
-        this.vatPercentage = vatPercentage != null ? vatPercentage : new BigDecimal("10.00");
+        this.vatPercentage = vatPercentage != null ? vatPercentage : BigDecimal.ZERO;
         this.vatAmount = vatAmount != null ? vatAmount : BigDecimal.ZERO;
         this.priority = priority != null ? priority : 0;
         this.priceAdjustmentReason = priceAdjustmentReason;
         this.notes = notes;
         this.status = status != null ? status : ItemStatus.PROPOSAL;
+        this.oldPartAction = oldPartAction != null ? oldPartAction : OldPartAction.RETURN_TO_CUSTOMER;
         this.isWarranty = isWarranty != null ? isWarranty : false;
         this.warrantyNotes = warrantyNotes;
         this.isCompleted = isCompleted != null ? isCompleted : false;
@@ -152,6 +165,8 @@ public class OrderItem {
         this.isEmergency = isEmergency != null ? isEmergency : false;
         this.suggestedAt = suggestedAt;
         this.suggestedBy = suggestedBy;
+        this.warrantyMonths = warrantyMonths != null ? warrantyMonths : 0;
+        this.warrantyKm = warrantyKm != null ? warrantyKm : 0;
     }
 
     public OrderItem(Integer id, Integer quantity, BigDecimal unitPrice, BigDecimal discountAmount,
@@ -161,11 +176,12 @@ public class OrderItem {
             Integer repairOrderId, Integer productId, RepairOrder repairOrder, Product product,
             Integer mechanicId, User mechanic, List<TaskAssignment> taskAssignments,
             Boolean isEmergency, java.time.LocalDateTime suggestedAt, User suggestedBy,
-            java.time.LocalDateTime updatedAt) {
+            java.time.LocalDateTime updatedAt, OldPartAction oldPartAction,
+            Integer warrantyMonths, Integer warrantyKm) {
         this(id, quantity, unitPrice, discountAmount, discountPercentage, totalAmount, vatPercentage, vatAmount,
                 priority, priceAdjustmentReason, status, notes, isWarranty, warrantyNotes, isCompleted, maxMechanics,
                 repairOrderId, productId, repairOrder, product, mechanicId, mechanic, taskAssignments,
-                isEmergency, suggestedAt, suggestedBy);
+                isEmergency, suggestedAt, suggestedBy, oldPartAction, warrantyMonths, warrantyKm);
         this.updatedAt = updatedAt;
     }
 
@@ -279,6 +295,14 @@ public class OrderItem {
 
     public void setStatus(ItemStatus status) {
         this.status = status;
+    }
+
+    public OldPartAction getOldPartAction() {
+        return oldPartAction != null ? oldPartAction : OldPartAction.RETURN_TO_CUSTOMER;
+    }
+
+    public void setOldPartAction(OldPartAction oldPartAction) {
+        this.oldPartAction = oldPartAction;
     }
 
     public Boolean getIsWarranty() {
@@ -417,6 +441,22 @@ public class OrderItem {
         this.updatedAt = updatedAt;
     }
 
+    public Integer getWarrantyMonths() {
+        return warrantyMonths;
+    }
+
+    public void setWarrantyMonths(Integer warrantyMonths) {
+        this.warrantyMonths = warrantyMonths;
+    }
+
+    public Integer getWarrantyKm() {
+        return warrantyKm;
+    }
+
+    public void setWarrantyKm(Integer warrantyKm) {
+        this.warrantyKm = warrantyKm;
+    }
+
     public static OrderItemBuilder builder() {
         return new OrderItemBuilder();
     }
@@ -428,7 +468,7 @@ public class OrderItem {
         private BigDecimal discountAmount = BigDecimal.ZERO;
         private BigDecimal discountPercentage = BigDecimal.ZERO;
         private BigDecimal totalAmount;
-        private BigDecimal vatPercentage = new BigDecimal("10.00");
+        private BigDecimal vatPercentage = BigDecimal.ZERO;
         private BigDecimal vatAmount = BigDecimal.ZERO;
         private Integer priority = 0;
         private String priceAdjustmentReason;
@@ -445,6 +485,9 @@ public class OrderItem {
         private Integer mechanicId;
         private User mechanic;
         private List<TaskAssignment> taskAssignments;
+        private OldPartAction oldPartAction = OldPartAction.RETURN_TO_CUSTOMER;
+        private Integer warrantyMonths = 0;
+        private Integer warrantyKm = 0;
 
         public OrderItemBuilder id(Integer id) {
             this.id = id;
@@ -506,6 +549,11 @@ public class OrderItem {
             return this;
         }
 
+        public OrderItemBuilder oldPartAction(OldPartAction oldPartAction) {
+            this.oldPartAction = oldPartAction;
+            return this;
+        }
+
         public OrderItemBuilder isWarranty(Boolean isWarranty) {
             this.isWarranty = isWarranty;
             return this;
@@ -561,6 +609,16 @@ public class OrderItem {
             return this;
         }
 
+        public OrderItemBuilder warrantyMonths(Integer warrantyMonths) {
+            this.warrantyMonths = warrantyMonths;
+            return this;
+        }
+
+        public OrderItemBuilder warrantyKm(Integer warrantyKm) {
+            this.warrantyKm = warrantyKm;
+            return this;
+        }
+
         private User suggestedBy;
         private Boolean isEmergency = false;
         private java.time.LocalDateTime suggestedAt;
@@ -585,7 +643,7 @@ public class OrderItem {
             return new OrderItem(id, quantity, unitPrice, discountAmount, discountPercentage, totalAmount, vatPercentage, vatAmount,
                     priority, priceAdjustmentReason, status, notes, isWarranty, warrantyNotes, isCompleted, maxMechanics,
                     repairOrderId, productId, repairOrder, product, mechanicId, mechanic, taskAssignments,
-                    isEmergency, suggestedAt, suggestedBy, updatedAt);
+                    isEmergency, suggestedAt, suggestedBy, updatedAt, oldPartAction, warrantyMonths, warrantyKm);
         }
     }
 }

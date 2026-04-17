@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/modules/shared/compo
 import { Button } from '@/modules/shared/components/ui/button';
 import { Input } from '@/modules/shared/components/ui/input';
 import { SearchInput } from '@/modules/shared/components/ui/search-input';
-import { Search, Plus, MapPin, Phone, Mail, User, RefreshCw, ChevronRight, X, Loader2, AlertCircle } from 'lucide-react';
+import { Search, Plus, MapPin, Phone, Mail, User, RefreshCw, ChevronRight, X, Loader2, AlertCircle, Car } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
@@ -114,6 +114,22 @@ function SaleCustomersPageContent() {
                                                 <span className="line-clamp-1">{customer.address}</span>
                                             </div>
                                         )}
+
+                                        {/* Hiển thị thông tin xe */}
+                                        <div className="flex flex-wrap gap-1.5 pt-1">
+                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 text-[10px] font-black border border-indigo-100 dark:border-indigo-800 uppercase tracking-tight">
+                                                <Car className="w-3.5 h-3.5" />
+                                                <span>{customer.vehicleCount || 0} Phương tiện</span>
+                                            </div>
+                                            {customer.licensePlates && customer.licensePlates.length > 0 && customer.licensePlates.map((plate, idx) => (
+                                                <span 
+                                                    key={idx} 
+                                                    className="px-2.5 py-1 rounded-md bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-[10px] font-black border border-amber-100 dark:border-amber-900/30 uppercase tracking-wider"
+                                                >
+                                                    {plate}
+                                                </span>
+                                            ))}
+                                        </div>
                                         <div className="pt-3 flex justify-between items-center text-[10px] text-slate-400 border-t border-slate-100 dark:border-slate-800 mt-2 uppercase tracking-widest font-black">
                                             <span>ID: #{customer.id}</span>
                                             <span>Mới nhất: {customer.lastVisit ? new Date(customer.lastVisit).toLocaleDateString('vi-VN') : 'N/A'}</span>
@@ -135,6 +151,24 @@ function SaleCustomersPageContent() {
                                         <a href={`tel:${customer.phone}`} className="text-indigo-600 dark:text-indigo-400 text-sm font-medium flex items-center gap-1 mt-0.5">
                                             <Phone className="w-3 h-3" /> {customer.phone}
                                         </a>
+                                        {/* Mobile Car Info */}
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            <div className="flex items-center gap-1 text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 rounded">
+                                                <Car className="w-3 h-3" /> {customer.vehicleCount || 0}
+                                            </div>
+                                            {customer.licensePlates && customer.licensePlates.length > 0 && (
+                                                <div className="flex gap-1 overflow-x-auto no-scrollbar">
+                                                    {customer.licensePlates.slice(0, 2).map((plate, idx) => (
+                                                        <span key={idx} className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                                            {plate}
+                                                        </span>
+                                                    ))}
+                                                    {customer.licensePlates.length > 2 && (
+                                                        <span className="text-[10px] font-bold text-slate-400">+{(customer.licensePlates.length - 2)}</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     {(customer.email || customer.address) && (
                                         <div className="text-right">

@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wrench, ArrowRight, CarFront, Search } from 'lucide-react';
+import { getHomeRoute } from '@/lib/routes';
 
 interface HeroSectionProps {
     title?: string;
@@ -11,6 +12,7 @@ interface HeroSectionProps {
     imageUrl?: string;
     status: string;
     isStaff: boolean;
+    roles: string[];
     trackingPlate: string;
     setTrackingPlate: (val: string) => void;
     handleTrack: (e: React.FormEvent) => void;
@@ -48,6 +50,7 @@ export default function HeroSection({
     imageUrl,
     status,
     isStaff,
+    roles,
     trackingPlate,
     setTrackingPlate,
     handleTrack,
@@ -205,8 +208,11 @@ export default function HeroSection({
 
                             <div className="mt-8 pt-6 border-t border-stone-800 text-center relative z-10">
                                 <p className="text-stone-300 text-sm mb-3">Chủ xe cần xem chi tiết hạng mục, phụ tùng?</p>
-                                <Link href="/customer/login" className="inline-flex items-center gap-2 text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 px-4 py-2 rounded transition-colors text-sm font-medium">
-                                    {status === 'authenticated' ? 'Đi tới trang quản lý' : 'Đăng nhập xem hoá đơn'} <ArrowRight size={14} />
+                                <Link 
+                                    href={status === 'authenticated' && getHomeRoute(roles) !== '/' ? getHomeRoute(roles) : "/customer/login"} 
+                                    className="inline-flex items-center gap-2 text-stone-300 hover:text-white bg-stone-800 hover:bg-stone-700 px-4 py-2 rounded transition-colors text-sm font-medium"
+                                >
+                                    {status === 'authenticated' && getHomeRoute(roles) !== '/' ? 'Đi tới trang quản lý' : 'Đăng nhập xem hoá đơn'} <ArrowRight size={14} />
                                 </Link>
                             </div>
                         </div>

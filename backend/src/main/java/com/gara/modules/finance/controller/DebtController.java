@@ -23,4 +23,9 @@ public class DebtController {
     public ResponseEntity<List<DebtDTO>> getDebtors() {
         return ResponseEntity.ok(orderRepository.findCustomersWithDebt());
     }
+
+    @org.springframework.web.bind.annotation.GetMapping("/{customerId}")
+    public ResponseEntity<?> getDebtDetails(@org.springframework.web.bind.annotation.PathVariable Integer customerId) {
+        return ResponseEntity.ok(orderRepository.findUnpaidOrdersByCustomerId(customerId));
+    }
 }

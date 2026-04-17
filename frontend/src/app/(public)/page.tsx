@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { MapPin, PhoneCall, Clock, Wrench, Settings, Search, Menu, User, CarFront, LayoutDashboard, LogOut, ChevronRight, Save, Eye, Edit3, Plus } from 'lucide-react';
+import { MapPin, PhoneCall, Clock, Wrench, Settings, Search, Menu, User, CarFront, LayoutDashboard, LogOut, ChevronRight, Save, Eye, Edit3, Plus, QrCode, ShieldCheck } from 'lucide-react';
 import { BlogPost, LandingSection, Announcement } from '@/modules/landing/types/cms';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
@@ -77,9 +77,20 @@ export default function LandingPage() {
     const recentPosts = blogData.slice(0, 3);
     const announcements = announcementsData.slice(0, 3);
 
-    const roles = (session?.user as any)?.roles || [];
-    const isStaff = roles.some((r: string) => ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA'].includes(r));
+    const user = session?.user as any;
+    const roles = Array.isArray(user?.roles) && user.roles.length > 0
+        ? user.roles
+        : (user?.role ? [user.role] : []);
+
+    console.log("[Landing] Session Status:", status);
+    console.log("[Landing] Session User Object:", user);
+    console.log("[Landing] Effective Roles:", roles);
+
+    const isStaff = roles.some((r: string) => ['ADMIN', 'SALE', 'KHO', 'QUAN_LY_XUONG', 'THO_SUA_CHUA', 'CUVAN'].includes(r));
     const isAdmin = roles.includes('ADMIN');
+    const homeRoute = getHomeRoute(roles);
+    
+    console.log("[Landing] Final Home Route:", homeRoute);
 
     const handleTrack = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -220,10 +231,57 @@ export default function LandingPage() {
                                 <PhoneCall size={18} className="animate-pulse" /> 098.765.4321
                             </div>
                             
-                            {status === 'authenticated' ? (
-                                <Link href={getHomeRoute(roles)} className="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2 rounded-sm text-xs font-bold uppercase transition-all shadow-lg shadow-orange-600/20 flex items-center gap-2">
-                                    <LayoutDashboard size={14} /> Dashboard
-                                </Link>
+                            {status === 'authenticated' && !isStaff ? (
+                                // Khách hàng đã đăng nhập → dropdown menu ngay trên navbar
+                                <div className="relative group">
+                                    <button className="flex items-center gap-2 border border-orange-500/40 hover:border-orange-500 bg-orange-600/10 hover:bg-orange-600/20 text-orange-400 hover:text-orange-300 px-4 py-2 rounded-sm text-xs font-bold uppercase transition-all">
+                                        <User size={14} />
+                                        <span className="max-w-[100px] truncate">{user?.name || 'Tài khoản'}</span>
+                                        <ChevronRight size={12} className="rotate-90 transition-transform group-hover:rotate-[270deg]" />
+                                    </button>
+                                    <div className="absolute right-0 mt-2 w-60 bg-[#111] border border-stone-800 shadow-2xl rounded-sm overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50">
+                                        <div className="px-4 py-3 border-b border-stone-800 bg-stone-950">
+                                            <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Tài khoản Khách hàng</p>
+                                            <p className="text-white font-bold text-sm mt-0.5 truncate">{user?.name}</p>
+                                        </div>
+                                        <div className="p-1.5 flex flex-col gap-0.5">
+                                            <Link href="/customer/progress" className="flex items-center gap-3 px-3 py-2.5 hover:bg-stone-900 text-stone-300 hover:text-white rounded transition-colors text-xs font-semibold">
+                                                <Search size={14} className="text-blue-400" /> Tra cứu tiến độ
+                                            </Link>
+                                            <Link href="/customer/history" className="flex items-center gap-3 px-3 py-2.5 hover:bg-stone-900 text-stone-300 hover:text-white rounded transition-colors text-xs font-semibold">
+                                                <Clock size={14} className="text-emerald-400" /> Lịch sử sửa chữa
+                                            </Link>
+                                            <Link href="/customer/booking" className="flex items-center gap-3 px-3 py-2.5 hover:bg-stone-900 text-stone-300 hover:text-white rounded transition-colors text-xs font-semibold">
+                                                <CarFront size={14} className="text-purple-400" /> Đặt lịch hẹn
+                                            </Link>
+                                            <Link href="/customer/warranty" className="flex items-center gap-3 px-3 py-2.5 hover:bg-stone-900 text-stone-300 hover:text-white rounded transition-colors text-xs font-semibold">
+                                                <ShieldCheck size={14} className="text-cyan-400" /> Tra cứu bảo hành
+                                            </Link>
+                                            <Link href="/customer/payment" className="flex items-center gap-3 px-3 py-2.5 hover:bg-stone-900 text-stone-300 hover:text-white rounded transition-colors text-xs font-semibold">
+                                                <QrCode size={14} className="text-orange-400" /> Thanh toán nhanh
+                                            </Link>
+                                        </div>
+                                        <div className="p-1.5 border-t border-stone-800">
+                                            <button onClick={() => signOut()} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-red-950/40 text-stone-500 hover:text-red-400 rounded transition-colors text-xs font-semibold">
+                                                <LogOut size={14} /> Đăng xuất
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : status === 'authenticated' && homeRoute !== '/' ? (
+                                // Nhân viên / Admin
+                                <div className="flex items-center gap-2">
+                                    <Link href={homeRoute} className="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2 rounded-sm text-xs font-bold uppercase transition-all shadow-lg shadow-orange-600/20 flex items-center gap-2">
+                                        <LayoutDashboard size={14} /> Dashboard
+                                    </Link>
+                                    <button 
+                                        onClick={() => signOut()}
+                                        className="bg-stone-800 hover:bg-stone-700 text-stone-300 px-3 py-2 rounded-sm text-xs font-bold uppercase transition-all flex items-center gap-2 border border-stone-700"
+                                        title="Đăng xuất"
+                                    >
+                                        <LogOut size={14} />
+                                    </button>
+                                </div>
                             ) : (
                                 <div className="relative">
                                     <button 
@@ -304,6 +362,7 @@ export default function LandingPage() {
                             imageUrl={section.imageUrl}
                             status={status}
                             isStaff={isStaff}
+                            roles={roles}
                             hotServices={hotServices}
                             recentPosts={recentPosts}
                             announcements={announcements}

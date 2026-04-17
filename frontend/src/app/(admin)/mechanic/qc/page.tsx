@@ -43,8 +43,18 @@ export default function TechnicalReviewPage() {
         }
     });
 
-    const handleConfirm = (orderId: number, itemIds: number[]) => {
-        confirmMutation.mutate({ orderId, itemIds });
+    const handleConfirm = (orderId: number, items: any[]) => {
+        const itemIds = items.map(i => i.id);
+        const hasMissingInfo = items.some(i => !i.proposedByName || i.proposedByName === 'N/A');
+        
+        if (hasMissingInfo) {
+            showToast('error', 'Không thể duyệt nhanh vì thiếu thông tin thợ báo. Vui lòng kiểm tra lại từng hạng mục.');
+            return;
+        }
+
+        if (window.confirm(`Bạn có chắc lọc duyệt nhanh toàn bộ ${itemIds.length} hạng mục phát sinh cho xe này không? Việc này sẽ bỏ qua bước xem chi tiết.`)) {
+            confirmMutation.mutate({ orderId, itemIds });
+        }
     };
 
     if (authStatus === 'loading' || isLoading) {
@@ -81,77 +91,89 @@ export default function TechnicalReviewPage() {
                     </div>
                 ) : (
                     <div className="grid gap-8">
-                        {orders.map((order: any) => (
-                            <div key={order.id} className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
-                                {/* Header */}
-                                <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                    <div className="flex items-center gap-8">
-                                        <div className="flex flex-col">
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-slate-900 text-white p-1.5 rounded-lg">
-                                                    <Car size={18} />
-                                                </div>
-                                                <span className="text-2xl font-black text-slate-900 tracking-widest pt-1">{order.plateNumber}</span>
-                                            </div>
-                                            <span className="text-[10px] font-monospace text-slate-400 font-bold ml-11">#{order.id}</span>
-                                        </div>
+                        {orders.map((order: any) => {
+                            const pendingItems = (order.items || []).filter((i: any) => i.itemStatus === 'WAITING_FOR_MANAGER_APPROVAL');
+                            const canBulkApprove = pendingItems.every((i: any) => i.proposedByName && i.proposedByName !== 'N/A');
 
-                                        <div className="hidden sm:flex items-center gap-6 border-l border-slate-200 pl-8">
+                            return (
+                                <div key={order.id} className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+                                    {/* Header */}
+                                    <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                        <div className="flex items-center gap-8">
                                             <div className="flex flex-col">
-                                                <span className="text-[9px] font-bold text-slate-400 mb-1 leading-none">Chủ xe</span>
-                                                <span className="text-sm font-bold text-slate-700">{order.customerName}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-slate-900 text-white p-1.5 rounded-lg">
+                                                        <Car size={18} />
+                                                    </div>
+                                                    <span className="text-2xl font-black text-slate-900 tracking-widest pt-1">{order.plateNumber}</span>
+                                                </div>
+                                                <span className="text-[10px] font-monospace text-slate-400 font-bold ml-11">#{order.id}</span>
                                             </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-[9px] font-bold text-slate-400 mb-1 leading-none">Ngày lập</span>
-                                                <span className="text-sm font-bold text-slate-700">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
+
+                                            <div className="hidden sm:flex items-center gap-6 border-l border-slate-200 pl-8">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-bold text-slate-400 mb-1 leading-none">Chủ xe</span>
+                                                    <span className="text-sm font-bold text-slate-700">{order.customerName}</span>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-bold text-slate-400 mb-1 leading-none">Ngày lập</span>
+                                                    <span className="text-sm font-bold text-slate-700">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    
-                                    <Link 
-                                        href={`/mechanic/qc/${order.id}`}
-                                        className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-widest hover:bg-blue-50 px-4 py-2 rounded-xl transition-colors"
-                                    >
-                                        Chi tiết <ChevronRight size={14} />
-                                    </Link>
-                                </div>
-
-                                {/* Items List */}
-                                <div className="p-8">
-                                    <div className="grid gap-4">
-                                        {order.items.filter((i: any) => i.itemStatus === 'CHO_KY_THUAT_DUYET').map((item: any) => (
-                                            <div key={item.id} className="flex items-center justify-between p-5 bg-slate-50/50 border border-slate-100 rounded-2xl">
-                                                <div className="flex items-center gap-5">
-                                                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-sm font-black text-slate-800">
-                                                        {item.quantity}
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-slate-900 font-bold text-base tracking-tight">{item.productName}</div>
-                                                        <span className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Thợ báo: {item.proposedByName}</span>
-                                                    </div>
-                                                </div>
-                                                <AlertCircle size={20} className="text-slate-300" />
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Action Footer */}
-                                    <div className="mt-8 pt-8 border-t border-slate-100 flex items-center justify-between">
-                                        <p className="text-[11px] text-slate-400 italic max-w-sm">
-                                            * Xác nhận rằng các hạng mục trên đã được kiểm tra kỹ thuật thực tế.
-                                        </p>
-                                        <button 
-                                            onClick={() => handleConfirm(order.id, order.items.filter((i: any) => i.itemStatus === 'CHO_KY_THUAT_DUYET').map((i: any) => i.id))}
-                                            disabled={confirmMutation.isPending && confirmMutation.variables?.orderId === order.id}
-                                            className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-xl shadow-emerald-900/10 transition-all active:scale-95 flex items-center gap-2"
+                                        
+                                        <Link 
+                                            href={`/mechanic/qc/${order.id}`}
+                                            className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-widest hover:bg-blue-50 px-4 py-2 rounded-xl transition-colors"
                                         >
-                                            {confirmMutation.isPending && confirmMutation.variables?.orderId === order.id ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
-                                            {confirmMutation.isPending && confirmMutation.variables?.orderId === order.id ? "Đang xử lý..." : "Duyệt nhanh toàn bộ"}
-                                        </button>
+                                            Chi tiết <ChevronRight size={14} />
+                                        </Link>
+                                    </div>
+
+                                    {/* Items List */}
+                                    <div className="p-8">
+                                        <div className="grid gap-4">
+                                            {pendingItems.map((item: any) => (
+                                                <div key={item.id} className="flex flex-col p-5 bg-slate-50/50 border border-slate-100 rounded-2xl">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-5">
+                                                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-sm font-black text-slate-800">
+                                                                {item.quantity}
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-slate-900 font-bold text-base tracking-tight">{item.productName}</div>
+                                                                <div className="flex items-center gap-2 mt-1">
+                                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Người báo:</span>
+                                                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${!item.proposedByName || item.proposedByName === 'N/A' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
+                                                                        {item.proposedByRole || 'MECHANIC'}: {item.proposedByName || 'CHƯA RÕ'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <AlertCircle size={20} className={!item.proposedByName || item.proposedByName === 'N/A' ? 'text-rose-400' : 'text-slate-300'} />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Action Footer */}
+                                        <div className="mt-8 pt-8 border-t border-slate-100 flex items-center justify-between">
+                                            <p className="text-[11px] text-slate-400 italic max-w-sm">
+                                                * Xác nhận rằng các hạng mục trên đã được kiểm tra kỹ thuật thực tế.
+                                            </p>
+                                            <button 
+                                                onClick={() => handleConfirm(order.id, pendingItems)}
+                                                disabled={(confirmMutation.isPending && confirmMutation.variables?.orderId === order.id) || !canBulkApprove}
+                                                className={`px-8 py-3.5 rounded-2xl font-bold text-sm shadow-xl transition-all active:scale-95 flex items-center gap-2 ${!canBulkApprove ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/10'}`}
+                                            >
+                                                {confirmMutation.isPending && confirmMutation.variables?.orderId === order.id ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+                                                {confirmMutation.isPending && confirmMutation.variables?.orderId === order.id ? "Đang xử lý..." : (!canBulkApprove ? "Dữ liệu không đủ để duyệt nhanh" : "Duyệt nhanh toàn bộ")}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

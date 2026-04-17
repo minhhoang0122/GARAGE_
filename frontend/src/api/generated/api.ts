@@ -165,6 +165,7 @@ export interface OrderItemDTO {
     'proposedAt'?: string;
     'assignments'?: Array<AssignmentDTO>;
     'version'?: number;
+    'oldPartAction'?: string;
 }
 export interface Permission {
     'id'?: number;

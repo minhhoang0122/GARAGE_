@@ -29,6 +29,9 @@ public class ProductService {
     @Transactional
     @CacheEvict(value = "products", allEntries = true)
     public Product createProduct(Product product) {
+        if (product.getSku() != null && productRepository.findBySku(product.getSku()).isPresent()) {
+            throw new RuntimeException("Mã phụ tùng (SKU) đã tồn tại. Vui lòng sử dụng mã khác hoặc tìm mã cũ để nhập.");
+        }
         validatePrice(product);
         return productRepository.save(product);
     }
@@ -50,6 +53,11 @@ public class ProductService {
 
         if (req.getCostPrice() != null)
             product.setCostPrice(req.getCostPrice());
+
+        if (req.getVatRate() != null) {
+            BigDecimal vatRate = (product.getIsService() != null && product.getIsService()) ? BigDecimal.ZERO : req.getVatRate();
+            product.setVatRate(vatRate);
+        }
 
         Product saved = productRepository.save(product);
         realtimeService.broadcast("metadata_updated", java.util.Map.of(
@@ -84,6 +92,10 @@ public class ProductService {
 
             if (item.containsKey("price")) {
                 product.setRetailPrice(new BigDecimal(item.get("price").toString()));
+            }
+            if (item.containsKey("vatRate")) {
+                BigDecimal vatRate = (product.getIsService() != null && product.getIsService()) ? BigDecimal.ZERO : new BigDecimal(item.get("vatRate").toString());
+                product.setVatRate(vatRate);
             }
             if (item.containsKey("warrantyMonths")) {
                 product.setWarrantyMonths(Integer.parseInt(item.get("warrantyMonths").toString()));

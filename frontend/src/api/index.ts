@@ -64,5 +64,46 @@ export const warehouseApi = WarehouseControllerApiFactory(config, '', apiAxiosWr
 
 export * from './generated';
 export * from './apiMetadata';
-export * from './ApiClient';
+
+/**
+ * ApiClient - Quản lý tập trung các Controller API
+ * Giúp truy cập các API instance một cách có cấu trúc
+ */
+export const ApiClient = {
+    adminCms: adminCmsApi,
+    auditLog: auditLogApi,
+    auth: authApi,
+    common: commonApi,
+    customerAuth: customerAuthApi,
+    customer: customerApi,
+    debt: debtApi,
+    imageUpload: imageUploadApi,
+    inventoryCheck: inventoryCheckApi,
+    mechanic: mechanicApi,
+    notification: notificationApi,
+    payment: paymentApi,
+    product: productApi,
+    publicBooking: publicBookingApi,
+    publicCms: publicCmsApi,
+    publicTracking: publicTrackingApi,
+    reception: receptionApi,
+    report: reportApi,
+    sale: saleApi,
+    sse: sseApi,
+    supplier: supplierApi,
+    systemConfig: systemConfigApi,
+    transaction: transactionApi,
+    user: userApi,
+    warehouse: warehouseApi,
+
+    /**
+     * Lấy một Controller theo tên (nếu cần dynamic access)
+     */
+    getController(name: string): any {
+        const apiName = name.endsWith('Api') ? name : `${name}Api`;
+        return (this as any)[apiName];
+    }
+};
+
+export default ApiClient;
 

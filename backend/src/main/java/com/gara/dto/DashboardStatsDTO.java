@@ -67,7 +67,9 @@ public record DashboardStatsDTO(
                         @JsonProperty("KhachHangName") String customerName,
                         @JsonProperty("NgayGio") LocalDateTime time,
                         @JsonProperty("ODO") Integer odo,
-                        @JsonProperty("NguoiTiepNhanName") String receptionistName) {
+                        @JsonProperty("NguoiTiepNhanName") String receptionistName,
+                        @JsonProperty("vehicleBrand") String vehicleBrand,
+                        @JsonProperty("vehicleModel") String vehicleModel) {
 
                 public static DashboardVehicleDTOBuilder builder() {
                         return new DashboardVehicleDTOBuilder();
@@ -80,6 +82,8 @@ public record DashboardStatsDTO(
                         private LocalDateTime time;
                         private Integer odo;
                         private String receptionistName;
+                        private String vehicleBrand;
+                        private String vehicleModel;
 
                         public DashboardVehicleDTOBuilder id(Integer id) {
                                 this.id = id;
@@ -111,8 +115,18 @@ public record DashboardStatsDTO(
                                 return this;
                         }
 
+                        public DashboardVehicleDTOBuilder vehicleBrand(String vehicleBrand) {
+                                this.vehicleBrand = vehicleBrand;
+                                return this;
+                        }
+
+                        public DashboardVehicleDTOBuilder vehicleModel(String vehicleModel) {
+                                this.vehicleModel = vehicleModel;
+                                return this;
+                        }
+
                         public DashboardVehicleDTO build() {
-                                return new DashboardVehicleDTO(id, plate, customerName, time, odo, receptionistName);
+                                return new DashboardVehicleDTO(id, plate, customerName, time, odo, receptionistName, vehicleBrand, vehicleModel);
                         }
                 }
         }
@@ -121,7 +135,13 @@ public record DashboardStatsDTO(
                         @JsonProperty("ID") Integer id,
                         @JsonProperty("XeBienSo") String plate,
                         @JsonProperty("TongCong") BigDecimal total,
-                        @JsonProperty("TrangThai") String status) {
+                        @JsonProperty("TrangThai") String status,
+                        @JsonProperty("KhachHangName") String customerName,
+                        @JsonProperty("NgayGio") LocalDateTime time,
+                        @JsonProperty("NguoiTiepNhanName") String receptionistName,
+                        @JsonProperty("vehicleBrand") String vehicleBrand,
+                        @JsonProperty("vehicleModel") String vehicleModel,
+                        @JsonProperty("itemCount") Integer itemCount) {
 
                 public static DashboardOrderDTOBuilder builder() {
                         return new DashboardOrderDTOBuilder();
@@ -132,6 +152,12 @@ public record DashboardStatsDTO(
                         private String plate;
                         private BigDecimal total;
                         private String status;
+                        private String customerName;
+                        private LocalDateTime time;
+                        private String receptionistName;
+                        private String vehicleBrand;
+                        private String vehicleModel;
+                        private Integer itemCount;
 
                         public DashboardOrderDTOBuilder id(Integer id) {
                                 this.id = id;
@@ -153,8 +179,38 @@ public record DashboardStatsDTO(
                                 return this;
                         }
 
+                        public DashboardOrderDTOBuilder customerName(String customerName) {
+                                this.customerName = customerName;
+                                return this;
+                        }
+
+                        public DashboardOrderDTOBuilder time(LocalDateTime time) {
+                                this.time = time;
+                                return this;
+                        }
+
+                        public DashboardOrderDTOBuilder receptionistName(String receptionistName) {
+                                this.receptionistName = receptionistName;
+                                return this;
+                        }
+
+                        public DashboardOrderDTOBuilder vehicleBrand(String vehicleBrand) {
+                                this.vehicleBrand = vehicleBrand;
+                                return this;
+                        }
+
+                        public DashboardOrderDTOBuilder vehicleModel(String vehicleModel) {
+                                this.vehicleModel = vehicleModel;
+                                return this;
+                        }
+
+                        public DashboardOrderDTOBuilder itemCount(Integer itemCount) {
+                                this.itemCount = itemCount;
+                                return this;
+                        }
+
                         public DashboardOrderDTO build() {
-                                return new DashboardOrderDTO(id, plate, total, status);
+                                return new DashboardOrderDTO(id, plate, total, status, customerName, time, receptionistName, vehicleBrand, vehicleModel, itemCount);
                         }
                 }
         }

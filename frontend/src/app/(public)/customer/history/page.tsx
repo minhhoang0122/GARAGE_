@@ -4,9 +4,16 @@ import Link from 'next/link';
 import { ArrowLeft, Car, CheckCircle, Loader2, Calendar, Hash, FileText, Download, ShieldCheck, ChevronRight } from 'lucide-react';
 import { useMyOrders } from '@/modules/customer/hooks/useCustomer';
 import { useMemo } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 export default function CustomerHistoryPage() {
+    const { status: authStatus } = useSession();
+    const router = useRouter();
     const { data: allOrders = [], isLoading: dataLoading } = useMyOrders();
+
+    // Auth guard
+    if (authStatus === 'unauthenticated') { router.push('/customer/login'); return null; }
     
     // Lọc các đơn đã hoàn thành hoặc đã đóng
     const historyOrders = useMemo(() => 
@@ -30,7 +37,7 @@ export default function CustomerHistoryPage() {
             <header className="sticky top-0 z-50 bg-stone-950/80 backdrop-blur-xl border-b border-white/5 px-4 py-6">
                 <div className="max-w-2xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-5">
-                        <Link href="/customer/home" className="w-10 h-10 rounded-xl bg-stone-900 border border-white/5 flex items-center justify-center hover:border-orange-500/50 transition-all group">
+                        <Link href="/" className="w-10 h-10 rounded-xl bg-stone-900 border border-white/5 flex items-center justify-center hover:border-orange-500/50 transition-all group">
                             <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
                         </Link>
                         <div>
@@ -75,7 +82,7 @@ export default function CustomerHistoryPage() {
                                                 <Car size={20} className="text-stone-400" />
                                             </div>
                                             <div>
-                                                <div className="text-white font-bold text-sm tracking-tight">{order.plateNumber || order.plate || '---'}</div>
+                                                <div className="text-white font-bold text-sm tracking-tight">{order.plate || order.plateNumber || '---'}</div>
                                                 <div className="text-[10px] text-stone-500 font-mono tracking-tighter uppercase">Dịch vụ sửa chữa chung</div>
                                             </div>
                                         </div>

@@ -10,6 +10,7 @@ import com.gara.modules.inventory.repository.*;
 import com.gara.modules.reception.repository.*;
 import com.gara.modules.support.service.AsyncAuditService;
 import com.gara.modules.support.service.AsyncNotificationService;
+import com.gara.modules.support.service.RealtimeService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.cache.annotation.CacheEvict;
@@ -37,6 +38,7 @@ public class MechanicService {
     private final AsyncNotificationService asyncNotificationService;
     private final AsyncAuditService asyncAuditService;
     private final TimelineService timelineService;
+    private final RealtimeService realtimeService;
 
     public MechanicService(RepairOrderRepository repairOrderRepository,
             OrderItemRepository orderItemRepository,
@@ -47,7 +49,8 @@ public class MechanicService {
             TaskAssignmentRepository taskAssignmentRepository,
             AsyncNotificationService asyncNotificationService,
             AsyncAuditService asyncAuditService,
-            TimelineService timelineService) {
+            TimelineService timelineService,
+            RealtimeService realtimeService) {
         this.repairOrderRepository = repairOrderRepository;
         this.orderItemRepository = orderItemRepository;
         this.productRepository = productRepository;
@@ -58,15 +61,7 @@ public class MechanicService {
         this.asyncNotificationService = asyncNotificationService;
         this.asyncAuditService = asyncAuditService;
         this.timelineService = timelineService;
-    }
-
-    // Helper: Mask PII for Mechanics
-    private String maskPhone(String fullPhone) {
-        if (fullPhone == null || fullPhone.equals("N/A")) return "N/A";
-        if (fullPhone.length() > 6) {
-            return fullPhone.substring(0, 3) + "****" + fullPhone.substring(fullPhone.length() - 3);
-        }
-        return fullPhone;
+        this.realtimeService = realtimeService;
     }
 
     // Helper: Validate Assigned Mechanic or Admin/Manager
@@ -125,8 +120,8 @@ public class MechanicService {
         return JobSummaryDTO.builder()
                 .id(order.getId())
                 .plate(r.getVehicle().getLicensePlate())
-                .customerName(r.getVehicle().getCustomer().getFullName())
-                .customerPhone(maskPhone(r.getVehicle().getCustomer().getPhone()))
+                .customerName("LIÊN HỆ CỐ VẤN")
+                .customerPhone("***-***")
                 .vehicleBrand(r.getVehicle().getBrand())
                 .vehicleModel(r.getVehicle().getModel())
                 .createdAt(order.getCreatedAt())
@@ -137,6 +132,9 @@ public class MechanicService {
                 .status(order.getStatus().name())
                 .claimedById(order.getAssignedMechanic() != null ? order.getAssignedMechanic().getId() : null)
                 .claimedByName(order.getAssignedMechanic() != null ? order.getAssignedMechanic().getFullName() : null)
+                .claimedByAvatar(order.getAssignedMechanic() != null ? order.getAssignedMechanic().getAvatar() : null)
+                .odo(r.getOdo())
+                .receptionistName(r.getReceptionist() != null ? r.getReceptionist().getFullName() : "Hệ thống")
                 .items(items)
                 .build();
     }
@@ -146,6 +144,7 @@ public class MechanicService {
                 ta.getId(),
                 ta.getMechanic() != null ? ta.getMechanic().getId() : null,
                 ta.getMechanic() != null ? ta.getMechanic().getFullName() : "N/A",
+                ta.getMechanic() != null ? ta.getMechanic().getAvatar() : null,
                 Boolean.TRUE.equals(ta.getIsMainMechanic())
         );
     }
@@ -154,6 +153,20 @@ public class MechanicService {
         List<AssignmentDTO> assignments = (item.getTaskAssignments() != null)
                 ? item.getTaskAssignments().stream().map(this::mapToAssignmentDTO).toList()
                 : new ArrayList<>();
+
+        User proposer = item.getSuggestedBy();
+        String proposedByName = "N/A";
+        String proposedByRole = "MECHANIC";
+
+        if (proposer != null) {
+            proposedByName = proposer.getFullName();
+            // Derive role name safely from the set of roles
+            proposedByRole = (proposer.getRoles() != null && !proposer.getRoles().isEmpty())
+                    ? proposer.getRoles().stream()
+                            .map(Role::getName)
+                            .collect(Collectors.joining(", "))
+                    : "MECHANIC";
+        }
 
         return OrderItemDTO.builder()
                 .id(item.getId())
@@ -165,6 +178,11 @@ public class MechanicService {
                 .total(item.getTotalAmount())
                 .itemStatus(item.getStatus() != null ? item.getStatus().name() : "PROPOSAL")
                 .isWarranty(Boolean.TRUE.equals(item.getIsWarranty()))
+                .proposedById(item.getSuggestedById())
+                .proposedByName(proposedByName)
+                .proposedByRole(proposedByRole)
+                .proposedAt(item.getSuggestedAt())
+                .isTechnicalAddition(item.getStatus() == ItemStatus.WAITING_FOR_MANAGER_APPROVAL || item.getStatus() == ItemStatus.PROPOSAL)
                 .assignments(assignments)
                 .version(item.getVersion())
                 .build();
@@ -198,10 +216,10 @@ public class MechanicService {
 
         order.setAssignedMechanic(quanDoc);
 
-        // Transition: RECEIVED → WAITING_FOR_DIAGNOSIS when manager claims
+        // Transition: RECEIVED → DIAGNOSING when manager claims
         OrderStatus oldStatus = order.getStatus();
-        if (OrderStatus.RECEIVED.equals(oldStatus)) {
-            order.setStatus(OrderStatus.WAITING_FOR_DIAGNOSIS);
+        if (OrderStatus.RECEIVED.equals(oldStatus) || OrderStatus.WAITING_FOR_DIAGNOSIS.equals(oldStatus)) {
+            order.setStatus(OrderStatus.DIAGNOSING);
         }
         repairOrderRepository.save(order);
 
@@ -214,14 +232,43 @@ public class MechanicService {
                 .reason("Quản đốc " + quanDoc.getFullName() + " nhận phụ trách — chuyển sang Chờ chẩn đoán")
                 .userId(userId)
                 .build());
+
+        // Broadcast Real-time
+        Map<String, Object> sseData = new HashMap<>();
+        sseData.put("orderId", orderId);
+        sseData.put("receptionId", order.getReception().getId());
+        sseData.put("claimedBy", quanDoc.getFullName());
+        sseData.put("claimedByAvatar", quanDoc.getAvatar());
+        sseData.put("type", "JOB_CLAIMED");
+        realtimeService.broadcast("job_claimed", sseData);
+
+        // Record Timeline
+        timelineService.recordEvent(order.getReception().getId(), quanDoc, "JOB_CLAIMED",
+                "Quản đốc " + quanDoc.getFullName() + " đã nhận phụ trách đơn hàng.",
+                null, null, false);
     }
 
     @Transactional
     public void unclaimJob(Integer orderId, Integer userId) {
         RepairOrder order = repairOrderRepository.findById(orderId).orElseThrow();
         if (order.getAssignedMechanic() != null && order.getAssignedMechanic().getId().equals(userId)) {
+            User oldMechanic = order.getAssignedMechanic();
             order.setAssignedMechanic(null);
             repairOrderRepository.save(order);
+
+            // Broadcast Real-time
+            Map<String, Object> sseData = new HashMap<>();
+            sseData.put("orderId", orderId);
+            sseData.put("receptionId", order.getReception().getId());
+            sseData.put("unclaimedBy", oldMechanic.getFullName());
+            sseData.put("type", "JOB_UNCLAIMED");
+            realtimeService.broadcast("job_unclaimed", sseData);
+
+            // Record Timeline
+            User currentUser = userRepository.findById(userId).orElse(oldMechanic);
+            timelineService.recordEvent(order.getReception().getId(), currentUser, "JOB_UNCLAIMED",
+                    "Đã hủy nhận phụ trách đơn hàng.",
+                    null, null, false);
         }
     }
 
@@ -244,14 +291,10 @@ public class MechanicService {
         }
 
         List<OrderItem> items = order.getOrderItems();
-        List<TaskAssignment> allAssignments = new ArrayList<>();
         for (OrderItem item : items) {
-            if (item.getTaskAssignments() != null) {
-                allAssignments.addAll(item.getTaskAssignments());
+            if (item.getTaskAssignments() == null || item.getTaskAssignments().isEmpty()) {
+                throw new RuntimeException("Hạng mục '" + item.getProduct().getName() + "' chưa được gán thợ. Vui lòng gán thợ cho tất cả các hạng mục trước khi xác nhận.");
             }
-        }
-        if (allAssignments.isEmpty()) {
-            throw new RuntimeException("Chưa phân công thợ cho hạng mục nào. Vui lòng gán thợ trước khi xác nhận.");
         }
 
         OrderStatus oldStatus = order.getStatus();
@@ -269,7 +312,9 @@ public class MechanicService {
                 .build());
 
         String bienSo = order.getReception().getVehicle().getLicensePlate();
-        allAssignments.stream()
+        items.stream()
+                .filter(item -> item.getTaskAssignments() != null)
+                .flatMap(item -> item.getTaskAssignments().stream())
                 .map(a -> a.getMechanic().getId())
                 .distinct()
                 .forEach(mechanicId -> {
@@ -302,7 +347,8 @@ public class MechanicService {
         return mechanics.stream().map(m -> {
             Map<String, Object> info = new HashMap<>();
             info.put("id", m.getId());
-            info.put("hoTen", m.getFullName());
+            info.put("fullName", m.getFullName());
+            info.put("avatar", m.getAvatar());
             info.put("chuyenMon", m.getSpecialty() != null ? m.getSpecialty().name() : null);
             info.put("chuyenMonLabel", m.getSpecialty() != null ? m.getSpecialty().getDescription() : "Chưa xác định");
             info.put("capBac", m.getLevel() != null ? m.getLevel().name() : null);
@@ -560,6 +606,14 @@ public class MechanicService {
         User mechanic = userRepository.findById(mechanicId).orElseThrow();
         order.setAssignedMechanic(mechanic);
         repairOrderRepository.save(order);
+
+        // Broadcast Real-time for Reception List update
+        Map<String, Object> sseData = new HashMap<>();
+        sseData.put("orderId", orderId);
+        sseData.put("receptionId", order.getReception().getId());
+        sseData.put("claimedBy", mechanic.getFullName());
+        sseData.put("type", "JOB_ASSIGNED");
+        realtimeService.broadcast("job_claimed", sseData);
     }
 
     @Transactional
@@ -624,14 +678,30 @@ public class MechanicService {
     @Transactional(readOnly = true)
     public List<ProductDTO> getTopProducts() {
         return productRepository.findAll().stream().limit(10)
-                .map(p -> ProductDTO.builder().id(p.getId()).name(p.getName()).retailPrice(p.getRetailPrice()).sku(p.getSku()).isService(p.getIsService()).build())
+                .map(p -> ProductDTO.builder()
+                        .id(p.getId())
+                        .name(p.getName())
+                        .retailPrice(p.getRetailPrice())
+                        .sku(p.getSku())
+                        .stock(p.getStockQuantity())
+                        .minStock(p.getMinStockLevel())
+                        .isService(p.getIsService())
+                        .build())
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<ProductDTO> searchProducts(String query) {
         return productRepository.findByNameContainingIgnoreCaseOrSkuContainingIgnoreCase(query, query).stream()
-                .map(p -> ProductDTO.builder().id(p.getId()).name(p.getName()).retailPrice(p.getRetailPrice()).sku(p.getSku()).isService(p.getIsService()).build())
+                .map(p -> ProductDTO.builder()
+                        .id(p.getId())
+                        .name(p.getName())
+                        .retailPrice(p.getRetailPrice())
+                        .sku(p.getSku())
+                        .stock(p.getStockQuantity())
+                        .minStock(p.getMinStockLevel())
+                        .isService(p.getIsService())
+                        .build())
                 .toList();
     }
 
@@ -695,6 +765,7 @@ public class MechanicService {
                                 .proposedByName(proposerName)
                                 .proposedByRole(proposerRole)
                                 .proposedAt(item.getSuggestedAt() != null ? item.getSuggestedAt().toString() : null)
+                                .proposedByAvatar(proposer != null ? proposer.getAvatar() : null)
                                 .build();
                     })
                     .collect(Collectors.toList());
@@ -704,14 +775,12 @@ public class MechanicService {
         String plate = v != null ? v.getLicensePlate() : "N/A";
         String brand = v != null ? v.getBrand() : "N/A";
         String model = v != null ? v.getModel() : "N/A";
-        String customerName = (v != null && v.getCustomer() != null) ? v.getCustomer().getFullName() : "N/A";
-        String customerPhone = (v != null && v.getCustomer() != null) ? v.getCustomer().getPhone() : "N/A";
 
         return ReceptionInspectDTO.builder()
                 .id(r.getId())
                 .plate(plate)
-                .customerName(customerName)
-                .customerPhone(customerPhone)
+                .customerName("LIÊN HỆ CỐ VẤN")
+                .customerPhone("N/A")
                 .vehicleBrand(brand)
                 .vehicleModel(model)
                 .request(r.getPreliminaryRequest())
@@ -726,6 +795,7 @@ public class MechanicService {
                 .proposedItemsCount(existingItems.size())
                 .assignedMechanicId(order != null && order.getAssignedMechanic() != null ? order.getAssignedMechanic().getId() : null)
                 .assignedMechanicName(order != null && order.getAssignedMechanic() != null ? order.getAssignedMechanic().getFullName() : null)
+                .assignedMechanicAvatar(order != null && order.getAssignedMechanic() != null ? order.getAssignedMechanic().getAvatar() : null)
                 .build();
     }
 
@@ -734,11 +804,18 @@ public class MechanicService {
         return repairOrderRepository.findByStatusIn(List.of(OrderStatus.RECEIVED, OrderStatus.WAITING_FOR_DIAGNOSIS)).stream()
                 .map(o -> {
                     Map<String, Object> map = new HashMap<>();
-                    map.put("id", o.getReception().getId());
+                    Reception r = o.getReception();
+                    map.put("id", r.getId());
                     map.put("orderId", o.getId());
-                    map.put("plate", o.getReception().getVehicle().getLicensePlate());
-                    map.put("request", o.getReception().getPreliminaryRequest());
-                    map.put("date", o.getReception().getReceptionDate());
+                    map.put("plate", r.getVehicle().getLicensePlate());
+                    map.put("brand", r.getVehicle().getBrand());
+                    map.put("model", r.getVehicle().getModel());
+                    map.put("odo", r.getOdo());
+                    map.put("request", r.getPreliminaryRequest());
+                    map.put("receptionistName", r.getReceptionist() != null ? r.getReceptionist().getFullName() : "Hệ thống");
+                    map.put("date", r.getReceptionDate());
+                    map.put("status", o.getStatus().name());
+                    map.put("assignedMechanicId", o.getAssignedMechanic() != null ? o.getAssignedMechanic().getId() : null);
                     return map;
                 }).toList();
     }
@@ -759,7 +836,13 @@ public class MechanicService {
     @Transactional(readOnly = true)
     public List<JobSummaryDTO> getOrdersForTechnicalReview() {
         return repairOrderRepository.findOrdersByItemStatus(ItemStatus.WAITING_FOR_MANAGER_APPROVAL).stream()
-                .map(this::mapToJobSummary)
+                .map(order -> {
+                    // Include items so frontend doesn't get null and crash on .filter()
+                    List<OrderItemDTO> items = order.getOrderItems().stream()
+                            .map(this::mapToOrderItemDTO)
+                            .toList();
+                    return mapToJobSummary(order, items);
+                })
                 .toList();
     }
 
@@ -783,6 +866,17 @@ public class MechanicService {
             timelineService.recordEvent(order.getReception().getId(), user, "TECHNICAL_ISSUE",
                     "Quản đốc " + user.getFullName() + " đã duyệt " + approvedCount + " hạng mục phát sinh kỹ thuật từ Thợ.",
                     null, null, false);
+
+            // Notify Sale to update quote
+            asyncNotificationService.pushUniqueAsync(Notification.builder()
+                    .role("SALE")
+                    .title("Phát sinh mới: " + order.getReception().getVehicle().getLicensePlate())
+                    .content("Quản đốc đã duyệt " + approvedCount + " hạng mục phát sinh. Vui lòng cập nhật báo giá cho khách.")
+                    .type("INFO")
+                    .link("/sale/orders/" + orderId)
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
         }
     }
 

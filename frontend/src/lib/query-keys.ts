@@ -51,7 +51,12 @@ export const queryKeys = {
     sale: {
         all: ['sale'] as const,
         stats: () => [...queryKeys.sale.all, 'stats'] as const,
+        products: (keyword?: string) => keyword !== undefined 
+            ? [...queryKeys.sale.all, 'products', keyword] as const 
+            : [...queryKeys.sale.all, 'products'] as const,
     },
+
+
     report: {
         all: ['reports'] as const,
         revenue: (filters: any) => [...queryKeys.report.all, 'revenue', { filters }] as const,

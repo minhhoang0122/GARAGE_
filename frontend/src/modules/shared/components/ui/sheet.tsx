@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 
 // Simple Sheet component - slide-out panel from right side
 interface SheetProps {
@@ -10,8 +11,21 @@ interface SheetProps {
 }
 
 export function Sheet({ open, onOpenChange, children }: SheetProps) {
-    if (!open) return null;
-    return (
+    const [mounted, setMounted] = React.useState(false);
+
+    React.useEffect(() => {
+        setMounted(true);
+        if (open) {
+            document.body.style.overflow = 'hidden';
+        }
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [open]);
+
+    if (!open || !mounted) return null;
+
+    return createPortal(
         <div className="fixed inset-0 z-50">
             {/* Backdrop */}
             <div
@@ -19,7 +33,8 @@ export function Sheet({ open, onOpenChange, children }: SheetProps) {
                 onClick={() => onOpenChange?.(false)}
             />
             {children}
-        </div>
+        </div>,
+        document.body
     );
 }
 

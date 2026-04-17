@@ -1,54 +1,53 @@
 import { Badge } from "@/modules/shared/components/ui/badge";
 
-export const STATUS_MAPPING: Record<string, { label: string; color: string; variant?: "default" | "secondary" | "destructive" | "outline" }> = {
-    // Sales / Reception Flow
-    'TIEP_NHAN': { label: 'Đã Tiếp Nhận', color: 'bg-blue-100 text-blue-800' },
-    'RECEIVED': { label: 'Đã Tiếp Nhận', color: 'bg-blue-100 text-blue-800' },
-    'NEW': { label: 'Đã Tiếp Nhận', color: 'bg-blue-100 text-blue-800' },
-    'CHO_CHAN_DOAN': { label: 'Chờ Chẩn Đoán', color: 'bg-yellow-100 text-yellow-800' },
-    'WAITING_FOR_DIAGNOSIS': { label: 'Chờ Chẩn Đoán', color: 'bg-yellow-100 text-yellow-800' },
-    'BAO_GIA': { label: 'Đang Báo Giá', color: 'bg-amber-100 text-amber-800' },
-    'QUOTING': { label: 'Đang Báo Giá', color: 'bg-amber-100 text-amber-800' },
-    'BAO_GIA_LAI': { label: 'Báo Giá Lại', color: 'bg-orange-100 text-orange-800' },
-    'RE_QUOTATION': { label: 'Yêu Cầu Báo Giá Lại', color: 'bg-orange-100 text-orange-800' },
-    'CHO_KH_DUYET': { label: 'Chờ KH Duyệt', color: 'bg-orange-100 text-orange-800' },
-    'WAITING_FOR_CUSTOMER_APPROVAL': { label: 'Chờ Khách Duyệt', color: 'bg-orange-100 text-orange-800' },
-    'KHACH_TU_CHOI': { label: 'Khách Từ Chối', color: 'bg-red-100 text-red-800' },
-    'CUSTOMER_REJECTED': { label: 'Khách Từ Chối', color: 'bg-red-100 text-red-800' },
-    'DA_DUYET': { label: 'Đã Duyệt', color: 'bg-green-100 text-green-800' },
-    'APPROVED': { label: 'Đã Duyệt', color: 'bg-green-100 text-green-800' },
+export const STATUS_MAPPING: Record<string, { label: string; color: string; badgeClassName?: string; variant?: "default" | "secondary" | "destructive" | "outline" }> = {
+    // ===== Standard Order Lifecycle (Backend Enums) =====
+    // ===== Standard Order Lifecycle (Backend Enums) =====
+    'NEW': { label: 'Đã tiếp nhận', color: 'bg-blue-100 text-blue-800' },
+    'RECEIVED': { label: 'Đã tiếp nhận', color: 'bg-blue-100 text-blue-800' },
+    'TIEP_NHAN': { label: 'Đã tiếp nhận', color: 'bg-blue-100 text-blue-800' },
+    
+    'WAITING_FOR_DIAGNOSIS': { label: 'Chờ chẩn đoán', color: 'bg-amber-100 text-amber-800' },
+    'CHO_CHAN_DOAN': { label: 'Chờ chẩn đoán', color: 'bg-amber-100 text-amber-800' },
+    
+    'QUOTING': { label: 'Đang báo giá', color: 'bg-indigo-100 text-indigo-800' },
+    'BAO_GIA': { label: 'Đang báo giá', color: 'bg-indigo-100 text-indigo-800' },
+    
+    'WAITING_FOR_CUSTOMER_APPROVAL': { label: 'Chờ khách duyệt', color: 'bg-orange-100 text-orange-800' },
+    'CHO_KH_DUYET': { label: 'Chờ khách duyệt', color: 'bg-orange-100 text-orange-800' },
+    
+    'APPROVED': { label: 'Đã chốt đơn', color: 'bg-green-100 text-green-800' },
+    'DA_DUYET': { label: 'Đã chốt đơn', color: 'bg-green-100 text-green-800' },
+    
+    'IN_PROGRESS': { label: 'Đang sửa chữa', color: 'bg-blue-500 text-white' },
+    'DANG_SUA': { label: 'Đang sửa chữa', color: 'bg-blue-500 text-white' },
+    
+    'WAITING_FOR_QC': { label: 'Chờ nghiệm thu', color: 'bg-purple-100 text-purple-800' },
+    'CHO_KCS': { label: 'Chờ nghiệm thu', color: 'bg-purple-100 text-purple-800' },
+    'CHO_NGHIEM_THU': { label: 'Chờ nghiệm thu', color: 'bg-purple-100 text-purple-800' },
+    
+    'COMPLETED': { label: 'Chờ thanh toán', color: 'bg-emerald-100 text-emerald-800' },
+    'DA_HOAN_THANH': { label: 'Chờ thanh toán', color: 'bg-emerald-100 text-emerald-800' },
+    'WAITING_FOR_PAYMENT': { label: 'Chờ thanh toán', color: 'bg-emerald-100 text-emerald-800' },
+    
+    'CLOSED': { label: 'Đã quyết toán', color: 'bg-slate-100 text-slate-800' },
+    'DA_QUYET_TOAN': { label: 'Đã quyết toán', color: 'bg-slate-100 text-slate-800' },
+    'SETTLED': { label: 'Đã quyết toán', color: 'bg-slate-100 text-slate-800' },
+    
+    'CANCELLED': { label: 'Đã hủy', color: 'bg-red-100 text-red-800' },
+    'DA_HUY': { label: 'Đã hủy', color: 'bg-red-100 text-red-800' },
+    'HUY': { label: 'Đã hủy', color: 'bg-red-100 text-red-800' },
+    
+    'DIAGNOSING': { label: 'Đang chẩn đoán', color: 'bg-cyan-100 text-cyan-800' },
+    'DANG_CHAN_DOAN': { label: 'Đang chẩn đoán', color: 'bg-cyan-100 text-cyan-800' },
 
-    // Mechanic Flow
-    'CHO_SUA_CHUA': { label: 'Chờ Sửa Chữa', color: 'bg-indigo-100 text-indigo-800' },
-    'DANG_SUA': { label: 'Đang Sửa', color: 'bg-purple-100 text-purple-800' },
-    'IN_PROGRESS': { label: 'Đang Sửa Chữa', color: 'bg-purple-100 text-purple-800' },
-    'CHO_KCS': { label: 'Chờ Nghiệm Thu', color: 'bg-teal-100 text-teal-800' },
-    'CHO_NGHIEM_THU': { label: 'Chờ Nghiệm Thu', color: 'bg-teal-100 text-teal-800' },
-    'WAITING_FOR_QC': { label: 'Chờ Nghiệm Thu QC', color: 'bg-teal-100 text-teal-800' },
+    // ===== Item / Assignment Specific =====
+    'PENDING': { label: 'Đang chờ', color: 'bg-amber-100 text-amber-800' },
+    'PROPOSAL': { label: 'Đang đề xuất', color: 'bg-blue-100 text-blue-800' },
+    'DE_XUAT': { label: 'Đang đề xuất', color: 'bg-blue-100 text-blue-800' },
+    'DA_XUAT_KHO': { label: 'Đã xuất kho', color: 'bg-blue-100 text-blue-800' },
+    'CHO_XUAT': { label: 'Chờ xuất kho', color: 'bg-yellow-100 text-yellow-800' },
 
-    // Payment / Closing Flow
-    'CHO_THAN_TOAN': { label: 'Chờ Thanh Toán', color: 'bg-pink-100 text-pink-800' },
-    'WAITING_FOR_PAYMENT': { label: 'Chờ Thanh Toán', color: 'bg-pink-100 text-pink-800' },
-    'HOAN_THANH': { label: 'Hoàn Thành', color: 'bg-emerald-100 text-emerald-800' },
-    'COMPLETED': { label: 'Hoàn Thành', color: 'bg-emerald-100 text-emerald-800' },
-    'DONG': { label: 'Đã Đóng', color: 'bg-slate-100 text-slate-800' },
-    'CLOSED': { label: 'Đã Đóng', color: 'bg-slate-100 text-slate-800' },
-    'HUY': { label: 'Đã Hủy', color: 'bg-red-100 text-red-800' },
-    'CANCELLED': { label: 'Đã Hủy', color: 'bg-red-100 text-red-800' },
-    'SETTLED': { label: 'Đã Quyết Toán', color: 'bg-emerald-100 text-emerald-800' },
-
-    // Warehouse Flow
-    'KHO_DUYET': { label: 'Kho Đã Duyệt', color: 'bg-cyan-100 text-cyan-800' },
-    'XUAT_KHO': { label: 'Đã Xuất Kho', color: 'bg-blue-100 text-blue-800' },
-    'CHO_XUAT': { label: 'Chờ Xuất Kho', color: 'bg-yellow-100 text-yellow-800' },
-    'WAITING_FOR_PARTS': { label: 'Chờ Linh Kiện', color: 'bg-cyan-100 text-cyan-800' },
-
-    // General
-    'ACTIVE': { label: 'Hoạt Động', color: 'bg-green-100 text-green-800' },
-    'INACTIVE': { label: 'Ngừng HĐ', color: 'bg-gray-100 text-gray-800' },
-    'EXPIRED': { label: 'Đã Hết Hạn', color: 'bg-red-50 text-red-600' },
-    'RELEASED': { label: 'Đã Nhả', color: 'bg-gray-100 text-gray-600' },
-    'CONVERTED': { label: 'Đã Chuyển Đổi', color: 'bg-indigo-50 text-indigo-600' },
 };
 
 export function getStatusBadge(status: string) {
@@ -59,12 +58,14 @@ export function getStatusBadge(status: string) {
 
     if (['DA_DUYET', 'APPROVED', 'ACTIVE', 'HOAN_THANH', 'COMPLETED', 'SETTLED'].includes(status))
         darkClass = "dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/50 dark:shadow-[0_0_12px_rgba(16,185,129,0.05)]";
-    if (['DANG_SUA', 'IN_PROGRESS', 'CHO_SUA_CHUA', 'RECEIVED', 'TIEP_NHAN'].includes(status))
+    if (['DANG_SUA', 'IN_PROGRESS', 'CHO_SUA_CHUA', 'RECEIVED', 'TIEP_NHAN', 'PROPOSAL', 'DE_XUAT'].includes(status))
         darkClass = "dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/50 dark:shadow-[0_0_12px_rgba(99,102,241,0.05)]";
     if (['CHO_THAN_TOAN', 'WAITING_FOR_PAYMENT', 'CHO_KH_DUYET', 'WAITING_FOR_CUSTOMER_APPROVAL', 'BAO_GIA_LAI', 'RE_QUOTATION', 'BAO_GIA', 'QUOTING'].includes(status))
         darkClass = "dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/50 dark:shadow-[0_0_12px_rgba(249,115,22,0.05)]";
     if (['HUY', 'CANCELLED', 'EXPIRED', 'KHACH_TU_CHOI', 'CUSTOMER_REJECTED'].includes(status))
         darkClass = "dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/50 dark:shadow-[0_0_12px_rgba(239,68,68,0.05)]";
+    if (['DIAGNOSING', 'DANG_CHAN_DOAN'].includes(status))
+        darkClass = "dark:bg-cyan-500/10 dark:text-cyan-400 dark:border-cyan-500/50 dark:shadow-[0_0_12px_rgba(6,182,212,0.05)]";
 
     return (
         <span className={`
@@ -97,10 +98,13 @@ export const isRejected = (status?: string) =>
     status === 'KHACH_TU_CHOI' || status === 'CUSTOMER_REJECTED';
 
 export const isReceived = (status?: string) => 
-    status === 'TIEP_NHAN' || status === 'RECEIVED';
+    status === 'TIEP_NHAN' || status === 'RECEIVED' || status === 'NEW';
 
 export const isWaitingDiagnosis = (status?: string) => 
-    status === 'CHO_CHAN_DOAN' || status === 'WAITING_FOR_DIAGNOSIS';
+    status === 'CHO_CHAN_DOAN' || status === 'WAITING_FOR_DIAGNOSIS' || status === 'DIAGNOSING' || status === 'DANG_CHAN_DOAN';
+
+export const isDiagnosing = (status?: string) =>
+    status === 'DIAGNOSING' || status === 'DANG_CHAN_DOAN';
 
 export const isQuoting = (status?: string) => 
     status === 'BAO_GIA' || status === 'QUOTING' || status === 'BAO_GIA_LAI' || status === 'RE_QUOTATION';
@@ -136,11 +140,12 @@ export const isPostApproval = (status?: string) => {
     if (!status) return false;
     // Bất kỳ trạng thái nào KHÔNG phải là các trạng thái tiền-duyệt (pre-approval)
     const preApprovalStatuses = [
-        'TIEP_NHAN', 'RECEIVED',
+        'TIEP_NHAN', 'RECEIVED', 'NEW',
         'CHO_CHAN_DOAN', 'WAITING_FOR_DIAGNOSIS',
         'BAO_GIA', 'QUOTING',
         'BAO_GIA_LAI', 'RE_QUOTATION',
-        'CHO_KH_DUYET', 'WAITING_FOR_CUSTOMER_APPROVAL'
+        'CHO_KH_DUYET', 'WAITING_FOR_CUSTOMER_APPROVAL',
+        'DE_XUAT', 'PROPOSAL'
     ];
     return !preApprovalStatuses.includes(status);
 };
@@ -159,7 +164,7 @@ export const isAssignCompleted = (status?: string) =>
     status === 'COMPLETED' || status === 'HOAN_THANH';
 // Item status helpers
 export const isItemPending = (status?: string | null) => 
-    !status || status === 'PENDING' || status === 'CHO_THUC_HIEN' || status === 'CHỜ_THỰC_HIỆN' || status === 'RECEIVED' || status === 'WAITING_FOR_DIAGNOSIS';
+    !status || status === 'PENDING' || status === 'CHO_THUC_HIEN' || status === 'CHỜ_THỰC_HIỆN' || status === 'RECEIVED' || status === 'WAITING_FOR_DIAGNOSIS' || status === 'PROPOSAL' || status === 'DE_XUAT';
 
 export const isItemInProgress = (status?: string | null) => 
     status === 'IN_PROGRESS' || status === 'DANG_THUC_HIEN' || status === 'ĐANG_THỰC_HIỆN' || status === 'DOING' || status === 'DANG_SUA';
@@ -174,7 +179,7 @@ export const isItemRejected = (status?: string | null) =>
     status === 'REJECTED' || status === 'TU_CHOI' || status === 'TỪ_CHỐI' || status === 'CUSTOMER_REJECTED' || status === 'KHACH_TU_CHOI';
 
 export const isItemApproved = (status?: string | null) => 
-    status === 'APPROVED' || status === 'KHACH_DONG_Y' || status === 'CUSTOMER_APPROVED' || (!status || status === 'PENDING' || isItemPending(status));
+    status === 'APPROVED' || status === 'KHACH_DONG_Y' || status === 'CUSTOMER_APPROVED';
 
 export const isItemExported = (status?: string | null) =>
     status === 'EXPORTED' || status === 'DA_XUAT_KHO';

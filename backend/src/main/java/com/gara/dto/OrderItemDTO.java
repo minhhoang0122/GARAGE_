@@ -23,7 +23,10 @@ public record OrderItemDTO(
         Boolean isTechnicalAddition,
         LocalDateTime proposedAt,
         List<AssignmentDTO> assignments,
-        Integer version) {
+        Integer version,
+        BigDecimal vatPercentage,
+        BigDecimal vatAmount,
+        String oldPartAction) {
 
     public static OrderItemDTOBuilder builder() {
         return new OrderItemDTOBuilder();
@@ -49,6 +52,9 @@ public record OrderItemDTO(
         private LocalDateTime proposedAt;
         private List<AssignmentDTO> assignments;
         private Integer version;
+        private BigDecimal vatPercentage;
+        private BigDecimal vatAmount;
+        private String oldPartAction;
 
         public OrderItemDTOBuilder id(Integer id) {
             this.id = id;
@@ -145,10 +151,26 @@ public record OrderItemDTO(
             return this;
         }
 
+        public OrderItemDTOBuilder vatPercentage(BigDecimal vatPercentage) {
+            this.vatPercentage = vatPercentage;
+            return this;
+        }
+
+        public OrderItemDTOBuilder vatAmount(BigDecimal vatAmount) {
+            this.vatAmount = vatAmount;
+            return this;
+        }
+
+        public OrderItemDTOBuilder oldPartAction(String oldPartAction) {
+            this.oldPartAction = oldPartAction;
+            return this;
+        }
+
         public OrderItemDTO build() {
             return new OrderItemDTO(id, productId, productCode, productName, quantity, unitPrice,
                     total, discountPercent, type, itemStatus, stock, proposedById, proposedByName,
-                    proposedByRole, isWarranty, isTechnicalAddition, proposedAt, assignments, version);
+                    proposedByRole, isWarranty, isTechnicalAddition, proposedAt, assignments, version,
+                    vatPercentage, vatAmount, oldPartAction);
         }
     }
 }

@@ -1,24 +1,40 @@
-// Type definitions cho NextAuth
+import NextAuth, { DefaultSession, DefaultUser } from "next-auth"
+import { JWT } from "next-auth/jwt"
 
-import { VaiTroType } from '@/lib/auth';
-
-declare module 'next-auth' {
-    interface User {
-        id: string;
-        name: string;
-        roles: string[];
-        permissions: string[];
+declare module "next-auth" {
+    /**
+     * Trả về khi gọi `useSession`, `auth()`, v.v.
+     */
+    interface Session {
+        user: {
+            id: string
+            role: string
+            roles: string[]
+            image?: string | null
+        } & DefaultSession["user"]
+        accessToken?: string
     }
 
-    interface Session {
-        user: User;
+    /**
+     * Cấu trúc User trả về từ callback `authorize`
+     */
+    interface User extends DefaultUser {
+        id: string
+        role: string
+        accessToken: string
+        image?: string | null
     }
 }
 
-declare module 'next-auth/jwt' {
+declare module "next-auth/jwt" {
+    /**
+     * Trả về trong callback `jwt` và `session` khi dùng JWT strategy
+     */
     interface JWT {
-        id: string;
-        roles: string[];
-        permissions: string[];
+        id: string
+        role: string
+        roles: string[]
+        accessToken: string
+        image?: string | null
     }
 }

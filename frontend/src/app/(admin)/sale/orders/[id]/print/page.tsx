@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+export const dynamic = 'force-dynamic';
 import PrintButton from './PrintButton';
 import { auth } from '@/lib/auth';
 import { api } from '@/lib/api';
@@ -246,68 +247,107 @@ export default async function PrintQuotePage({ params, searchParams }: { params:
             {/* Items Table */}
             <table className="w-full mb-8">
                 <thead>
-                    <tr className="bg-slate-100">
-                        <th className="w-12 text-center">STT</th>
-                        <th>Nội dung công việc / Vật tư phụ tùng</th>
-                        <th className="w-16 text-center">SL</th>
-                        <th className="w-32 text-right">Đơn giá</th>
-                        <th className="w-32 text-right">Thành tiền</th>
+                    <tr className="bg-slate-100 italic text-[11px] uppercase tracking-wider">
+                        <th className="w-10 text-center py-2 px-1 border border-slate-200">STT</th>
+                        <th className="text-left py-2 px-3 border border-slate-200">Nội dung công việc / Vật tư phụ tùng</th>
+                        <th className="w-12 text-center py-2 px-1 border border-slate-200">SL</th>
+                        <th className="w-24 text-right py-2 px-3 border border-slate-200">Đơn giá</th>
+                        <th className="w-16 text-center py-2 px-1 border border-slate-200">VAT</th>
+                        <th className="w-28 text-right py-2 px-3 border border-slate-200">Thành tiền</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y border">
                     {approvedItems.map((item: any, idx: number) => (
-                        <tr key={item.id}>
-                            <td className="text-center text-slate-500">{idx + 1}</td>
-                            <td>
-                                <div className="font-bold">{item.productName}</div>
+                        <tr key={item.id} className="text-[13px]">
+                            <td className="text-center text-slate-500 py-3 border-x">{idx + 1}</td>
+                            <td className="py-3 px-3 border-r">
+                                <div className="font-bold text-slate-800">{item.productName}</div>
                                 <div className="text-[10px] text-slate-400 font-mono">
                                     Mã: {item.productCode}
-                                    {isItemService(item) && <span className="ml-2 px-1 bg-indigo-50 text-indigo-600 rounded text-[9px] uppercase font-bold not-italic">Công dịch vụ</span>}
+                                    {isItemService(item) && <span className="ml-2 px-1 bg-indigo-50 text-indigo-600 rounded text-[9px] uppercase font-bold not-italic font-sans">Công dịch vụ</span>}
                                 </div>
                             </td>
-                            <td className="text-center">{item.quantity}</td>
-                            <td className="text-right">{formatCurrency(Number(item.unitPrice))}</td>
-                            <td className="text-right font-bold">{formatCurrency(getItemTotal(item))}</td>
+                            <td className="text-center py-3 border-r tabular-nums">{item.quantity}</td>
+                            <td className="text-right py-3 px-3 border-r tabular-nums">{formatCurrency(Number(item.unitPrice)).replace('₫', '').trim()}</td>
+                            <td className="text-center py-3 px-1 border-r text-[11px] font-bold text-slate-500">
+                                {item.vatPercentage > 0 ? `${item.vatPercentage}%` : '—'}
+                            </td>
+                            <td className="text-right font-bold py-3 px-3 tabular-nums">{formatCurrency(getItemTotal(item)).replace('₫', '').trim()}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
 
             {/* Summary List */}
-            <div className="flex justify-end mb-8">
+            <div className="flex justify-between items-start mb-8 gap-10">
+                <div className="flex-1">
+                    {/* Bảng kê thuế VAT nếu có nhiều mức thuế */}
+                    {Object.keys(approvedItems.reduce((acc: any, item: any) => {
+                        if (item.vatPercentage > 0) acc[item.vatPercentage] = true;
+                        return acc;
+                    }, {})).length > 1 && (
+                        <div className="text-[11px] text-slate-500 italic mt-2">
+                             * Chi tiết thuế GTGT được tính riêng biệt cho từng hạng mục theo quy định.
+                        </div>
+                    )}
+                </div>
                 <div className="w-80 space-y-2 border-t-2 border-slate-900 pt-4">
                     <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Tổng tiền phụ tùng:</span>
-                        <span>{formatCurrency(totalParts)}</span>
+                        <span className="text-slate-500">Tổng cộng tiền hàng:</span>
+                        <span className="font-bold">{formatCurrency(totalParts + totalLabor)}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Tổng tiền công:</span>
-                        <span>{formatCurrency(totalLabor)}</span>
-                    </div>
+                    
                     <div className="flex justify-between text-sm">
                         <span className="text-slate-500">Chiết khấu:</span>
-                        <span className="text-rose-600">{formatCurrency(discountAmount)}</span>
+                        <span className="text-rose-600 font-bold">-{formatCurrency(discountAmount)}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Thuế VAT ({order.vatPercent}%):</span>
-                        <span>{formatCurrency(taxAmount)}</span>
-                    </div>
-                    <div className="flex justify-between text-lg font-black border-t pt-2 mt-2">
-                        <span>TỔNG CỘNG:</span>
+
+                    {/* Hiển thị chi tiết từng loại thuế VAT */}
+                    {(() => {
+                        const vatByRate = approvedItems.reduce((acc: any, item: any) => {
+                            const rate = item.vatPercentage || 0;
+                            const amount = item.vatAmount || 0;
+                            if (amount > 0) {
+                                acc[rate] = (acc[rate] || 0) + amount;
+                            }
+                            return acc;
+                        }, {});
+
+                        const rates = Object.keys(vatByRate).sort((a, b) => Number(a) - Number(b));
+                        
+                        if (rates.length === 0 && taxAmount > 0) {
+                            return (
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-slate-500">Thuế VAT ({order.vatPercent}%):</span>
+                                    <span>{formatCurrency(taxAmount)}</span>
+                                </div>
+                            );
+                        }
+
+                        return rates.map(rate => (
+                            <div key={rate} className="flex justify-between text-sm">
+                                <span className="text-slate-500">Thuế VAT ({rate}%):</span>
+                                <span>{formatCurrency(vatByRate[rate])}</span>
+                            </div>
+                        ));
+                    })()}
+
+                    <div className="flex justify-between text-lg font-black border-t-2 border-double border-slate-900 pt-3 mt-3">
+                        <span className="tracking-tighter">TỔNG CỘNG THANH TOÁN:</span>
                         <span className="text-blue-700">{formatCurrency(grandTotal)}</span>
                     </div>
 
-                    {/* Payment Info - Only show if there are payments */}
+                    {/* Payment Info */}
                     {(amountPaid > 0 || depositAmount > 0) && (
-                        <div className="border-t border-dashed pt-3 mt-3 space-y-1">
+                        <div className="border-t border-dashed border-slate-300 pt-3 mt-3 space-y-1">
                             {depositAmount > 0 && (
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">Đã đặt cọc:</span>
+                                    <span className="text-slate-500 italic">Đã đặt cọc:</span>
                                     <span className="text-green-600 font-bold">{formatCurrency(depositAmount)}</span>
                                 </div>
                             )}
-                            <div className="flex justify-between text-sm font-bold">
-                                <span className="text-red-600">CÒN NỢ:</span>
+                            <div className="flex justify-between text-base font-black">
+                                <span className="text-red-600 uppercase italic">Của Quý khách còn nợ:</span>
                                 <span className="text-red-600">{formatCurrency(debt)}</span>
                             </div>
                         </div>

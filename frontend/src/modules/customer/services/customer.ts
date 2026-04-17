@@ -11,6 +11,8 @@ export interface Customer {
     totalOrders?: number;
     totalSpent?: number;
     lastVisit?: string;
+    vehicleCount?: number;
+    licensePlates?: string[];
 }
 
 export const mapCustomer = (raw: any): Customer => ({
@@ -23,7 +25,9 @@ export const mapCustomer = (raw: any): Customer => ({
     note: raw.note || raw.GhiChu || raw.ghiChu || '',
     totalOrders: raw.totalOrders || raw.TongDonHang || raw.tongDonHang || 0,
     totalSpent: Number(raw.totalSpent || raw.TongChiTieu || raw.tongChiTieu || 0),
-    lastVisit: raw.lastVisit || raw.NgayGheThamCuoi || raw.ngayGheThamCuoi || raw.updatedAt || null
+    lastVisit: raw.lastVisit || raw.NgayGheThamCuoi || raw.ngayGheThamCuoi || raw.updatedAt || null,
+    vehicleCount: raw.vehicleCount || 0,
+    licensePlates: raw.licensePlates || []
 });
 
 export const customerService = {
@@ -67,11 +71,27 @@ export const customerService = {
     requestRevision: async (orderId: number, note: string) => {
         return api.post(`/customer/orders/${orderId}/request-revision`, { note });
     },
-    createBooking: async (data: { bienSoXe: string; ghiChu?: string | null; selectedServiceIds?: any[] }) => {
+    createBooking: async (data: { 
+        bienSoXe: string; 
+        ghiChu?: string | null; 
+        selectedServiceIds?: any[];
+        model?: string | null;
+        appointmentTime?: string | null; // ISO datetime string
+    }) => {
+        let appointmentTimeISO: string | null = null;
+        if (data.appointmentTime) {
+            try {
+                const date = new Date(data.appointmentTime);
+                const pad = (n: number) => n.toString().padStart(2, '0');
+                appointmentTimeISO = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+            } catch { appointmentTimeISO = data.appointmentTime; }
+        }
         return api.post('/customer/booking', {
-            ...data,
-            modelXe: null,
-            ngayHen: null,
+            licensePlate: data.bienSoXe,
+            notes: data.ghiChu ?? null,
+            model: data.model ?? null,
+            appointmentTime: appointmentTimeISO,
+            selectedServiceIds: data.selectedServiceIds ?? null,
         });
     },
     getWarrantyItems: async () => {

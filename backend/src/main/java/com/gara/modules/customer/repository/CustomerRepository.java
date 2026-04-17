@@ -14,7 +14,10 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
 
     Optional<Customer> findByUserId(Integer userId);
 
-    @Query("SELECT c FROM Customer c WHERE LOWER(c.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR c.phone LIKE CONCAT('%', :keyword, '%')")
+    @Query("SELECT DISTINCT c FROM Customer c LEFT JOIN c.vehicles v WHERE " +
+           "LOWER(c.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "c.phone LIKE CONCAT('%', :keyword, '%') OR " +
+           "LOWER(v.licensePlate) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Customer> searchByKeyword(@Param("keyword") String keyword);
 
     // Optimized: Get recent customers with pagination (default 50)

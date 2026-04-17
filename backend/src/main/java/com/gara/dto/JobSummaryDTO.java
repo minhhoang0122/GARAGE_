@@ -17,6 +17,9 @@ public record JobSummaryDTO(
                 String status,
                 Integer claimedById,
                 String claimedByName,
+                String claimedByAvatar,
+                Integer odo,
+                String receptionistName,
                 List<OrderItemDTO> items) {
 
         public static JobSummaryDTOBuilder builder() {
@@ -37,6 +40,9 @@ public record JobSummaryDTO(
                 private String status;
                 private Integer claimedById;
                 private String claimedByName;
+                private String claimedByAvatar;
+                private Integer odo;
+                private String receptionistName;
                 private List<OrderItemDTO> items;
 
                 public JobSummaryDTOBuilder id(Integer id) {
@@ -104,6 +110,21 @@ public record JobSummaryDTO(
                         return this;
                 }
 
+                public JobSummaryDTOBuilder claimedByAvatar(String claimedByAvatar) {
+                        this.claimedByAvatar = claimedByAvatar;
+                        return this;
+                }
+
+                public JobSummaryDTOBuilder odo(Integer odo) {
+                        this.odo = odo;
+                        return this;
+                }
+
+                public JobSummaryDTOBuilder receptionistName(String receptionistName) {
+                        this.receptionistName = receptionistName;
+                        return this;
+                }
+
                 public JobSummaryDTOBuilder items(List<OrderItemDTO> items) {
                         this.items = items;
                         return this;
@@ -112,7 +133,8 @@ public record JobSummaryDTO(
                 public JobSummaryDTO build() {
                         return new JobSummaryDTO(id, plate, customerName, customerPhone, vehicleBrand, vehicleModel,
                                         createdAt,
-                                        totalItems, completedItems, imageUrl, status, claimedById, claimedByName, items);
+                                        totalItems, completedItems, imageUrl, status, claimedById, claimedByName, 
+                                        claimedByAvatar, odo, receptionistName, items);
                 }
         }
 }

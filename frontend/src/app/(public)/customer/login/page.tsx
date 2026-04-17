@@ -63,7 +63,7 @@ function CustomerAuthContent() {
       if (result?.error) {
         setError('Số điện thoại hoặc mật khẩu không đúng.');
       } else {
-        router.push('/customer/home');
+        router.push('/');
       }
     } catch (err) {
       setError('Có lỗi xảy ra. Vui lòng thử lại.');
@@ -190,7 +190,7 @@ function CustomerAuthContent() {
         {/* Global Navigation */}
         <div className="absolute top-10 right-8 flex items-center gap-8">
           <Link 
-            href="/login" 
+          href="/" 
             className="text-[10px] font-black text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-2 group uppercase tracking-[0.2em]"
           >
             <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />

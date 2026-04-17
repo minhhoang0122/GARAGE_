@@ -29,7 +29,18 @@ import {
     Filter,
 } from 'lucide-react';
 
-export default function VehicleHistoriesPage() {
+const ACTION_TYPE_LABELS: Record<string, string> = {
+    'ADD_ITEM': 'Thêm hạng mục',
+    'DELETE_ITEM': 'Xóa hạng mục',
+    'UPDATE_ITEM': 'Cập nhật hạng mục',
+    'STATUS_CHANGE': 'Đổi trạng thái',
+    'NOTE': 'Ghi chú',
+    'MAN_WORK': 'Nhân công',
+    'KEEP_IN_GARAGE': 'Giữ tại xưởng',
+    'RETURN_TO_CUSTOMER': 'Trả lại khách',
+};
+
+export function VehicleHistoriesContent() {
     const { isAdmin, hasRole } = usePermission();
     const isSale = hasRole('SALE');
     const [searchTerm, setSearchTerm] = useState('');
@@ -168,18 +179,16 @@ export default function VehicleHistoriesPage() {
     // Permission guard
     if (!isAdmin && !isSale) {
         return (
-            <DashboardLayout title="Hồ sơ Xe" subtitle="Tra cứu lịch sử bảo dưỡng">
-                <div className="flex flex-col items-center justify-center py-20 bg-white/50 backdrop-blur rounded-3xl border border-slate-200">
-                    <Car className="w-16 h-16 text-slate-300 mb-4" />
-                    <h3 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h3>
-                    <p className="text-slate-500 mt-2">Chỉ Quản trị viên và Cố vấn dịch vụ mới có quyền truy cập tính năng này.</p>
-                </div>
-            </DashboardLayout>
+            <div className="flex flex-col items-center justify-center py-20 bg-white/50 backdrop-blur rounded-3xl border border-slate-200">
+                <Car className="w-16 h-16 text-slate-300 mb-4" />
+                <h3 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h3>
+                <p className="text-slate-500 mt-2">Chỉ Quản trị viên và Cố vấn dịch vụ mới có quyền truy cập tính năng này.</p>
+            </div>
         );
     }
 
     return (
-        <DashboardLayout title="Hồ sơ Lịch sử Xe" subtitle="Tra cứu lịch sử bảo dưỡng và nhắc lịch chăm sóc định kỳ">
+        <>
             <div className="max-w-7xl mx-auto space-y-6">
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -221,7 +230,7 @@ export default function VehicleHistoriesPage() {
 
             {/* Vehicle History Drawer (Sheet) */}
             <Sheet open={!!selectedVehicleId} onOpenChange={(open: boolean) => !open && setSelectedVehicleId(null)}>
-                <SheetContent side="right" className="w-full sm:max-w-lg lg:max-w-xl p-0 flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden">
+                <SheetContent side="right" className="w-full sm:max-w-lg lg:max-w-xl p-0 flex flex-col bg-slate-50 dark:bg-slate-900">
                     {/* Header */}
                     <SheetHeader className="p-6 bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 flex-none">
                         <div className="flex items-center gap-3">
@@ -239,42 +248,43 @@ export default function VehicleHistoriesPage() {
                         </div>
                     </SheetHeader>
 
-                    {/* Maintenance Reminder Widget */}
-                    {vehicleTimeline && (
-                        <div className="mx-6 mt-4 p-4 rounded-xl bg-gradient-to-r from-indigo-50 via-blue-50 to-cyan-50 dark:from-indigo-900/20 dark:to-cyan-900/20 border border-indigo-100 dark:border-indigo-800">
-                            <div className="flex items-center gap-2 mb-3">
-                                <CalendarClock className="w-4 h-4 text-indigo-600" />
-                                <span className="text-xs font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">Nhắc bảo dưỡng định kỳ</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-indigo-100 dark:border-indigo-700">
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Mốc km tiếp theo</p>
-                                    <p className="text-lg font-black text-indigo-700 dark:text-indigo-300">
-                                        {vehicleTimeline.nextMaintenanceOdo
-                                            ? `${vehicleTimeline.nextMaintenanceOdo.toLocaleString()} km`
-                                            : '---'}
-                                    </p>
-                                    <p className="text-[10px] text-slate-400 mt-0.5">
-                                        ODO hiện tại: {vehicleTimeline.vehicle.currentOdo?.toLocaleString() || 0} km
-                                    </p>
+                    <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200">
+                        {/* Maintenance Reminder Widget */}
+                        {vehicleTimeline && (
+                            <div className="mx-6 mt-6 mb-2 p-4 rounded-xl bg-gradient-to-r from-indigo-50 via-blue-50 to-cyan-50 dark:from-indigo-900/20 dark:to-cyan-900/20 border border-indigo-100 dark:border-indigo-800">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <CalendarClock className="w-4 h-4 text-indigo-600" />
+                                    <span className="text-xs font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">Nhắc bảo dưỡng định kỳ</span>
                                 </div>
-                                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-indigo-100 dark:border-indigo-700">
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Ngày tiếp theo</p>
-                                    <p className="text-lg font-black text-indigo-700 dark:text-indigo-300">
-                                        {vehicleTimeline.nextMaintenanceDate
-                                            ? format(new Date(vehicleTimeline.nextMaintenanceDate), 'dd/MM/yyyy')
-                                            : '---'}
-                                    </p>
-                                    <p className="text-[10px] text-slate-400 mt-0.5">
-                                        Chu kỳ: 6 tháng / 5,000 km
-                                    </p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-indigo-100 dark:border-indigo-700">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Mốc km tiếp theo</p>
+                                        <p className="text-lg font-black text-indigo-700 dark:text-indigo-300">
+                                            {vehicleTimeline.nextMaintenanceOdo
+                                                ? `${vehicleTimeline.nextMaintenanceOdo.toLocaleString()} km`
+                                                : '---'}
+                                        </p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">
+                                            ODO hiện tại: {vehicleTimeline.vehicle.currentOdo?.toLocaleString() || 0} km
+                                        </p>
+                                    </div>
+                                    <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-indigo-100 dark:border-indigo-700">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Ngày tiếp theo</p>
+                                        <p className="text-lg font-black text-indigo-700 dark:text-indigo-300">
+                                            {vehicleTimeline.nextMaintenanceDate
+                                                ? format(new Date(vehicleTimeline.nextMaintenanceDate), 'dd/MM/yyyy')
+                                                : '---'}
+                                        </p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">
+                                            Chu kỳ: 6 tháng / 5,000 km
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Grouped Timeline */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-5 scrollbar-thin scrollbar-thumb-slate-200">
+                        {/* Grouped Timeline List */}
+                        <div className="p-6 pt-2">
                         {isTimelineLoading ? (
                             <div className="flex items-center justify-center py-16">
                                 <div className="animate-spin w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full" />
@@ -286,19 +296,21 @@ export default function VehicleHistoriesPage() {
                         ) : (
                             vehicleTimeline?.serviceVisits.map((visit: ServiceVisit, visitIdx: number) => (
                                 <div key={visit.receptionId} className="relative">
-                                    {/* Visit Header - Divider */}
-                                    <div className="sticky top-0 z-10 flex items-center gap-3 mb-3">
-                                        <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
-                                            <div className={`w-2.5 h-2.5 rounded-full ${visitIdx === 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                                            <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                                                Đợt {vehicleTimeline!.serviceVisits.length - visitIdx}
-                                            </span>
-                                            <span className="text-[10px] text-slate-500 font-medium">
-                                                {visit.receptionDate ? format(new Date(visit.receptionDate), 'dd/MM/yyyy HH:mm', { locale: vi }) : ''}
-                                            </span>
-                                            {visit.orderStatus && getStatusBadge(visit.orderStatus)}
+                                    {/* Visit Header - Sticky with Background */}
+                                    <div className="sticky top-0 z-20 -mx-6 px-6 py-4 bg-slate-50/98 backdrop-blur-md border-b border-slate-200/80 mb-6 shadow-sm">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                <div className={`w-2.5 h-2.5 rounded-full ${visitIdx === 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                                                <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                                                    Đợt {vehicleTimeline!.serviceVisits.length - visitIdx}
+                                                </span>
+                                                <span className="text-[10px] text-slate-500 font-medium">
+                                                    {visit.receptionDate ? format(new Date(visit.receptionDate), 'dd/MM/yyyy HH:mm', { locale: vi }) : ''}
+                                                </span>
+                                                {visit.orderStatus && getStatusBadge(visit.orderStatus)}
+                                            </div>
+                                            <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700 opacity-50" />
                                         </div>
-                                        <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
                                     </div>
 
                                     {/* ODO info */}
@@ -323,7 +335,7 @@ export default function VehicleHistoriesPage() {
                                                         <div className="flex items-center gap-1.5">
                                                             <span className="p-1 px-2 rounded-md bg-slate-50 border border-slate-100 text-[9px] font-bold text-slate-500 flex items-center gap-1">
                                                                 {getActionIcon(event.actionType)}
-                                                                {event.actionType}
+                                                                {ACTION_TYPE_LABELS[event.actionType] || event.actionType}
                                                             </span>
                                                         </div>
                                                         <time className="text-[10px] text-slate-400 font-bold whitespace-nowrap">
@@ -357,8 +369,17 @@ export default function VehicleHistoriesPage() {
                             ))
                         )}
                     </div>
-                </SheetContent>
-            </Sheet>
+                </div>
+            </SheetContent>
+        </Sheet>
+        </>
+    );
+}
+
+export default function VehicleHistoriesPage() {
+    return (
+        <DashboardLayout title="Hồ sơ Lịch sử Xe" subtitle="Tra cứu lịch sử bảo dưỡng và nhắc lịch chăm sóc định kỳ">
+            <VehicleHistoriesContent />
         </DashboardLayout>
     );
 }

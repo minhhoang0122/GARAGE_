@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+export const dynamic = 'force-dynamic';
 import PrintButton from './PrintButton';
 import { auth } from '@/lib/auth';
 import { api } from '@/lib/api';

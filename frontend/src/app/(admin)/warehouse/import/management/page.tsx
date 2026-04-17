@@ -2,15 +2,15 @@
 
 import { useState } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
-import { ArrowLeft, Check, X, Search, Filter, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, X, Search, Filter, Loader2, AlertTriangle, PackageCheck } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { api } from '@/lib/api';
 import { warehouseApi } from '@/api';
 import { Badge } from "@/modules/shared/components/ui/badge";
 import { Button } from "@/modules/shared/components/ui/button";
 import { Input } from "@/modules/shared/components/ui/input";
 import { useToast } from '@/modules/shared/components/ui/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/modules/shared/components/ui/dialog";
 import {
     Table,
     TableBody,
@@ -19,33 +19,39 @@ import {
     TableHeader,
     TableRow,
 } from "@/modules/shared/components/ui/table";
+import { usePermission } from '@/hooks/usePermission';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRealtimeUpdate } from '@/hooks/useRealtimeUpdate';
 
+// Interface matching backend ImportHistoryDto fields
 interface ImportNote {
     id: number;
-    maPhieu: string;
-    ngayNhap: string;
-    nhaCungCap: string;
-    tongTien: number;
-    nguoiNhap?: {
-        fullName: string;
-    };
-    trangThai: string;
-    chiTietNhap: any[];
+    code: string;
+    date: string;
+    supplier: string;
+    total: number;
+    creator: string;
+    status: string;
+    items: any[];
 }
 
-import { usePermission } from '@/hooks/usePermission';
-
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
-export default function ImportManagementPage() {
+export function ImportManagementContent() {
     const queryClient = useQueryClient();
     const { hasPermission, isAdmin } = usePermission();
 
     const isAdminOrManager = isAdmin || hasPermission('MANAGE_INVENTORY');
-
-    const [statusFilter, setStatusFilter] = useState<string>('PENDING'); // Default to PENDING
-    const [searchTerm, setSearchTerm] = useState('');
     const { toast } = useToast();
+
+    // Default to ALL to avoid "disappearing" items after approval
+    const [statusFilter, setStatusFilter] = useState<string>('ALL');
+    const [searchTerm, setSearchTerm] = useState('');
+
+    // Confirm dialog state
+    const [confirmDialog, setConfirmDialog] = useState<{
+        open: boolean;
+        type: 'approve' | 'reject';
+        item: ImportNote | null;
+    }>({ open: false, type: 'approve', item: null });
 
     const { data: imports = [], isLoading } = useQuery({
         queryKey: ['warehouse-imports', statusFilter],
@@ -53,7 +59,16 @@ export default function ImportManagementPage() {
             const response = await warehouseApi.getImports({ 
                 status: statusFilter === 'ALL' ? undefined : statusFilter 
             });
-            return response.data as ImportNote[];
+            const data = (response as any)?.data || response;
+            return (Array.isArray(data) ? data : []) as ImportNote[];
+        }
+    });
+
+    // Subscribing to warehouse and stats events to make the list real-time
+    useRealtimeUpdate(['warehouse-imports'], {
+        filter: (data) => ['IMPORT_SUBMITTED', 'IMPORT_APPROVED', 'IMPORT_REJECTED'].includes(data.sseType),
+        onUpdate: () => {
+            queryClient.invalidateQueries({ queryKey: ['warehouse-imports'] });
         }
     });
 
@@ -62,9 +77,11 @@ export default function ImportManagementPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['warehouse-imports'] });
             toast({ title: "Thành công", description: "Đã duyệt phiếu nhập thành công", variant: "default" });
+            setConfirmDialog({ open: false, type: 'approve', item: null });
         },
         onError: (error: any) => {
             toast({ title: "Lỗi", description: error.message || "Lỗi khi duyệt", variant: "destructive" });
+            setConfirmDialog({ open: false, type: 'approve', item: null });
         }
     });
 
@@ -73,20 +90,25 @@ export default function ImportManagementPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['warehouse-imports'] });
             toast({ title: "Thành công", description: "Đã từ chối phiếu nhập", variant: "default" });
+            setConfirmDialog({ open: false, type: 'reject', item: null });
         },
         onError: (error: any) => {
             toast({ title: "Lỗi", description: error.message || "Lỗi khi từ chối", variant: "destructive" });
+            setConfirmDialog({ open: false, type: 'reject', item: null });
         }
     });
 
-    const handleApprove = (id: number) => {
-        if (!confirm('Bạn có chắc chắn muốn duyệt phiếu nhập này? Kho và giá sẽ được cập nhật.')) return;
-        approveMutation.mutate(id);
+    const openConfirm = (type: 'approve' | 'reject', item: ImportNote) => {
+        setConfirmDialog({ open: true, type, item });
     };
 
-    const handleReject = (id: number) => {
-        if (!confirm('Bạn có chắc chắn muốn từ chối phiếu nhập này?')) return;
-        rejectMutation.mutate(id);
+    const handleConfirm = () => {
+        if (!confirmDialog.item) return;
+        if (confirmDialog.type === 'approve') {
+            approveMutation.mutate(confirmDialog.item.id);
+        } else {
+            rejectMutation.mutate(confirmDialog.item.id);
+        }
     };
 
     const getStatusBadge = (status: string) => {
@@ -102,13 +124,18 @@ export default function ImportManagementPage() {
         }
     };
 
-    const filteredImports = imports.filter((item: ImportNote) =>
-        item.nhaCungCap.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.maPhieu.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredImports = imports.filter((item: ImportNote) => {
+        if (!searchTerm) return true;
+        const term = searchTerm.toLowerCase();
+        const supplier = (item.supplier || '').toLowerCase();
+        const code = (item.code || '').toLowerCase();
+        return supplier.includes(term) || code.includes(term);
+    });
+
+    const isPending = approveMutation.isPending || rejectMutation.isPending;
 
     return (
-        <DashboardLayout title="Quản lý nhập kho" subtitle="Duyệt và quản lý các phiếu nhập hàng">
+        <>
             <div className="max-w-7xl mx-auto space-y-6">
 
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -169,7 +196,7 @@ export default function ImportManagementPage() {
                             {isLoading ? (
                                 <TableRow>
                                     <TableCell colSpan={7} className="h-24 text-center">
-                                        Đang tải...
+                                        <Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" />
                                     </TableCell>
                                 </TableRow>
                             ) : filteredImports.length === 0 ? (
@@ -181,47 +208,39 @@ export default function ImportManagementPage() {
                             ) : (
                                 filteredImports.map((item: ImportNote) => (
                                     <TableRow key={item.id}>
-                                        <TableCell className="font-medium">{item.maPhieu}</TableCell>
-                                        <TableCell>{formatDate(item.ngayNhap)}</TableCell>
-                                        <TableCell>{item.nhaCungCap}</TableCell>
-                                        <TableCell>{item.nguoiNhap?.fullName || 'N/A'}</TableCell>
+                                        <TableCell className="font-medium font-mono text-xs">{item.code}</TableCell>
+                                        <TableCell>{formatDate(item.date)}</TableCell>
+                                        <TableCell>{item.supplier}</TableCell>
+                                        <TableCell>{item.creator || 'N/A'}</TableCell>
                                         <TableCell className="text-right font-semibold">
-                                            {formatCurrency(item.tongTien)}
+                                            {formatCurrency(item.total)}
                                         </TableCell>
                                         <TableCell className="text-center">
-                                            {getStatusBadge(item.trangThai)}
+                                            {getStatusBadge(item.status)}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                {item.trangThai === 'PENDING' && isAdminOrManager && (
+                                                {item.status === 'PENDING' && isAdminOrManager && (
                                                     <>
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
                                                             className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
-                                                            onClick={() => handleApprove(item.id)}
-                                                            disabled={approveMutation.isPending || rejectMutation.isPending}
+                                                            onClick={() => openConfirm('approve', item)}
+                                                            disabled={isPending}
                                                             title="Duyệt"
                                                         >
-                                                            {approveMutation.isPending && approveMutation.variables === item.id ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                            ) : (
-                                                                <Check className="w-4 h-4" />
-                                                            )}
+                                                            <Check className="w-4 h-4" />
                                                         </Button>
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
                                                             className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
-                                                            onClick={() => handleReject(item.id)}
-                                                            disabled={approveMutation.isPending || rejectMutation.isPending}
+                                                            onClick={() => openConfirm('reject', item)}
+                                                            disabled={isPending}
                                                             title="Từ chối"
                                                         >
-                                                            {rejectMutation.isPending && rejectMutation.variables === item.id ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                            ) : (
-                                                                <X className="w-4 h-4" />
-                                                            )}
+                                                            <X className="w-4 h-4" />
                                                         </Button>
                                                     </>
                                                 )}
@@ -234,6 +253,85 @@ export default function ImportManagementPage() {
                     </Table>
                 </div>
             </div>
+
+            {/* Custom Confirm Dialog */}
+            <Dialog open={confirmDialog.open} onOpenChange={(open) => !isPending && setConfirmDialog(prev => ({ ...prev, open }))}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-3">
+                            {confirmDialog.type === 'approve' ? (
+                                <>
+                                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                                        <PackageCheck className="w-5 h-5 text-emerald-600" />
+                                    </div>
+                                    <span>Xác nhận duyệt phiếu nhập</span>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center">
+                                        <AlertTriangle className="w-5 h-5 text-rose-600" />
+                                    </div>
+                                    <span>Xác nhận từ chối phiếu nhập</span>
+                                </>
+                            )}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {confirmDialog.item && (
+                        <div className="space-y-3 py-2">
+                            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Mã phiếu:</span>
+                                    <span className="font-mono font-bold">{confirmDialog.item.code}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Nhà cung cấp:</span>
+                                    <span className="font-semibold">{confirmDialog.item.supplier}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Tổng tiền:</span>
+                                    <span className="font-bold text-blue-600">{formatCurrency(confirmDialog.item.total)}</span>
+                                </div>
+                            </div>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                                {confirmDialog.type === 'approve'
+                                    ? 'Sau khi duyệt, tồn kho và giá vốn sẽ được cập nhật theo phiếu nhập này.'
+                                    : 'Phiếu nhập sẽ bị từ chối và không ảnh hưởng đến tồn kho.'
+                                }
+                            </p>
+                        </div>
+                    )}
+
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            variant="outline"
+                            onClick={() => setConfirmDialog({ open: false, type: 'approve', item: null })}
+                            disabled={isPending}
+                        >
+                            Hủy
+                        </Button>
+                        <Button
+                            onClick={handleConfirm}
+                            disabled={isPending}
+                            className={confirmDialog.type === 'approve'
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                : 'bg-rose-600 hover:bg-rose-700 text-white'
+                            }
+                        >
+                            {isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                            {confirmDialog.type === 'approve' ? 'Duyệt phiếu nhập' : 'Từ chối'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
+
+export default function ImportManagementPage() {
+    return (
+        <DashboardLayout title="Duyệt phiếu nhập kho" subtitle="Quản lý và phê duyệt danh sách phiếu nhập hàng vào kho">
+            <ImportManagementContent />
         </DashboardLayout>
     );
 }

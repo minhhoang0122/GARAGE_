@@ -3,6 +3,7 @@ package com.gara.entity.enums;
 public enum OrderStatus {
     RECEIVED("Tiếp nhận xe"),
     WAITING_FOR_DIAGNOSIS("Chờ kỹ thuật kiểm tra"),
+    DIAGNOSING("Đang chẩn đoán"),
     QUOTING("Đang làm báo giá"),
     RE_QUOTATION("Yêu cầu báo giá lại"),
     WAITING_FOR_CUSTOMER_APPROVAL("Chờ khách duyệt báo giá"),

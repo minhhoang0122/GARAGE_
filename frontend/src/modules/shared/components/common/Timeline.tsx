@@ -25,6 +25,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { receptionService } from '@/modules/reception/services/reception';
 import { ROLE_DISPLAY_NAMES } from '@/config/menu';
 
+const ACTION_TYPE_LABELS: Record<string, string> = {
+    'ADD_ITEM': 'Thêm hạng mục',
+    'DELETE_ITEM': 'Xóa hạng mục',
+    'UPDATE_ITEM': 'Cập nhật hạng mục',
+    'STATUS_CHANGE': 'Đổi trạng thái',
+    'NOTE': 'Ghi chú',
+    'MAN_WORK': 'Nhân công',
+    'KEEP_IN_GARAGE': 'Giữ tại xưởng',
+    'RETURN_TO_CUSTOMER': 'Trả lại khách',
+};
+
 interface TimelineEvent {
   id: number;
   receptionId: number;
@@ -77,13 +88,19 @@ const Timeline: React.FC<{ receptionId: number; initialEvents?: TimelineEvent[];
 
   useEffect(() => {
     const topic = `reception:${receptionId}`;
+    const handleTimelineEvent = () => {
+      console.log('[Timeline] Real-time event received, invalidating queries...');
+      queryClient.invalidateQueries({ queryKey: ['reception', receptionId, 'timeline'] });
+    };
+
     subscribeToTopic(topic);
-    addListener('EVENT_TIMELINE', () => {});
+    addListener('EVENT_TIMELINE', handleTimelineEvent);
+    
     return () => { 
         unsubscribeFromTopic(topic); 
-        removeListener('EVENT_TIMELINE', () => {}); 
+        removeListener('EVENT_TIMELINE', handleTimelineEvent); 
     };
-  }, [receptionId, subscribeToTopic, unsubscribeFromTopic, addListener, removeListener]);
+  }, [receptionId, subscribeToTopic, unsubscribeFromTopic, addListener, removeListener, queryClient]);
 
   // Tự động cuộn xuống cuối khi có tin mới
   useEffect(() => {
@@ -165,7 +182,7 @@ const Timeline: React.FC<{ receptionId: number; initialEvents?: TimelineEvent[];
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="p-1 px-2 rounded-lg bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-500 flex items-center gap-1.5 shadow-sm">
                             {getActionIcon(event.actionType)}
-                            {event.actionType}
+                            {ACTION_TYPE_LABELS[event.actionType] || event.actionType}
                           </span>
                           {getActionBadge(event.actionType)}
                         </div>

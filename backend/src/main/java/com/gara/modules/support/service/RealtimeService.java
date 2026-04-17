@@ -37,7 +37,7 @@ public class RealtimeService {
             messagingTemplate.convertAndSendToUser(
                 userId.toString(), 
                 "/queue/notifications", 
-                Map.of("event", event, "data", data)
+                createPayload(event, data)
             );
             log.trace("Sent STOMP message to user {}: {}", userId, event);
         } catch (Exception e) {
@@ -50,7 +50,7 @@ public class RealtimeService {
      */
     public void broadcast(String event, Object data) {
         try {
-            messagingTemplate.convertAndSend("/topic/global", Map.of("event", event, "data", data));
+            messagingTemplate.convertAndSend("/topic/global", createPayload(event, data));
         } catch (Exception e) {
             log.error("Failed to broadcast STOMP message", e);
         }
@@ -65,10 +65,17 @@ public class RealtimeService {
 
     public void broadcastToTopic(String topic, String event, Object data) {
         try {
-            messagingTemplate.convertAndSend("/topic/" + topic, Map.of("event", event, "data", data));
+            messagingTemplate.convertAndSend("/topic/" + topic, createPayload(event, data));
         } catch (Exception e) {
             log.error("Failed to broadcast STOMP to topic {}", topic, e);
         }
+    }
+
+    private Map<String, Object> createPayload(String event, Object data) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("event", event);
+        payload.put("data", data);
+        return payload;
     }
 
     // --- Presence Management for STOMP ---
@@ -92,6 +99,8 @@ public class RealtimeService {
     private void broadcastPresenceUpdate(Integer userId, boolean isOnline) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("userId", userId);
+        payload.put("status", isOnline ? "ONLINE" : "OFFLINE");
+        // Maintain isOnline for legacy support if needed
         payload.put("isOnline", isOnline);
         messagingTemplate.convertAndSend("/topic/presence", payload);
     }

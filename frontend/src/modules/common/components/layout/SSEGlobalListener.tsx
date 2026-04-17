@@ -131,6 +131,24 @@ export function SSEGlobalListener() {
                 queryClient.invalidateQueries({ queryKey: ['checkout', 'orders'] });
             }
 
+            // Chống hiện Toast thông báo cũ khi vửa kết nối
+            const createdAt = data.createdAt;
+            if (createdAt) {
+                // Backend gửi LocalDateTime, có thể là string ISO hoặc Array
+                const createdDate = Array.isArray(createdAt) 
+                    ? new Date(createdAt[0], createdAt[1]-1, createdAt[2], createdAt[3], createdAt[4], createdAt[5])
+                    : new Date(createdAt);
+                
+                const now = new Date();
+                const diffMs = now.getTime() - createdDate.getTime();
+                
+                // Nếu thông báo cũ hơn 60s, không Toast (vì có thể là sync lúc reconnect)
+                if (diffMs > 60000) {
+                    console.log('[SSE] Old notification skipped from toast:', data.title);
+                    return;
+                }
+            }
+
             // Hiển thị toast nếu có tiêu đề
             if (data.title) {
                 showToast('info', data.title);

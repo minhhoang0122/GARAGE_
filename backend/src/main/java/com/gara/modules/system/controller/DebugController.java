@@ -20,8 +20,10 @@ public class DebugController {
     }
 
     @GetMapping("/orders")
-    public ResponseEntity<?> getOrders(@RequestParam(required = false) String status) {
-        return ResponseEntity.ok(saleService.getOrders(status));
+    public ResponseEntity<?> getOrders(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String plate) {
+        return ResponseEntity.ok(saleService.getOrders(status, plate));
     }
 
     @GetMapping("/orders/{id}")

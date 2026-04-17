@@ -42,9 +42,10 @@ public class AuthService {
         }
 
         User user = userRepository.findByUsername(username)
+                .or(() -> userRepository.findByEmail(username))
                 .orElseThrow(() -> {
                     loginAttemptService.loginFailed(username);
-                    return new RuntimeException("Tên đăng nhập không tồn tại");
+                    return new RuntimeException("Tên đăng nhập hoặc email không tồn tại");
                 });
 
         if (!user.getIsActive()) {

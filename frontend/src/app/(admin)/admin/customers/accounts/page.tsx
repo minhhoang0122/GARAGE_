@@ -12,7 +12,7 @@ import { useConfirm } from '@/modules/shared/components/ui/ConfirmModal';
 import { useToast } from '@/contexts/ToastContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-export default function CustomerAccountsPage() {
+export function CustomerAccountsContent() {
     const queryClient = useQueryClient();
     const confirm = useConfirm();
     const { showToast } = useToast();
@@ -46,7 +46,7 @@ export default function CustomerAccountsPage() {
     };
 
     return (
-        <DashboardLayout title="Quản lý tài khoản khách" subtitle="Danh sách người dùng là khách hàng">
+        <>
             <Card className="overflow-hidden">
                 <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-transparent">
                     <h3 className="font-semibold text-slate-800 dark:text-slate-100">Cổng khách hàng</h3>
@@ -104,6 +104,14 @@ export default function CustomerAccountsPage() {
                     </Table>
                 </div>
             </Card>
+        </>
+    );
+}
+
+export default function CustomerAccountsPage() {
+    return (
+        <DashboardLayout title="Quản lý tài khoản khách" subtitle="Danh sách người dùng là khách hàng">
+            <CustomerAccountsContent />
         </DashboardLayout>
     );
 }

@@ -22,7 +22,7 @@ export default function PublicLayout({
     children: React.ReactNode;
 }) {
     return (
-        <html lang="vi">
+        <html lang="vi" suppressHydrationWarning>
             <body className={font.className}>
                 <SessionProvider refetchOnWindowFocus={false}>
                     <QueryProvider>

@@ -15,7 +15,8 @@ public record ProposalItemDTO(
         Boolean isTechnicalAddition,
         String proposedByName,
         String proposedByRole,
-        String proposedAt
+        String proposedAt,
+        String proposedByAvatar
 ) {
     public static ProposalItemDTOBuilder builder() {
         return new ProposalItemDTOBuilder();
@@ -35,6 +36,7 @@ public record ProposalItemDTO(
         private String proposedByName;
         private String proposedByRole;
         private String proposedAt;
+        private String proposedByAvatar;
 
         public ProposalItemDTOBuilder id(Integer id) { this.id = id; return this; }
         public ProposalItemDTOBuilder productId(Integer productId) { this.productId = productId; return this; }
@@ -49,10 +51,11 @@ public record ProposalItemDTO(
         public ProposalItemDTOBuilder proposedByName(String proposedByName) { this.proposedByName = proposedByName; return this; }
         public ProposalItemDTOBuilder proposedByRole(String proposedByRole) { this.proposedByRole = proposedByRole; return this; }
         public ProposalItemDTOBuilder proposedAt(String proposedAt) { this.proposedAt = proposedAt; return this; }
+        public ProposalItemDTOBuilder proposedByAvatar(String proposedByAvatar) { this.proposedByAvatar = proposedByAvatar; return this; }
 
         public ProposalItemDTO build() {
             return new ProposalItemDTO(id, productId, productCode, productName, quantity, unitPrice, note,
-                    isService, status, isTechnicalAddition, proposedByName, proposedByRole, proposedAt);
+                    isService, status, isTechnicalAddition, proposedByName, proposedByRole, proposedAt, proposedByAvatar);
         }
     }
 }

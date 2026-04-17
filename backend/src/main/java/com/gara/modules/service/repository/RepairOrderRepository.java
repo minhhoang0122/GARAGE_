@@ -91,6 +91,8 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         "LEFT JOIN FETCH r.reception rpt " +
                         "LEFT JOIN FETCH rpt.vehicle v " +
                         "LEFT JOIN FETCH v.customer c " +
+                        "LEFT JOIN FETCH r.diagnosticMechanic " +
+                        "LEFT JOIN FETCH r.serviceAdvisor " +
                         "WHERE r.balanceDue > 0 AND r.status != com.gara.entity.enums.OrderStatus.CANCELLED " +
                         "ORDER BY r.createdAt DESC")
         List<RepairOrder> findOrdersWithDebt();
@@ -107,6 +109,14 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         +
 "GROUP BY c.id, c.fullName, c.phone")
         List<com.gara.dto.DebtDTO> findCustomersWithDebt();
+
+        @Query("SELECT r FROM RepairOrder r " +
+                        "LEFT JOIN FETCH r.reception rpt " +
+                        "LEFT JOIN FETCH rpt.vehicle v " +
+                        "LEFT JOIN FETCH v.customer c " +
+                        "WHERE c.id = :customerId AND r.balanceDue > 0 AND r.status NOT IN (com.gara.entity.enums.OrderStatus.CANCELLED, com.gara.entity.enums.OrderStatus.CLOSED) " +
+                        "ORDER BY r.createdAt DESC")
+        List<RepairOrder> findUnpaidOrdersByCustomerId(@org.springframework.data.repository.query.Param("customerId") Integer customerId);
 
         // Bug 34 Remediation: Find orders where Debt > 0 but Status is HUY
         @Query("SELECT r FROM RepairOrder r WHERE r.balanceDue > 0 AND r.status = com.gara.entity.enums.OrderStatus.CANCELLED")
@@ -150,6 +160,10 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         "LEFT JOIN FETCH r.reception rpt " +
                         "LEFT JOIN FETCH rpt.vehicle v " +
                         "LEFT JOIN FETCH v.customer c " +
+                        "LEFT JOIN FETCH rpt.receptionist rec " +
+                        "LEFT JOIN FETCH r.diagnosticMechanic " +
+                        "LEFT JOIN FETCH r.assignedMechanic " +
+                        "LEFT JOIN FETCH r.serviceAdvisor " +
                         "ORDER BY r.createdAt DESC")
         List<RepairOrder> findAllOrdersOptimized(org.springframework.data.domain.Pageable pageable);
 
@@ -200,22 +214,19 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
 
         @Query("SELECT DISTINCT r FROM RepairOrder r " +
                         "JOIN r.orderItems i " +
-                        "JOIN i.product h " +
                         "WHERE r.status IN (com.gara.entity.enums.OrderStatus.COMPLETED, com.gara.entity.enums.OrderStatus.CLOSED) " +
-                        "AND h.warrantyMonths > 0 " +
-                        "AND r.createdAt > CURRENT_TIMESTAMP")
+                        "AND i.warrantyMonths > 0 ")
         List<RepairOrder> findOrdersWithActiveWarranty();
 
         @Query(value = "SELECT COUNT(DISTINCT i.id) " +
                         "FROM repair_orders r " +
                         "JOIN order_items i ON r.id = i.repair_order_id " +
-                        "JOIN products h ON i.product_id = h.id " +
                         "JOIN receptions ptn ON r.reception_id = ptn.id " +
                         "JOIN vehicles v ON ptn.license_plate = v.license_plate " +
                         "WHERE v.license_plate = :plate " +
                         "AND r.status IN ('COMPLETED', 'CLOSED') " +
-                        "AND h.warranty_months > 0 " +
-                        "AND (r.created_at + (h.warranty_months || ' month')::interval) > CURRENT_TIMESTAMP", nativeQuery = true)
+                        "AND i.warranty_months > 0 " +
+                        "AND (r.created_at + (i.warranty_months || ' month')::interval) > CURRENT_TIMESTAMP", nativeQuery = true)
         long countActiveWarrantiesByPlate(@org.springframework.data.repository.query.Param("plate") String plate);
 
         // ===== N+1 FIX: Full detail fetch for single order (used by SaleService,
@@ -241,6 +252,10 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         "LEFT JOIN FETCH r.reception rpt " +
                         "LEFT JOIN FETCH rpt.vehicle v " +
                         "LEFT JOIN FETCH v.customer c " +
+                        "LEFT JOIN FETCH rpt.receptionist rec " +
+                        "LEFT JOIN FETCH r.diagnosticMechanic " +
+                        "LEFT JOIN FETCH r.assignedMechanic " +
+                        "LEFT JOIN FETCH r.serviceAdvisor " +
                         "WHERE r.status = :status " +
                         "ORDER BY r.createdAt DESC")
         List<RepairOrder> findByStatusOptimized(
@@ -252,6 +267,9 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
                         "LEFT JOIN FETCH rpt.vehicle v " +
                         "LEFT JOIN FETCH v.customer c " +
                         "LEFT JOIN FETCH rpt.receptionist rec " +
+                        "LEFT JOIN FETCH r.diagnosticMechanic " +
+                        "LEFT JOIN FETCH r.assignedMechanic " +
+                        "LEFT JOIN FETCH r.serviceAdvisor " +
                         "WHERE r.status IN :statuses " +
                         "ORDER BY r.createdAt DESC")
         List<RepairOrder> findByStatusesOptimized(
@@ -290,4 +308,14 @@ public interface RepairOrderRepository extends JpaRepository<RepairOrder, Intege
     List<RepairOrder> findOrdersByItemStatus(@org.springframework.data.repository.query.Param("itemStatus") com.gara.entity.enums.ItemStatus itemStatus);
 
     List<RepairOrder> findByDiagnosticMechanicIdAndStatusNotIn(Integer mechanicId, List<OrderStatus> statuses);
+
+    @Query("SELECT r FROM RepairOrder r " +
+                    "LEFT JOIN FETCH r.orderItems i " +
+                    "LEFT JOIN FETCH i.product " +
+                    "LEFT JOIN FETCH r.reception rpt " +
+                    "LEFT JOIN FETCH rpt.vehicle v " +
+                    "LEFT JOIN FETCH v.customer " +
+                    "WHERE v.licensePlate = :plate " +
+                    "ORDER BY r.createdAt DESC LIMIT 1")
+    java.util.Optional<RepairOrder> findLatestByVehiclePlate(@org.springframework.data.repository.query.Param("plate") String plate);
 }

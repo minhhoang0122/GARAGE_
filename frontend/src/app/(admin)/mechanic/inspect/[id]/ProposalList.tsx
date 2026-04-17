@@ -41,6 +41,7 @@ type SavedItem = {
     proposedByName?: string;
     proposedByRole?: string;
     proposedAt?: string;
+    proposedByAvatar?: string;
     assignments?: Array<{
         id: number;
         mechanicId: number;
@@ -57,6 +58,7 @@ interface ProposalListProps {
     receptionStatus?: string;
     assignedMechanicId?: number;
     assignedMechanicName?: string;
+    assignedMechanicAvatar?: string;
 }
 
 export default function ProposalList({ 
@@ -66,7 +68,8 @@ export default function ProposalList({
     currentUser, 
     receptionStatus,
     assignedMechanicId,
-    assignedMechanicName
+    assignedMechanicName,
+    assignedMechanicAvatar
 }: ProposalListProps) {
     const [items, setItems] = useState<ProposalItem[]>([]);
     const queryClient = useQueryClient();
@@ -364,6 +367,7 @@ export default function ProposalList({
                                                     <div className="flex items-center gap-2 mt-1">
                                                         <BaseAvatar 
                                                             name={item.proposedByName}
+                                                            src={item.proposedByAvatar}
                                                             size="xs"
                                                             showStatus={false}
                                                             showBorder={false}
@@ -474,7 +478,7 @@ export default function ProposalList({
                 <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/50 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700">
-                            <BaseAvatar name={assignedMechanicName} size="sm" showStatus={false} />
+                            <BaseAvatar name={assignedMechanicName} src={assignedMechanicAvatar} size="sm" showStatus={false} />
                         </div>
                         <div>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Quản đốc phụ trách</p>

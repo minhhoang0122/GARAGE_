@@ -5,11 +5,16 @@ export interface InspectJob {
     plate: string;
     vehicleBrand: string;
     vehicleModel: string;
+    brand?: string;
+    model?: string;
     customerName: string;
     customerPhone?: string;
     request: string;
     status?: string;
+    date: string;
     createdAt: string;
+    odo: number;
+    receptionistName: string;
 }
 
 export interface RepairJob {
@@ -26,6 +31,8 @@ export interface RepairJob {
     claimedByName?: string;
     progress: number;
     createdAt: string;
+    odo?: number;
+    receptionistName?: string;
 }
 
 export interface MechanicStats {
@@ -51,11 +58,16 @@ export const mechanicService = {
             plate: item.plate || item.plateNumber || item.BienSo || '',
             vehicleBrand: item.vehicleBrand || item.carBrand || item.HieuXe || '',
             vehicleModel: item.vehicleModel || item.carModel || item.TenDongXe || '',
-            customerName: item.customerName || item.customer?.fullName || item.TenKhachHang || '',
-            customerPhone: item.customerPhone || item.customer?.phone || item.SoDienThoai || '',
+            brand: item.brand || item.vehicleBrand || '',
+            model: item.model || item.vehicleModel || '',
+            customerName: item.customerName || item.customer?.fullName || item.TenKhachHang || 'LIÊN HỆ CỐ VẤN',
+            customerPhone: item.customerPhone || item.customer?.phone || item.SoDienThoai || '***',
             request: item.request || item.YeuCauCuaKhach || '',
             status: item.status || item.TrangThai || 'TIEP_NHAN',
-            createdAt: item.createdAt || item.NgayTiepNhan || new Date().toISOString()
+            date: item.date || item.createdAt || new Date().toISOString(),
+            createdAt: item.createdAt || item.NgayTiepNhan || new Date().toISOString(),
+            odo: item.odo || 0,
+            receptionistName: item.receptionistName || 'Hệ thống'
         }));
     },
 
@@ -78,7 +90,9 @@ export const mechanicService = {
                 claimedById: item.claimedById || item.NguoiNhanID,
                 claimedByName: item.claimedByName || item.claimedBy?.fullName || item.NguoiNhan || '',
                 progress: total > 0 ? Math.round((completed / total) * 100) : 0,
-                createdAt: item.createdAt || item.NgayBatDau || new Date().toISOString()
+                createdAt: item.createdAt || item.NgayBatDau || new Date().toISOString(),
+                odo: item.odo || 0,
+                receptionistName: item.receptionistName || 'Hệ thống'
             };
         });
     },

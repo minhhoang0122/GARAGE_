@@ -6,11 +6,11 @@ import com.gara.modules.support.service.RealtimeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
+import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 
 import java.security.Principal;
 import java.util.HashMap;
@@ -28,12 +28,10 @@ public class PresenceEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(PresenceEventListener.class);
     private final RealtimeService realtimeService;
-    private final SimpMessagingTemplate messagingTemplate;
     private final UserService userService;
 
-    public PresenceEventListener(RealtimeService realtimeService, SimpMessagingTemplate messagingTemplate, UserService userService) {
+    public PresenceEventListener(RealtimeService realtimeService, UserService userService) {
         this.realtimeService = realtimeService;
-        this.messagingTemplate = messagingTemplate;
         this.userService = userService;
     }
 
@@ -48,19 +46,41 @@ public class PresenceEventListener {
                 Integer userId = Integer.parseInt(principal.getName());
                 log.debug("STOMP Connected: User {} with Session {}", userId, sessionId);
                 realtimeService.onSessionConnected(sessionId, userId);
-
-                // Gửi danh sách nhân sự ban đầu cho client vừa kết nối
-                sendInitialStatus(userId);
             } catch (NumberFormatException e) {
                 log.warn("STOMP Connected with non-integer principal: {}", principal.getName());
             }
         }
     }
 
+    @EventListener
+    public void handleWebSocketSubscribeListener(SessionSubscribeEvent event) {
+        StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
+        String destination = headerAccessor.getDestination();
+        Principal principal = headerAccessor.getUser();
+
+        // Nới lỏng kiểm tra destination để tương thích với các broker khác nhau
+        if (principal != null && destination != null && 
+            (destination.contains("/queue/notifications") || destination.contains("/topic/presence"))) {
+            try {
+                Integer userId = Integer.parseInt(principal.getName());
+                log.info("User {} subscribed to {}, triggering initial directory sync", userId, destination);
+                sendInitialStatus(userId);
+            } catch (NumberFormatException e) {
+                log.warn("STOMP Subscribe with non-integer principal: {}", principal.getName());
+            }
+        }
+    }
+
     private void sendInitialStatus(Integer userId) {
         try {
+            // Đợi 300ms để đảm bảo RealtimeService đã cập nhật xong activeSessions từ SessionConnectedEvent
+            // VÀ Spring Messaging đã sẵn sàng định tuyến tin nhắn 'user specific'
+            Thread.sleep(300); 
+            
             List<User> allStaffRaw = userService.getStaffOnly();
             Set<Integer> onlineIds = realtimeService.getOnlineUserIds();
+            
+            log.debug("Syncing directory for user {}. Online IDs: {}", userId, onlineIds);
 
             List<Map<String, Object>> staffDirectory = allStaffRaw.stream()
                     .map(u -> {
@@ -70,16 +90,12 @@ public class PresenceEventListener {
                     })
                     .collect(Collectors.toList());
 
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("event", "directory_sync");
-            payload.put("data", Map.of("staff", staffDirectory));
-
-            // Gửi riêng cho user vừa kết nối qua queue cá nhân
-            messagingTemplate.convertAndSendToUser(
-                userId.toString(), 
-                "/queue/notifications", 
-                payload
-            );
+            Map<String, Object> dataPayload = new HashMap<>();
+            dataPayload.put("staff", staffDirectory);
+            
+            // Sử dụng RealtimeService để đảm bảo đúng format {event, data}
+            realtimeService.send(userId, "directory_sync", dataPayload);
+            log.info("Successfully sent directory_sync to user {} with {} staff members", userId, staffDirectory.size());
         } catch (Exception e) {
             log.error("Failed to send initial directory sync to user {}", userId, e);
         }

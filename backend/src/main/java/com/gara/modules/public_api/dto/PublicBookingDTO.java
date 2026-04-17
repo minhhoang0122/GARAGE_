@@ -10,6 +10,7 @@ public record PublicBookingDTO(
         @NotBlank(message = "Số điện thoại không được để trống") @Size(max = 15, message = "Số điện thoại tối đa 15 ký tự") String phone,
         @Size(max = 100, message = "Email tối đa 100 ký tự") String email,
         @Size(max = 255, message = "Địa chỉ tối đa 255 ký tự") String address,
+        @Size(max = 50, message = "Hãng xe tối đa 50 ký tự") String brand,
         @Size(max = 15, message = "Biển số tối đa 15 ký tự") String licensePlate,
         @Size(max = 50, message = "Model tối đa 50 ký tự") String model,
         LocalDateTime appointmentTime,

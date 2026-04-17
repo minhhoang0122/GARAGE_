@@ -26,6 +26,14 @@ export const useDebts = () => {
     });
 };
 
+export const useDebtDetails = (customerId: number) => {
+    return useQuery({
+        queryKey: ['finance', 'debts', 'detail', customerId],
+        queryFn: () => financeService.getDebtDetails(customerId),
+        enabled: !!customerId,
+    });
+};
+
 export const usePaymentSummary = (orderId: number) => {
     return useQuery({
         queryKey: queryKeys.finance.transactions.detail(orderId),

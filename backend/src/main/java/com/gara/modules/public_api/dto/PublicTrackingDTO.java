@@ -11,7 +11,9 @@ public record PublicTrackingDTO(
     String statusLabel,
     String preliminaryRequest,
     List<TrackingItemDTO> items,
-    List<TrackingTimelineDTO> timeline
+    List<TrackingTimelineDTO> timeline,
+    Double totalAmount,
+    Double paidAmount
 ) {
     public record TrackingItemDTO(
         String name,

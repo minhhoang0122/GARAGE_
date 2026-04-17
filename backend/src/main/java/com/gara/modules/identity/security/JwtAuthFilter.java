@@ -46,6 +46,20 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         if (token == null) {
+            String uri = request.getRequestURI();
+            String method = request.getMethod();
+            
+            // Skip logging for public endpoints and OPTIONS preflight requests
+            if (!method.equals("OPTIONS") && 
+                !uri.startsWith("/api/auth/") && 
+                !uri.startsWith("/api/public/") && 
+                !uri.startsWith("/api/status/") && 
+                !uri.startsWith("/api/ws/") && 
+                !uri.startsWith("/api/garage-ws/") && 
+                !uri.startsWith("/api-docs") && 
+                !uri.startsWith("/swagger-ui")) {
+                System.out.println("[JWT-Filter] No Token found for [" + method + "] URI: " + uri);
+            }
             filterChain.doFilter(request, response);
             return;
         }
@@ -57,33 +71,54 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 if (userId != null) {
                     // Performance Fix: Cache user status to prevent DB hit on every request
                     Boolean isActive = getCachedUserStatus(userId);
+                    
+                    String requestUri = request.getRequestURI();
+                    System.out.println("[JWT-Filter] Authenticating User ID: " + userId + " | URI: " + requestUri + " | Active: " + isActive);
+
                     if (isActive == null || !isActive) {
+                        System.err.println("[JWT-Filter] AUTH REJECTED: User ID " + userId + " is inactive or not found in DB");
                         SecurityContextHolder.clearContext();
                         filterChain.doFilter(request, response);
                         return;
                     }
 
                     // Extract authorities from JWT
-                    List<String> roles = jwtUtil.extractRoles(token);
-                    List<String> permissions = jwtUtil.extractPermissions(token);
+                    List<?> rawRoles = jwtUtil.extractRoles(token);
+                    List<?> rawPermissions = jwtUtil.extractPermissions(token);
 
                     List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 
-                    if (roles != null) {
-                        roles.forEach(roleName -> {
-                            authorities.add(new SimpleGrantedAuthority(roleName));
-                            authorities.add(new SimpleGrantedAuthority("ROLE_" + roleName));
+                    if (rawRoles != null) {
+                        rawRoles.forEach(r -> {
+                            if (r == null) return;
+                            // Support both simple string and object with name/code
+                            String roleName = (r instanceof String) ? (String) r : null;
+                            if (roleName == null && r instanceof java.util.Map) {
+                                java.util.Map<?, ?> map = (java.util.Map<?, ?>) r;
+                                roleName = (String) (map.get("name") != null ? map.get("name") : map.get("code"));
+                            }
+                            
+                            if (roleName != null && !roleName.trim().isEmpty()) {
+                                String cleanRole = roleName.trim().toUpperCase();
+                                if (cleanRole.startsWith("ROLE_")) cleanRole = cleanRole.substring(5);
+                                
+                                authorities.add(new SimpleGrantedAuthority(cleanRole));
+                                authorities.add(new SimpleGrantedAuthority("ROLE_" + cleanRole));
+                            }
                         });
                     }
 
-                    if (permissions != null) {
-                        permissions.forEach(permissionCode -> {
-                            authorities.add(new SimpleGrantedAuthority(permissionCode));
+                    if (rawPermissions != null) {
+                        rawPermissions.forEach(p -> {
+                            if (p instanceof String) {
+                                authorities.add(new SimpleGrantedAuthority(((String) p).toUpperCase()));
+                            }
                         });
                     }
 
-                    // Create Authentication Token with Integer principal (userId)
-                    // This is the most stable approach across all modules
+                    System.out.println("[JWT-Filter] FINAL AUTHORITIES for User " + userId + ": " + authorities);
+
+                    // Create Authentication Token
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                             userId,
                             null,
@@ -94,8 +129,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception e) {
-            System.err.println("JWT authentication failed: " + e.getMessage());
+            System.err.println("[JWT-Filter] AUTH ERROR: " + e.getMessage());
             SecurityContextHolder.clearContext();
+            
+            // Return 401 JSON immediately
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            String json = "{\"success\": false, \"status\": 401, \"message\": \"Phiên làm việc hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.\"}";
+            response.getWriter().write(json);
+            return; // Terminate filter chain
         }
 
         filterChain.doFilter(request, response);

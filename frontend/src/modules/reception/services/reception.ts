@@ -15,6 +15,7 @@ export interface Reception {
     vehicleModel: string;
     odometer?: number;
     notes?: string;
+    _type?: 'VEHICLE' | 'ORDER';
     
     // Standardized UI fields
     images?: string[];
@@ -91,11 +92,12 @@ export const mapReception = (raw: any): Reception => {
         advisorId: raw.receptionistId || advisor.id || raw.advisorId || raw.CoVanDichVuID || raw.CoVanID || order?.CoVanDichVuID || 0,
         advisorName: raw.receptionistName || advisor.name || raw.advisorName || raw.CoVanDichVuName || 'Chưa phân phối',
         status: raw.status || (order ? order.Status : 'RECEIVED') || 'RECEIVED',
-        createdAt: raw.createdAt || raw.CreatedAt || raw.ngayGio || raw.NgayTao || new Date().toISOString(),
+        createdAt: raw.NgayGio || raw.createdAt || raw.CreatedAt || raw.ngayGio || raw.NgayTao || new Date().toISOString(),
         vehicleBrand: raw.xeNhanHieu || raw.vehicleBrand || raw.Xe?.HangXe || raw.XeNhanHieu || raw.xe?.nhanHieu || '',
         vehicleModel: raw.xeModel || raw.vehicleModel || raw.Xe?.MauXe || raw.XeModel || raw.xe?.model || '',
-        odometer: raw.odo || raw.SoKm || 0,
+        odometer: raw.ODO || raw.odo || raw.SoKm || 0,
         notes: raw.yeuCauSoBo || raw.GhiChu || '',
+        _type: 'VEHICLE',
         
         // New Standardized Fields
         images,
@@ -103,8 +105,8 @@ export const mapReception = (raw: any): Reception => {
         orderStatus: raw.trangThai || order?.Status || order?.TrangThai || order?.status || 'RECEIVED',
         thoChanDoanId: foreman.id || raw.thoChanDoanId || raw.ThoChanDoanID || order?.ThoChanDoanID,
         thoChanDoanName: foreman.name || raw.thoChanDoanName || '',
-        advisorAvatar: raw.receptionistAvatar || advisor.avatar,
-        foremanAvatar: foreman.avatar,
+        advisorAvatar: raw.receptionistAvatar || raw.advisorAvatar || advisor.avatar,
+        foremanAvatar: raw.foremanAvatar || foreman.avatar,
 
         // UI Mappings (Legacy support)
         tenKhach: formatFullName(customerRawName),

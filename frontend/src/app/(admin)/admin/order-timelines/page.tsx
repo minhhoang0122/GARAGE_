@@ -19,7 +19,7 @@ import {
     DialogTitle,
 } from '@/modules/shared/components/ui/dialog';
 
-export default function OrderTimelinesPage() {
+export function OrderTimelinesContent() {
     const { isAdmin } = usePermission();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedOrder, setSelectedOrder] = useState<any>(null);
@@ -128,18 +128,16 @@ export default function OrderTimelinesPage() {
 
     if (!isAdmin) {
         return (
-            <DashboardLayout title="Tiến trình đơn" subtitle="Giám sát luồng hoạt động đơn hàng">
-                <div className="flex flex-col items-center justify-center py-20 bg-white/50 backdrop-blur rounded-3xl border border-slate-200">
-                    <Activity className="w-16 h-16 text-slate-300 mb-4" />
-                    <h3 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h3>
-                    <p className="text-slate-500 mt-2">Chỉ Quản trị viên (ADMIN) mới có quyền truy cập tính năng giám sát này.</p>
-                </div>
-            </DashboardLayout>
+            <div className="flex flex-col items-center justify-center py-20 bg-white/50 backdrop-blur rounded-3xl border border-slate-200">
+                <Activity className="w-16 h-16 text-slate-300 mb-4" />
+                <h3 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h3>
+                <p className="text-slate-500 mt-2">Chỉ Quản trị viên (ADMIN) mới có quyền truy cập tính năng giám sát này.</p>
+            </div>
         );
     }
 
     return (
-        <DashboardLayout title="Giám sát Tiến trình đơn" subtitle="Theo dõi toàn bộ lịch sử hoạt động và ghi chú của các đơn hàng">
+        <>
             <div className="max-w-7xl mx-auto space-y-6">
                 <AdvancedDataTable
                     data={filteredOrders}
@@ -190,6 +188,14 @@ export default function OrderTimelinesPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+        </>
+    );
+}
+
+export default function OrderTimelinesPage() {
+    return (
+        <DashboardLayout title="Giám sát Tiến trình đơn" subtitle="Theo dõi toàn bộ lịch sử hoạt động và ghi chú của các đơn hàng">
+            <OrderTimelinesContent />
         </DashboardLayout>
     );
 }

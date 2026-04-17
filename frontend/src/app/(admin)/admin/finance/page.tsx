@@ -12,7 +12,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { Transaction, TransactionStats } from '@/modules/finance/services/finance';
 
 
-export default function FinancePage() {
+export function FinanceContent() {
     const { data: stats, isLoading: statsLoading } = useFinanceStats();
     const { data: transactions = [], isLoading: transactionsLoading, refetch } = useTransactions();
 
@@ -38,13 +38,13 @@ export default function FinancePage() {
         switch (method) {
             case 'CASH': return <Banknote className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />;
             case 'TRANSFER': return <RefreshCw className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />;
-            case 'CARD': return <CreditCard className="w-5 h-5 text-amber-600 dark:text-amber-400" />;
+            case 'CARD': return <CreditCard className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />; // Fixed icon color consistency
             default: return <Wallet className="w-5 h-5 text-slate-400" />;
         }
     };
 
     return (
-        <DashboardLayout title="Tài chính" subtitle="Quản lý dòng tiền và Thu/Chi">
+        <div className="space-y-8">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
@@ -154,6 +154,14 @@ export default function FinancePage() {
                     )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+export default function FinancePage() {
+    return (
+        <DashboardLayout title="Tài chính" subtitle="Quản lý dòng tiền và Thu/Chi">
+            <FinanceContent />
         </DashboardLayout>
     );
 }

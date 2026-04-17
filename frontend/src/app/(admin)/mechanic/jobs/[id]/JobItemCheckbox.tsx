@@ -12,14 +12,14 @@ interface JobItemCheckboxProps {
 }
 
 export default function JobItemCheckbox({ itemId, orderId, isCompleted, disabled }: JobItemCheckboxProps) {
-    const [checked, setChecked] = useState(isCompleted);
+    const [checked, setChecked] = useState(!!isCompleted);
     const { showToast } = useToast();
     const { mutate: toggleMatch, isPending: loading } = useToggleItem(orderId);
 
 
     // Sync with props if they change
     useEffect(() => {
-        setChecked(isCompleted);
+        setChecked(!!isCompleted);
     }, [isCompleted]);
 
     const handleToggle = () => {
@@ -31,7 +31,7 @@ export default function JobItemCheckbox({ itemId, orderId, isCompleted, disabled
         toggleMatch(itemId, {
             onSuccess: (result: any) => {
                 showToast('success', 'Đã cập nhật trạng thái hạng mục!');
-                if (result.completed !== undefined) setChecked(result.completed);
+                if (result.completed !== undefined) setChecked(!!result.completed);
             },
             onError: (error: any) => {
                 showToast('error', error.message || 'Thao tác thất bại. Đã hoàn tác.');

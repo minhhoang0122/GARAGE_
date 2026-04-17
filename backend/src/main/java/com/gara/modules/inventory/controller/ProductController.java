@@ -23,19 +23,19 @@ public class ProductController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('MANAGE_INVENTORY', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('MANAGE_INVENTORY', 'ADMIN', 'KHO', 'ROLE_KHO')")
     public ResponseEntity<?> createProduct(@RequestBody Product product) {
         return ResponseEntity.ok(productService.createProduct(product));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('MANAGE_INVENTORY', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('MANAGE_INVENTORY', 'ADMIN', 'KHO', 'ROLE_KHO')")
     public ResponseEntity<?> updateProduct(@PathVariable Integer id, @RequestBody Product product) {
         return ResponseEntity.ok(productService.updateProduct(id, product));
     }
 
     @PostMapping("/batch-update")
-    @PreAuthorize("hasAnyAuthority('MANAGE_INVENTORY', 'ADMIN')")
+    @PreAuthorize("hasAnyAuthority('MANAGE_INVENTORY', 'ADMIN', 'KHO', 'ROLE_KHO')")
     public ResponseEntity<?> batchUpdate(@RequestBody java.util.List<java.util.Map<String, Object>> items) {
         try {
             productService.batchUpdatePrices(items);

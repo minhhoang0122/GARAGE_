@@ -34,6 +34,8 @@ interface ReceptionDetail {
     pendingReviewCount?: number;
     assignedMechanicId?: number;
     assignedMechanicName?: string;
+    assignedMechanicAvatar?: string;
+    orderId?: number;
 }
 
 function InspectPageContent() {
@@ -56,6 +58,8 @@ function InspectPageContent() {
     useRealtimeUpdate(['reception', id]);
 
     const errorHandled = useRef(false);
+    const [isClaiming, setIsClaiming] = useState(false);
+
     useEffect(() => {
         if (queryError && !errorHandled.current) {
             errorHandled.current = true;
@@ -63,6 +67,21 @@ function InspectPageContent() {
             router.replace('/mechanic');
         }
     }, [queryError, router, showToast]);
+
+    const handleClaimJob = async () => {
+        if (!reception?.orderId) return;
+        setIsClaiming(true);
+        try {
+            await mechanicService.claimJob(reception.orderId);
+            showToast('success', 'Đã nhận phụ trách xe này');
+            // Refresh query to get updated assignedMechanicId
+            window.location.reload(); 
+        } catch (err: any) {
+            showToast('error', err.message || 'Không thể nhận việc');
+        } finally {
+            setIsClaiming(false);
+        }
+    };
 
     if (isLoading || !reception) return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50/50">
@@ -124,11 +143,11 @@ function InspectPageContent() {
                                     <div className="text-center md:text-left space-y-2 min-w-[200px] flex-1">
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Khách hàng</p>
-                                            <h3 className="text-lg md:text-2xl font-bold text-slate-800 dark:text-white flex items-center justify-center md:justify-start gap-2 break-words">
-                                                {reception.customerName}
+                                            <h3 className="text-lg md:text-2xl font-bold text-slate-400 dark:text-slate-600 flex items-center justify-center md:justify-start gap-2 break-words italic">
+                                                LIÊN HỆ CỐ VẤN
                                             </h3>
                                         </div>
-                                        <p className="text-sm text-slate-500 font-medium">{reception.customerPhone || 'Không có số điện thoại'}</p>
+                                        <p className="text-sm text-slate-400 font-medium italic">Số điện thoại đã ẩn</p>
                                     </div>
                                 </div>
 
@@ -140,6 +159,25 @@ function InspectPageContent() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Claim Gate Overlay - Section for Action if not assigned */}
+                        {!reception.assignedMechanicId && (
+                            <div className="bg-blue-600 text-white p-6 md:p-8 rounded-2xl shadow-xl shadow-blue-500/20 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+                                <div className="z-10 text-center md:text-left">
+                                    <h4 className="text-lg md:text-xl font-bold mb-1">Phiếu chưa có người phụ trách</h4>
+                                    <p className="text-blue-100 text-sm">Bạn cần nhận trực tiếp phiếu này để bắt đầu chẩn đoán và đề xuất hạng mục.</p>
+                                </div>
+                                <button
+                                    onClick={handleClaimJob}
+                                    disabled={isClaiming}
+                                    className="z-10 px-8 py-3 bg-white text-blue-600 hover:bg-blue-50 font-black rounded-xl shadow-lg transition-all active:scale-95 flex items-center gap-2 shrink-0 min-w-[180px] justify-center"
+                                >
+                                    {isClaiming ? <Loader2 className="w-5 h-5 animate-spin" /> : <Clipboard className="w-5 h-5" />}
+                                    NHẬN PHỤ TRÁCH
+                                </button>
+                            </div>
+                        )}
 
                         {/* Top Info Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -161,7 +199,7 @@ function InspectPageContent() {
                                 <div className="flex items-center justify-between">
                                     <span className="text-xl font-black text-slate-800 dark:text-slate-100">{reception.odo?.toLocaleString()} <small className="text-[10px] text-slate-400 uppercase">km</small></span>
                                     <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded text-xs font-bold border border-amber-100 dark:border-amber-800">
-                                        <Fuel className="w-3.5 h-3.5" /> {reception.fuelLevel || '—'}
+                                        <Fuel className="w-3.5 h-3.5" /> {reception.fuelLevel ? `${Math.round(Number(reception.fuelLevel) * 100)}%` : '—'}
                                     </div>
                                 </div>
                             </div>
@@ -189,15 +227,26 @@ function InspectPageContent() {
                                 </div>
                             </div>
                             
-                            <ProposalList 
-                                receptionId={Number(id)} 
-                                initialItems={reception.existingItems || []} 
-                                readOnly={representsReadOnly || source === 'history'}
-                                currentUser={session?.user}
-                                receptionStatus={reception.status}
-                                assignedMechanicId={reception.assignedMechanicId}
-                                assignedMechanicName={reception.assignedMechanicName}
-                            />
+                            <div className="relative">
+                                {!reception.assignedMechanicId && (
+                                    <div className="absolute inset-0 z-20 backdrop-blur-[6px] bg-white/30 dark:bg-slate-950/30 flex items-center justify-center rounded-3xl">
+                                        <div className="bg-white/90 dark:bg-slate-900/90 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl flex items-center gap-3">
+                                            <ShieldCheck className="w-6 h-6 text-blue-500" />
+                                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Nội dung đã khóa. Hãy nhận việc trước.</span>
+                                        </div>
+                                    </div>
+                                )}
+                                <ProposalList 
+                                    receptionId={Number(id)} 
+                                    initialItems={reception.existingItems || []} 
+                                    readOnly={representsReadOnly || source === 'history' || !reception.assignedMechanicId}
+                                    currentUser={session?.user}
+                                    receptionStatus={reception.status}
+                                    assignedMechanicId={reception.assignedMechanicId}
+                                    assignedMechanicName={reception.assignedMechanicName}
+                                    assignedMechanicAvatar={reception.assignedMechanicAvatar}
+                                />
+                            </div>
                         </div>
 
                         {representsReadOnly && (
@@ -218,7 +267,12 @@ function InspectPageContent() {
                                 <ImageGallery images={reception.imageUrl} />
                              </div>
                         </div>
-                        <Timeline receptionId={Number(id)} />
+                        <div className="relative">
+                            {!reception.assignedMechanicId && (
+                                <div className="absolute inset-0 z-20 backdrop-blur-[4px] bg-white/20 dark:bg-slate-950/20 rounded-2xl"></div>
+                            )}
+                            <Timeline receptionId={Number(id)} />
+                        </div>
                     </div>
                 </div>
             </div>

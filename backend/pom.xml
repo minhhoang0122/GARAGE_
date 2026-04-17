@@ -22,6 +22,7 @@
         <jjwt.version>0.12.3</jjwt.version>
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
         <postgresql.version>42.7.2</postgresql.version>
+        <lombok.version>1.18.34</lombok.version>
     </properties>
 
     <dependencyManagement>
@@ -193,9 +194,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.sendgrid</groupId>
-            <artifactId>sendgrid-java</artifactId>
-            <version>4.10.2</version>
+            <groupId>com.resend</groupId>
+            <artifactId>resend-java</artifactId>
+            <version>4.13.0</version>
         </dependency>
     </dependencies>
     

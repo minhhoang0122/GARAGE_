@@ -13,6 +13,7 @@ export type Product = {
     baoHanhSoThang: number;
     baoHanhKm: number;
     soLuongTon: number;
+    vatRate: number;
 };
 
 export const adminService = {
@@ -30,7 +31,8 @@ export const adminService = {
             laDichVu: !!(p.isService ?? p.laDichVu),
             baoHanhSoThang: p.warrantyMonths ?? p.baoHanhSoThang ?? 0,
             baoHanhKm: p.warrantyKm ?? p.baoHanhKm ?? 0,
-            soLuongTon: p.stockQuantity ?? p.soLuongTon ?? 0
+            soLuongTon: p.stockQuantity ?? p.soLuongTon ?? 0,
+            vatRate: p.vatRate ?? 10.0
         }));
     },
 

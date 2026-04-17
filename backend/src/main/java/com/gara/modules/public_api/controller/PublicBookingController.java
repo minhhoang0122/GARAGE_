@@ -30,7 +30,7 @@ public class PublicBookingController {
                         p.getSku(),
                         p.getName(),
                         p.getRetailPrice(),
-                        p.getVatRate(),
+                        java.math.BigDecimal.ZERO, // Force 0% for services
                         p.getIsService(),
                         p.getWarrantyMonths(),
                         p.getWarrantyKm()))

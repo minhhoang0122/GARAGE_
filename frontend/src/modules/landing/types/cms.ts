@@ -29,6 +29,7 @@ export interface Announcement {
     content: string;
     thumbnailUrl?: string;
     type: 'INFO' | 'URGENT' | 'PROMO' | 'IMPORTANT';
+    status: 'DRAFT' | 'PUBLISHED';
     isPinned: boolean;
     isActive: boolean;
     publishedAt: string;

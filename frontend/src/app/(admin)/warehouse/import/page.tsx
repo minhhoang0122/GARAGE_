@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { formatCurrency, removeAccents } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useInventory, useCreateProduct, useWarehouseImport } from '@/modules/warehouse/hooks/useWarehouse';
-import { Product, warehouseService } from '@/modules/warehouse/services/warehouse';
+import { Product, warehouseService, mapProduct } from '@/modules/warehouse/services/warehouse';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/modules/shared/components/ui/dialog";
 import { Label } from "@/modules/shared/components/ui/label";
 import { Input } from "@/modules/shared/components/ui/input";
@@ -58,7 +58,7 @@ export default function ImportStockPage() {
     const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [addQuantity, setAddQuantity] = useState<number>(1);
+    const [addQuantity, setAddQuantity] = useState<number | string>(1);
     const [addCostPrice, setAddCostPrice] = useState<number>(0);
 
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -83,15 +83,26 @@ export default function ImportStockPage() {
             return;
         }
         createProductMutation.mutate({
-            tenHang: newProduct.name,
-            maHang: newProduct.code,
-            giaVon: newProduct.costPrice,
-            dinhMucTonToiThieu: newProduct.minStock
+            name: newProduct.name,
+            sku: newProduct.code,
+            costPrice: newProduct.costPrice,
+            retailPrice: newProduct.costPrice,
+            listPrice: newProduct.costPrice,
+            minStockLevel: newProduct.minStock,
+            isService: false
         }, {
-            onSuccess: () => {
+            onSuccess: (createdProduct) => {
                 toast({ title: "Thành công", description: "Đã tạo sản phẩm mới", variant: "default" });
                 setIsCreateOpen(false);
-                setSearchTerm(newProduct.code);
+                if (createdProduct) {
+                    const productToSelect = mapProduct(createdProduct);
+                    handleSelectProduct(productToSelect);
+                } else {
+                    setSearchTerm(newProduct.code);
+                }
+            },
+            onError: (err: any) => {
+                toast({ title: "Lỗi", description: err.message || "Không thể tạo sản phẩm mới", variant: "destructive" });
             }
         });
     };
@@ -179,7 +190,7 @@ export default function ImportStockPage() {
 
     const handleAddItem = () => {
         if (!selectedProduct) return;
-        if (addQuantity <= 0) {
+        if (!addQuantity || Number(addQuantity) <= 0) {
             toast({ title: "Lỗi", description: 'Số lượng phải > 0', variant: "destructive" });
             return;
         }
@@ -190,7 +201,7 @@ export default function ImportStockPage() {
 
         append({
             product: selectedProduct,
-            quantity: addQuantity,
+            quantity: Number(addQuantity),
             costPrice: addCostPrice,
             vatRate: 0,
             updateGlobalPrice: false
@@ -255,13 +266,13 @@ export default function ImportStockPage() {
                                                             const id = Number(e.target.value);
                                                             field.onChange(id);
                                                             const s = suppliers.find(sup => sup.id === id);
-                                                            if (s) form.setValue('supplierName', s.tenNcc);
+                                                            if (s) form.setValue('supplierName', s.name);
                                                         }}
                                                         className="w-full h-10 px-3 bg-white border border-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 font-medium"
                                                     >
                                                         <option value="">-- Chọn nhà cung cấp --</option>
                                                         {suppliers.map(s => (
-                                                            <option key={s.id} value={s.id}>{s.tenNcc} ({s.maNcc})</option>
+                                                            <option key={s.id} value={s.id}>{s.name} ({s.supplierCode})</option>
                                                         ))}
                                                     </select>
                                                 </FormControl>
@@ -430,7 +441,7 @@ export default function ImportStockPage() {
                                                     <Input
                                                         type="number"
                                                         value={addQuantity}
-                                                        onChange={e => setAddQuantity(Number(e.target.value))}
+                                                        onChange={e => setAddQuantity(e.target.value === '' ? '' : Number(e.target.value))}
                                                         className="h-10 text-lg font-bold font-mono border-slate-300 focus:border-blue-500"
                                                         min={1}
                                                     />

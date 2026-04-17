@@ -84,10 +84,20 @@ export default function OrderSummary({
     const subtotal = totalParts + totalLabor - currentDiscount;
     const finalSubtotal = subtotal > 0 ? subtotal : 0;
     
-    // Thuế VAT
-    const vat = workspace || isEditing 
+    // Tính toán Thuế VAT dựa trên từng hạng mục (Multi-rate) hoặc Global %
+    const vatGroups = activeItems.reduce((acc: Record<number, number>, item) => {
+        if (item.vatPercentage > 0) {
+            acc[item.vatPercentage] = (acc[item.vatPercentage] || 0) + (item.vatAmount || 0);
+        }
+        return acc;
+    }, {});
+
+    const itemVatTotal = Object.values(vatGroups).reduce((sum, val) => sum + val, 0);
+
+    // Thuế VAT cuối cùng dùng cho Grand Total
+    const vat = isEditing 
         ? Math.round(finalSubtotal * Number(currentVatPercent) / 100)
-        : serverVat;
+        : (workspace ? itemVatTotal : serverVat);
 
     // Thành tiền
     const grandTotal = workspace || isEditing
@@ -100,10 +110,8 @@ export default function OrderSummary({
         const apiCall = async () => {
             updateTotalsMatch({
                 orderId,
-                data: {
-                    discount: editData.discount,
-                    vatPercent: Number(editData.vatPercent)
-                }
+                discount: editData.discount,
+                vatPercent: Number(editData.vatPercent)
             }, {
                 onSuccess: () => {
                     toast({
@@ -221,10 +229,10 @@ export default function OrderSummary({
                     )}
                 </div>
 
-                {/* Thuế VAT - Chỉ hiện nếu có phần trăm thuế hoặc đang chỉnh sửa */}
-                {(isEditing || Number(currentVatPercent) > 0) && (
+                {/* Thuế VAT - Hiển thị nếu có tiền thuế hoặc đang chỉnh sửa */}
+                {(isEditing || vat > 0 || Number(currentVatPercent) > 0) && (
                     <div className="flex justify-between items-center text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-50 dark:border-slate-800">
-                        <span className="flex items-center gap-1">Thuế VAT:</span>
+                        <span className="flex items-center gap-1 font-bold">Thuế VAT:</span>
                         {isEditing ? (
                             <div className="relative w-24">
                                 <input
@@ -241,16 +249,45 @@ export default function OrderSummary({
                                     className={`w-full h-9 pl-2 pr-6 bg-white dark:bg-slate-800 border-2 border-indigo-200 dark:border-indigo-900 rounded-lg text-right font-black focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all tabular-nums text-sm ${!canEditVat ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'text-indigo-600 dark:text-indigo-400'}`}
                                 />
                                 <span className="absolute right-2 top-2 text-[10px] text-slate-400 font-bold">%</span>
-                                {!canEditVat && (
-                                    <div className="absolute -top-8 right-0 bg-slate-800 text-white text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
-                                        Chỉ Admin mới được chỉnh
-                                    </div>
-                                )}
                             </div>
                         ) : (
-                            <div className="flex flex-col items-end">
-                                <span className="text-slate-900 dark:text-slate-200 tabular-nums font-bold">{formatCurrency(vat)}</span>
-                                <span className="text-[10px] text-slate-400">({currentVatPercent}%)</span>
+                            <div className="flex flex-col items-end gap-1">
+                                {(() => {
+                                    const rates = Object.keys(vatGroups).sort((a, b) => Number(a) - Number(b));
+
+                                    if (rates.length > 1) {
+                                        return (
+                                            <>
+                                                {rates.map(rate => (
+                                                    <div key={rate} className="flex gap-2 items-center text-[11px]">
+                                                        <span className="text-slate-400 font-medium">VAT {rate}%:</span>
+                                                        <span className="text-slate-900 dark:text-slate-200 font-bold tabular-nums">{formatCurrency(vatGroups[Number(rate)])}</span>
+                                                    </div>
+                                                ))}
+                                                <div className="h-px w-full bg-slate-100 dark:bg-slate-800 my-1"></div>
+                                                <span className="text-slate-900 dark:text-slate-200 tabular-nums font-bold">{formatCurrency(vat)}</span>
+                                            </>
+                                        );
+                                    }
+
+                                    if (rates.length === 1) {
+                                        const rate = rates[0];
+                                        return (
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-slate-900 dark:text-slate-200 tabular-nums font-bold">{formatCurrency(vat)}</span>
+                                                <span className="text-[10px] text-indigo-500 font-bold">(VAT {rate}%)</span>
+                                            </div>
+                                        );
+                                    }
+
+                                    // Trường hợp không có VAT theo món nhưng có VAT tổng (server logic cũ)
+                                    return (
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-slate-900 dark:text-slate-200 tabular-nums font-bold">{formatCurrency(vat)}</span>
+                                            {vat > 0 && <span className="text-[10px] text-slate-400 italic">({currentVatPercent}%)</span>}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
                     </div>

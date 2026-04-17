@@ -1,22 +1,21 @@
 'use client';
 
-import { useState, useMemo, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useMemo, Suspense } from 'react';
 import { DashboardLayout } from '@/modules/common/components/layout';
 import { Button } from '@/modules/shared/components/ui/button';
 import { Badge } from '@/modules/shared/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
 import { 
-    CreditCard, 
     Clock, 
     Loader2, 
     RefreshCw, 
     Search,
-    ChevronRight,
     LayoutGrid,
-    Inbox
+    Inbox,
+    History,
+    Wallet
 } from 'lucide-react';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useOrders, useOrderDetail } from '@/modules/sale/hooks/useSale';
 import { saleService } from '@/modules/sale/services/sale';
 import LiveInvoice from '@/modules/sale/components/LiveInvoice';
@@ -29,14 +28,13 @@ function SaleCheckoutPageContent() {
     const [searchKeyword, setSearchKeyword] = useState('');
 
     // Fetch orders waiting for payment
-    const { data: orders = [], isLoading: loadingOrders, refetch } = useOrders({
-        status: 'COMPLETED' // Assuming we have a way to filter or just filter on client
+    const { data: orders = [], isLoading: loadingOrders } = useOrders({
+        status: 'IN_PROGRESS,WAITING_FOR_QC,WAITING_FOR_PAYMENT,COMPLETED'
     });
 
     // Filter orders with remaining debt
     const pendingOrders = useMemo(() => {
         return orders
-            .filter((o: any) => (o.remainingAmount || o.debt || 0) > 0)
             .map((o: any) => ({
                 ...o,
                 id: o.id,
@@ -46,18 +44,24 @@ function SaleCheckoutPageContent() {
                 createdAt: o.createdAt || o.subTime
             }))
             .filter((o: any) => 
-                o.plate.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-                o.customerName.toLowerCase().includes(searchKeyword.toLowerCase())
-            );
+                o.remainingAmount > 0 && // Chỉ hiện đơn còn nợ
+                o.grandTotal > 0 &&      // Và đã có báo giá (tổng > 0)
+                (o.plate.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+                 o.customerName.toLowerCase().includes(searchKeyword.toLowerCase()))
+            )
+            .sort((a, b) => b.id - a.id);
     }, [orders, searchKeyword]);
 
-    const totalDebt = useMemo(() => orders.reduce((sum, o: any) => sum + (o.remainingAmount || o.debt || 0), 0), [orders]);
+    const totalDebt = useMemo(() => pendingOrders.reduce((sum, o: any) => sum + (o.remainingAmount || 0), 0), [pendingOrders]);
 
     // Fetch details for the selected order
     const { data: selectedOrder, isLoading: loadingDetail } = useOrderDetail(selectedOrderId || 0);
 
     const handleRefresh = () => {
         queryClient.invalidateQueries({ queryKey: ['orders'] });
+        if (selectedOrderId) {
+            queryClient.invalidateQueries({ queryKey: ['order-detail', selectedOrderId] });
+        }
     };
 
     // Mutation to finalize payment
@@ -79,37 +83,36 @@ function SaleCheckoutPageContent() {
     };
 
     return (
-        <DashboardLayout title="Thu ngân" subtitle="Trung tâm thanh toán tập trung (POS)">
-            <div className="flex h-[calc(100vh-130px)] -m-4 lg:-m-6 overflow-hidden bg-white dark:bg-slate-950">
+        <DashboardLayout title="Thu ngân" subtitle="Hệ thống POS tập trung">
+            <div className="flex h-[calc(100vh-140px)] -m-4 lg:-m-6 overflow-hidden bg-slate-50 dark:bg-slate-950">
                 
                 {/* Left Side: Order Queue (The List) */}
-                <div className="w-full md:w-[380px] border-r border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50/50 dark:bg-slate-900/10">
+                <div className="w-full md:w-[350px] border-r border-slate-200 dark:border-slate-800 flex flex-col bg-white dark:bg-slate-900 shadow-sm z-10">
                     
-                    {/* Queue Header & Search */}
-                    <div className="p-4 border-b border-slate-200 dark:border-slate-800 space-y-4 bg-white dark:bg-slate-900">
+                    {/* SEARCH & TOTALS */}
+                    <div className="p-5 border-b border-slate-100 dark:border-slate-800 space-y-4">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-amber-500" />
-                                <h2 className="font-black uppercase tracking-tighter text-slate-800 dark:text-slate-100 italic">Hàng chờ thanh toán</h2>
-                            </div>
-                            <Button variant="ghost" size="icon" onClick={handleRefresh} className="h-8 w-8">
+                            <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                <Clock className="w-3.5 h-3.5 text-blue-500" />
+                                Hàng chờ ({pendingOrders.length})
+                            </h2>
+                            <Button variant="ghost" size="icon" onClick={handleRefresh} className="h-8 w-8 text-slate-400">
                                 <RefreshCw className={cn("w-3.5 h-3.5", loadingOrders && "animate-spin")} />
                             </Button>
                         </div>
                         
-                        <div className="relative">
-                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                        <div className="relative group">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
                             <input
-                                placeholder="Biển số, tên khách..."
+                                placeholder="Biển số hoặc Tên khách..."
                                 value={searchKeyword}
                                 onChange={(e) => setSearchKeyword(e.target.value)}
-                                className="w-full h-10 pl-9 pr-4 bg-slate-100 dark:bg-slate-800 border-none rounded-sm text-sm focus:ring-2 focus:ring-blue-500 transition-all outline-none font-medium"
+                                className="w-full h-11 pl-10 pr-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-bold italic placeholder:font-normal placeholder:not-italic"
                             />
                         </div>
 
-                        {/* Summary Micro-card */}
-                        <div className="bg-blue-600 rounded-sm p-3 text-white shadow-lg shadow-blue-500/20">
-                            <p className="text-[10px] font-black uppercase opacity-70 tracking-widest">Tổng nợ hàng chờ</p>
+                        <div className="bg-slate-900 dark:bg-slate-800 rounded-lg p-4 text-white shadow-lg shadow-slate-950/20">
+                            <p className="text-[10px] font-black uppercase opacity-60 tracking-widest mb-1">Tổng nợ hàng chờ</p>
                             <p className="text-xl font-black font-mono leading-none tracking-tight">{formatCurrency(totalDebt)}</p>
                         </div>
                     </div>
@@ -117,13 +120,14 @@ function SaleCheckoutPageContent() {
                     {/* Queue List */}
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
                         {loadingOrders && orders.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-40 opacity-50">
-                                <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                            <div className="flex flex-col items-center justify-center py-12">
+                                <Loader2 className="w-6 h-6 animate-spin text-blue-600 mb-2 opacity-50" />
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đang tải...</span>
                             </div>
                         ) : pendingOrders.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                                <Inbox className="w-8 h-8 mb-2 opacity-20" />
-                                <p className="text-xs uppercase font-black tracking-widest italic">Trống</p>
+                            <div className="flex flex-col items-center justify-center py-16 text-slate-300">
+                                <History className="w-10 h-10 mb-4 opacity-10" />
+                                <p className="text-[10px] uppercase font-black tracking-widest italic text-center">Không có đơn hàng<br/>đang chờ</p>
                             </div>
                         ) : (
                             pendingOrders.map((order: any) => (
@@ -131,29 +135,31 @@ function SaleCheckoutPageContent() {
                                     key={order.id}
                                     onClick={() => setSelectedOrderId(order.id)}
                                     className={cn(
-                                        "w-full text-left p-3 rounded-sm transition-all border group relative overflow-hidden",
+                                        "w-full text-left p-4 rounded-xl transition-all border-2 group relative mb-2",
                                         selectedOrderId === order.id
-                                            ? "bg-white dark:bg-slate-800 border-blue-500 shadow-md ring-1 ring-blue-500/20"
-                                            : "bg-transparent border-transparent hover:bg-white dark:hover:bg-slate-800/50 hover:border-slate-200 dark:hover:border-slate-700"
+                                            ? "bg-blue-50/50 dark:bg-blue-500/5 border-blue-500 shadow-sm"
+                                            : "bg-white dark:bg-slate-900 border-transparent hover:border-slate-100 dark:hover:border-slate-800"
                                     )}
                                 >
-                                    <div className="flex justify-between items-start mb-1">
-                                        <span className="text-lg font-black font-mono tracking-wider text-slate-900 dark:text-white uppercase leading-none">
-                                            {order.plate}
-                                        </span>
-                                        <Badge variant="outline" className="text-[9px] h-4 font-bold uppercase tracking-tighter px-1 rounded-none border-blue-200 text-blue-600 bg-blue-50/50">
-                                            #{order.id}
-                                        </Badge>
-                                    </div>
-                                    <div className="flex justify-between items-end">
+                                    <div className="flex justify-between items-start mb-2">
                                         <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 line-clamp-1">{order.customerName}</span>
-                                            <span className="text-[10px] text-slate-400 font-medium">
-                                                {new Date(order.createdAt).toLocaleDateString('vi-VN')}
+                                            <span className="text-lg font-black font-mono tracking-tight text-slate-900 dark:text-white uppercase leading-none">
+                                                {order.plate}
+                                            </span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight mt-1">
+                                                #{order.id}
                                             </span>
                                         </div>
+                                        <Badge variant={order.status === 'COMPLETED' ? 'default' : 'secondary'} className="text-[9px] px-1.5 h-5 font-black uppercase">
+                                            {order.status === 'COMPLETED' ? 'Xong' : 'Đang làm'}
+                                        </Badge>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-end pt-2 border-t border-slate-50 dark:border-slate-800">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-400 italic line-clamp-1 uppercase">{order.customerName}</span>
+                                        </div>
                                         <div className="text-right">
-                                            <p className="text-[9px] font-black uppercase text-rose-500 leading-none mb-0.5 tracking-tighter">Cần thu</p>
                                             <p className={cn(
                                                 "text-sm font-black font-mono leading-none tracking-tight",
                                                 selectedOrderId === order.id ? "text-blue-600" : "text-slate-900 dark:text-slate-200"
@@ -163,9 +169,8 @@ function SaleCheckoutPageContent() {
                                         </div>
                                     </div>
                                     
-                                    {/* Indicator for selection */}
                                     {selectedOrderId === order.id && (
-                                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-blue-600"></div>
+                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-blue-600 rounded-r-full shadow-[2px_0_10px_rgba(37,99,235,0.4)]"></div>
                                     )}
                                 </button>
                             ))
@@ -174,19 +179,19 @@ function SaleCheckoutPageContent() {
                 </div>
 
                 {/* Right Side: Live Invoice Display */}
-                <div className="flex-1 relative overflow-hidden flex flex-col bg-slate-100 dark:bg-slate-950/20">
+                <div className="flex-1 relative overflow-hidden flex flex-col bg-slate-50 dark:bg-slate-950">
                     {!selectedOrderId ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 text-center">
-                            <div className="w-20 h-20 rounded-full bg-slate-200/50 dark:bg-slate-800/50 flex items-center justify-center mb-6">
-                                <LayoutGrid className="w-10 h-10 opacity-20" />
+                        <div className="flex-1 flex flex-col items-center justify-center text-slate-300 p-12 text-center bg-white dark:bg-slate-950 m-6 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800">
+                            <div className="w-24 h-24 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-8 shadow-inner">
+                                <Wallet className="w-10 h-10 text-slate-200 dark:text-slate-700" />
                             </div>
-                            <h3 className="text-xl font-black uppercase tracking-tighter text-slate-800 dark:text-slate-100 italic">Hóa Đơn Đang Chờ</h3>
-                            <p className="max-w-xs text-sm font-medium mt-2">Vui lòng chọn một xe từ hàng chờ bên trái để bắt đầu quy trình thu tiền chuyên nghiệp.</p>
+                            <h3 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white leading-none">Chưa chọn đơn hàng</h3>
+                            <p className="max-w-xs text-sm font-medium mt-4 text-slate-400">Vui lòng chọn một xe đang chờ thanh toán ở bảng bên trái để xuất hóa đơn và thu tiền.</p>
                         </div>
                     ) : loadingDetail ? (
                         <div className="flex-1 flex flex-col items-center justify-center">
-                            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-4" />
-                            <p className="text-xs font-black uppercase tracking-widest text-slate-400 italic">Đang tải dữ liệu hóa đơn...</p>
+                            <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-6" />
+                            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 italic animate-pulse">Initializing Invoice System...</p>
                         </div>
                     ) : selectedOrder ? (
                         <LiveInvoice 
@@ -194,17 +199,30 @@ function SaleCheckoutPageContent() {
                                 ...selectedOrder,
                                 phone: selectedOrder.customerPhone || 'N/A',
                                 odo: selectedOrder.odo || 0,
+                                transactions: selectedOrder.transactions,
                                 items: (selectedOrder.items || []).map(item => ({
                                     ...item,
+                                    id: item.id,
+                                    version: item.version,
+                                    oldPartAction: item.oldPartAction,
+                                    productName: item.productName || 'N/A',
+                                    productCode: item.productCode || 'N/A',
+                                    vatPercentage: item.vatPercentage || 0,
+                                    vatAmount: item.vatAmount || 0,
                                     discountAmount: (item.unitPrice * item.quantity * (item.discountPercent || 0)) / 100
                                 }))
                             }}
                             onConfirmPayment={handleConfirmPayment}
+                            onRefresh={handleRefresh}
                             isProcessing={paymentMutation.isPending}
                         />
                     ) : (
-                        <div className="flex-1 flex items-center justify-center text-rose-400">
-                             Lỗi khi tải thông tin đơn hàng
+                        <div className="flex-1 flex flex-col items-center justify-center text-rose-500 gap-4">
+                             <div className="w-16 h-16 rounded-full bg-rose-50 flex items-center justify-center">
+                                <Inbox className="w-8 h-8" />
+                             </div>
+                             <p className="font-black uppercase text-xs tracking-widest">Lỗi khi tải thông tin đơn hàng</p>
+                             <Button variant="outline" size="sm" onClick={() => setSelectedOrderId(null)}>Quay lại</Button>
                         </div>
                     )}
                 </div>
@@ -219,8 +237,8 @@ export default function SaleCheckoutPage() {
             <DashboardLayout title="Thu ngân" subtitle="Đang tải dữ liệu...">
                 <div className="flex h-[calc(100vh-130px)] items-center justify-center bg-white dark:bg-slate-950">
                     <div className="flex flex-col items-center gap-4">
-                        <RefreshCw className="w-10 h-10 text-blue-600 animate-spin" />
-                        <p className="text-slate-500 font-medium italic uppercase tracking-widest text-xs">Đang chuẩn bị hệ thống thu ngân...</p>
+                        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+                        <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Đang chuẩn bị hệ thống POS...</p>
                     </div>
                 </div>
             </DashboardLayout>

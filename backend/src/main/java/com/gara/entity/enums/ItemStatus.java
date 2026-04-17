@@ -6,6 +6,7 @@ public enum ItemStatus {
     CUSTOMER_APPROVED("Khách đồng ý sửa chữa"),
     CUSTOMER_REJECTED("Khách từ chối sửa chữa"),
     RE_QUOTATION("Yêu cầu báo giá lại"),
+    WAITING_FOR_CUSTOMER_APPROVAL("Đang chờ khách duyệt"),
     WAITING_FOR_MANAGER_APPROVAL("Chờ Quản lý duyệt kỹ thuật"),
     PROPOSAL("Thợ sửa đề xuất phát sinh thêm"),
     WAITING_FOR_PARTS("Chờ kho xuất phụ tùng"),
